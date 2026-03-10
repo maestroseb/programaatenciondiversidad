@@ -260,6 +260,7 @@
     .print-table .type-activity { background: #dbeafe; font-weight: 700; color: #1e40af; }
 
     @media print {
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
       body { background: #fff !important; }
       .header, .bottom-bar, .print-toolbar, .content { display: none !important; }
       .print-overlay { position: static; background: none; padding: 0; }
