@@ -251,14 +251,11 @@
     .print-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; margin-bottom: 24px; font-size: 13px; }
     .print-meta span { font-weight: 700; }
 
-    .print-obj-title { background: #2d6a4f; color: #fff; padding: 8px 14px; border-radius: 8px; font-weight: 800; font-size: 14px; margin-bottom: 10px; margin-top: 20px; }
-    .print-obj-desc { font-size: 13px; margin-bottom: 12px; padding: 0 4px; line-height: 1.6; }
-
-    .print-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 12px; }
-    .print-table th { background: #f3f4f6; padding: 6px 10px; border: 1px solid #d1d5db; font-weight: 700; text-align: left; }
-    .print-table td { padding: 6px 10px; border: 1px solid #d1d5db; vertical-align: top; }
-    .print-table .eval-col { width: 40px; text-align: center; }
-    .print-table .type-header { background: #fef3c7; font-weight: 700; color: #92400e; }
+    .print-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+    .print-table th { background: #e5e7eb; padding: 8px 10px; border: 1px solid #9ca3af; font-weight: 700; text-align: left; }
+    .print-table td { padding: 7px 10px; border: 1px solid #9ca3af; vertical-align: top; }
+    .print-table .eval-col { width: 44px; text-align: center; }
+    .print-table .obj-row td { background: #e5e7eb; font-weight: 800; }
     .print-table .type-content { background: #ede9fe; font-weight: 700; color: #5b21b6; }
     .print-table .type-activity { background: #dbeafe; font-weight: 700; color: #1e40af; }
 
@@ -906,60 +903,78 @@
 
       // Content
       html += '<div class="print-content">';
-      html += '<h2>Seguimiento del ' + escHtml(programLabel || state.programType) + '</h2>';
-      html += '<div class="print-subtitle">CEIP Carlos III — La Carlota · Curso ' + getCurrentSchoolYear() + '</div>';
 
-      // Metadata
-      html += '<div class="print-meta">';
-      html += '<div><span>Alumno/a:</span> ' + escHtml(state.studentName) + '</div>';
-      html += '<div><span>Curso:</span> ' + escHtml(state.course) + '</div>';
-      html += '<div><span>Programa:</span> ' + escHtml(state.programType) + '</div>';
-      html += '<div><span>Área:</span> ' + escHtml(state.area) + '</div>';
-      html += '</div>';
+      // Header like the reference: PE: Área on the left, student info on the right
+      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">';
+      html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-weight:800;font-size:14px">';
+      html += escHtml(state.programType) + ': ' + escHtml(state.area) + '</div>';
+      html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-size:13px;text-align:right">';
+      html += '<div><span style="font-weight:800">ALUMNO/A:</span> ' + escHtml(state.studentName) + '</div>';
+      html += '<div><span style="font-weight:800">CURSO:</span> ' + escHtml(state.course) + '</div>';
+      html += '</div></div>';
 
-      // Objectives
+      html += '<div style="text-align:center;font-size:10px;color:#6b7280;margin-bottom:16px">CEIP Carlos III — La Carlota · Curso ' + getCurrentSchoolYear() + '</div>';
+
+      // Single table: Objetivos / Indicadores
+      html += '<table class="print-table">';
+      html += '<tr><th style="width:auto">Objetivos / Indicadores</th><th class="eval-col">1T</th><th class="eval-col">2T</th><th class="eval-col">3T</th></tr>';
+
       state.objectives.forEach(function(obj, i) {
-        html += '<div class="print-obj-title">Objetivo ' + (i + 1) + '</div>';
-        html += '<div class="print-obj-desc">' + escHtml(obj.title || '—') + '</div>';
+        var objNum = i + 1;
 
-        html += '<table class="print-table">';
+        // Objective row: bold, gray background
+        html += '<tr class="obj-row"><td colspan="4">' + objNum + '.- ' + escHtml(obj.title || '—') + '</td></tr>';
 
-        // Indicators
-        if (obj.indicators.some(function(x) { return x.text.trim(); })) {
-          html += '<tr><th colspan="4" class="type-header">INDICADORES DE EVALUACIÓN</th></tr>';
-          html += '<tr><th style="width:auto">Indicador</th><th class="eval-col">1T</th><th class="eval-col">2T</th><th class="eval-col">3T</th></tr>';
-          obj.indicators.forEach(function(ind) {
-            if (ind.text.trim()) {
-              html += '<tr><td>' + escHtml(ind.text) + '</td>';
-              html += '<td class="eval-col">' + escHtml(ind.eval1T || '') + '</td>';
-              html += '<td class="eval-col">' + escHtml(ind.eval2T || '') + '</td>';
-              html += '<td class="eval-col">' + escHtml(ind.eval3T || '') + '</td></tr>';
-            }
-          });
-        }
+        // Indicator rows: sub-numbered
+        var indCount = 0;
+        obj.indicators.forEach(function(ind) {
+          if (ind.text.trim()) {
+            indCount++;
+            html += '<tr>';
+            html += '<td>' + objNum + '.' + indCount + '.- ' + escHtml(ind.text) + '</td>';
+            html += '<td class="eval-col">' + escHtml(ind.eval1T || '') + '</td>';
+            html += '<td class="eval-col">' + escHtml(ind.eval2T || '') + '</td>';
+            html += '<td class="eval-col">' + escHtml(ind.eval3T || '') + '</td>';
+            html += '</tr>';
+          }
+        });
+      });
 
-        // Contents
-        if (obj.contents.some(function(x) { return x.text.trim(); })) {
-          html += '<tr><th colspan="4" class="type-content">CONTENIDOS</th></tr>';
+      html += '</table>';
+
+      // Contenidos & Actividades (if any, as separate compact sections)
+      var hasContents = state.objectives.some(function(obj) {
+        return obj.contents.some(function(c) { return c.text.trim(); });
+      });
+      var hasActivities = state.objectives.some(function(obj) {
+        return obj.activities.some(function(a) { return a.text.trim(); });
+      });
+
+      if (hasContents) {
+        html += '<table class="print-table" style="margin-top:20px">';
+        html += '<tr><th colspan="4" class="type-content">CONTENIDOS</th></tr>';
+        state.objectives.forEach(function(obj, i) {
           obj.contents.forEach(function(cnt) {
             if (cnt.text.trim()) {
               html += '<tr><td colspan="4">' + escHtml(cnt.text) + '</td></tr>';
             }
           });
-        }
+        });
+        html += '</table>';
+      }
 
-        // Activities
-        if (obj.activities.some(function(x) { return x.text.trim(); })) {
-          html += '<tr><th colspan="4" class="type-activity">ACTIVIDADES</th></tr>';
+      if (hasActivities) {
+        html += '<table class="print-table">';
+        html += '<tr><th colspan="4" class="type-activity">ACTIVIDADES</th></tr>';
+        state.objectives.forEach(function(obj, i) {
           obj.activities.forEach(function(act) {
             if (act.text.trim()) {
               html += '<tr><td colspan="4">' + escHtml(act.text) + '</td></tr>';
             }
           });
-        }
-
+        });
         html += '</table>';
-      });
+      }
 
       // Observations section
       html += '<div style="margin-top:24px;border:1px solid #d1d5db;border-radius:8px;padding:14px">';
