@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Nunito', sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(170deg, #ecfdf5 0%, #f0fdf4 30%, #fefce8 100%);
+      color: #1b4332;
+    }
+    textarea:focus, input:focus, select:focus { outline: none; border-color: #2d6a4f !important; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+
+    /* ─── Header ─── */
+    .header {
+      background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 60%, #40916c 100%);
+      padding: 22px 16px 18px; position: sticky; top: 0; z-index: 50;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+    }
+    .header-inner { max-width: 800px; margin: 0 auto; }
+    .header h1 { color: #fff; font-size: 20px; font-weight: 900; letter-spacing: -0.02em; }
+    .header .subtitle { color: rgba(255,255,255,0.65); font-size: 12px; margin-top: 3px; font-weight: 600; }
+    .header-row { display: flex; justify-content: space-between; align-items: center; }
+    .btn-back {
+      background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 10px; color: #fff; padding: 7px 14px; cursor: pointer;
+      font-size: 13px; font-weight: 600; font-family: 'Nunito', sans-serif;
+    }
+    .student-badge {
+      margin-top: 10px; padding: 8px 14px; background: rgba(255,255,255,0.12);
+      border-radius: 10px; display: flex; align-items: center; gap: 10px;
+    }
+    .student-badge .name { color: #fff; font-weight: 700; font-size: 14px; }
+    .student-badge .meta { color: rgba(255,255,255,0.6); font-size: 11px; }
+    .badge-dirty {
+      margin-left: auto; background: #fbbf24; color: #78350f;
+      padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
+    }
+
+    /* ─── Content ─── */
+    .content { max-width: 800px; margin: 0 auto; padding: 20px 16px 100px; }
+
+    /* ─── Cards ─── */
+    .card {
+      background: #fff; border-radius: 16px; border: 1px solid #e5e7eb;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04); margin-bottom: 18px; overflow: hidden;
+    }
+    .card-body { padding: 20px; }
+    .card-title {
+      font-size: 15px; font-weight: 800; color: #1b4332;
+      margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+    }
+    .card-icon {
+      width: 26px; height: 26px; border-radius: 8px; background: #d1fae5;
+      display: flex; align-items: center; justify-content: center; font-size: 13px;
+    }
+
+    /* ─── Form Fields ─── */
+    .field-label {
+      font-size: 11px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.08em; color: #374151; margin-bottom: 5px; display: block;
+    }
+    .field-input, .field-select {
+      width: 100%; padding: 11px 14px; border-radius: 12px;
+      border: 1.5px solid #e5e7eb; font-size: 14px;
+      font-family: 'Nunito', sans-serif; transition: border-color 0.2s;
+    }
+    .field-select { appearance: auto; cursor: pointer; background: #fff; }
+    .field-input:read-only { background: #f9fafb; color: #6b7280; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    /* ─── Student List ─── */
+    .student-list-header {
+      padding: 14px 18px;
+      background: linear-gradient(135deg, #065f46 0%, #047857 100%);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .student-list-header h2 { color: #fff; font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+    .btn-new {
+      background: rgba(255,255,255,0.2); border: 1.5px solid rgba(255,255,255,0.4);
+      border-radius: 10px; color: #fff; padding: 6px 14px; cursor: pointer;
+      font-size: 13px; font-weight: 700; font-family: 'Nunito', sans-serif;
+    }
+    .search-input {
+      width: 100%; padding: 10px 14px; border-radius: 10px; border: 1.5px solid #e5e7eb;
+      font-size: 13px; font-family: 'Nunito', sans-serif; margin-bottom: 10px;
+    }
+    .student-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; border-radius: 10px; border: 1.5px solid #f3f4f6;
+      background: #fff; cursor: pointer; font-family: 'Nunito', sans-serif;
+      transition: all 0.15s; width: 100%; text-align: left; margin-bottom: 6px;
+    }
+    .student-item:hover { border-color: #86efac; background: #f0fdf4; }
+    .student-item.selected { border: 2px solid #2d6a4f; background: #f0fdf4; }
+    .student-item .name { font-weight: 700; font-size: 14px; color: #1b4332; }
+    .student-item .course { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .program-badge {
+      background: #d1fae5; color: #065f46; padding: 3px 10px;
+      border-radius: 20px; font-size: 11px; font-weight: 700;
+    }
+    .student-list-body { padding: 12px 16px; max-height: 300px; overflow-y: auto; }
+
+    /* ─── Objective Cards ─── */
+    .obj-card { background: #fff; border-radius: 16px; border: 2px solid #d1fae5; overflow: hidden; margin-bottom: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
+    .obj-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; cursor: pointer;
+      background: linear-gradient(135deg, #2d6a4f 0%, #40916c 100%);
+    }
+    .obj-num {
+      background: rgba(255,255,255,0.25); border-radius: 50%;
+      width: 30px; height: 30px; display: flex; align-items: center;
+      justify-content: center; color: #fff; font-weight: 800; font-size: 14px; flex-shrink: 0;
+    }
+    .obj-title-text { color: #fff; font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .obj-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+    .obj-body.hidden { display: none; }
+    .obj-toggle { color: #fff; font-size: 16px; transition: transform 0.3s; }
+    .obj-toggle.collapsed { transform: rotate(-90deg); }
+
+    .btn-remove-obj {
+      background: rgba(255,255,255,0.2); border: none; border-radius: 8px;
+      color: #fff; padding: 4px 10px; cursor: pointer; font-size: 12px;
+      font-family: 'Nunito', sans-serif;
+    }
+
+    /* ─── Sections inside objectives ─── */
+    .section { border-radius: 12px; padding: 12px 14px; }
+    .section-indicators { background: #fef3c7; }
+    .section-contents { background: #ede9fe; }
+    .section-activities { background: #dbeafe; }
+    .section-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+    .section-indicators .section-label { color: #92400e; }
+    .section-contents .section-label { color: #5b21b6; }
+    .section-activities .section-label { color: #1e40af; }
+
+    /* ─── Dynamic list items ─── */
+    .list-item { display: flex; gap: 6px; align-items: flex-start; margin-bottom: 6px; }
+    .list-num {
+      min-width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; margin-top: 9px; flex-shrink: 0; color: #374151;
+    }
+    .section-indicators .list-num { background: #fde68a; }
+    .section-contents .list-num { background: #ddd6fe; }
+    .section-activities .list-num { background: #bfdbfe; }
+    .list-textarea {
+      flex: 1; padding: 8px 12px; border-radius: 10px; border: 1.5px solid #e5e7eb;
+      font-size: 13px; resize: vertical; font-family: 'Nunito', sans-serif;
+      line-height: 1.5; min-height: 38px;
+    }
+    .btn-remove-item {
+      width: 26px; height: 26px; border-radius: 50%; border: none;
+      background: #fee2e2; color: #dc2626; cursor: pointer; font-size: 15px;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 7px; flex-shrink: 0;
+    }
+    .btn-add-item {
+      align-self: flex-start; padding: 5px 12px; border-radius: 20px;
+      border: 1.5px dashed #9ca3af; background: transparent;
+      color: #6b7280; font-size: 12px; cursor: pointer; font-family: 'Nunito', sans-serif;
+      margin-top: 2px;
+    }
+    .btn-add-item:hover { border-color: #2d6a4f; color: #2d6a4f; }
+
+    /* ─── Add objective ─── */
+    .btn-add-obj {
+      width: 100%; padding: 14px; margin-top: 14px; border-radius: 14px;
+      border: 2px dashed #86efac; background: rgba(255,255,255,0.6);
+      cursor: pointer; font-size: 14px; font-weight: 700; color: #2d6a4f;
+      font-family: 'Nunito', sans-serif;
+    }
+    .btn-add-obj:hover { background: #d1fae5; border-color: #2d6a4f; }
+
+    /* ─── Bottom Bar ─── */
+    .bottom-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: rgba(255,255,255,0.95); backdrop-filter: blur(12px);
+      border-top: 1px solid #e5e7eb; padding: 10px 16px;
+      display: flex; justify-content: center; gap: 8px; z-index: 50;
+    }
+    .btn { padding: 10px 16px; border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Nunito', sans-serif; }
+    .btn-secondary { border: 1.5px solid #d1d5db; background: #fff; color: #6b7280; }
+    .btn-print { border: 1.5px solid #2d6a4f; background: #f0fdf4; color: #2d6a4f; }
+    .btn-primary {
+      border: none; background: linear-gradient(135deg, #2d6a4f, #40916c);
+      color: #fff; font-weight: 800; padding: 10px 24px;
+      box-shadow: 0 4px 16px rgba(45,106,79,0.3);
+    }
+    .btn-primary:disabled { background: #9ca3af; box-shadow: none; cursor: not-allowed; }
+
+    /* ─── Toast ─── */
+    .toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+      color: #fff; padding: 10px 22px; border-radius: 14px; font-size: 13px; font-weight: 600;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2); z-index: 999;
+      animation: slideUp 0.3s ease;
+    }
+    .toast-success { background: #065f46; }
+    .toast-error { background: #991b1b; }
+    .toast-info { background: #1e40af; }
+    @keyframes slideUp { from { opacity:0; transform:translate(-50%,20px); } to { opacity:1; transform:translate(-50%,0); } }
+
+    /* ─── Loading ─── */
+    .loading { text-align: center; padding: 40px; color: #6b7280; font-size: 14px; }
+    .loading .icon { font-size: 32px; margin-bottom: 12px; }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3);
+      border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── Print View ─── */
+    .print-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 16px;
+    }
+    .print-container {
+      background: #fff; border-radius: 16px; max-width: 800px; width: 100%;
+      max-height: 90vh; overflow-y: auto; box-shadow: 0 24px 64px rgba(0,0,0,0.2);
+    }
+    .print-toolbar {
+      padding: 14px 20px; border-bottom: 1px solid #e5e7eb;
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; background: #fff; border-radius: 16px 16px 0 0; z-index: 2;
+    }
+    .print-content { padding: 30px; }
+    .print-content h2 { font-size: 18px; text-align: center; margin-bottom: 4px; }
+    .print-content .print-subtitle { text-align: center; color: #6b7280; font-size: 13px; margin-bottom: 20px; }
+    .print-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; margin-bottom: 24px; font-size: 13px; }
+    .print-meta span { font-weight: 700; }
+
+    .print-obj-title { background: #2d6a4f; color: #fff; padding: 8px 14px; border-radius: 8px; font-weight: 800; font-size: 14px; margin-bottom: 10px; margin-top: 20px; }
+    .print-obj-desc { font-size: 13px; margin-bottom: 12px; padding: 0 4px; line-height: 1.6; }
+
+    .print-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 12px; }
+    .print-table th { background: #f3f4f6; padding: 6px 10px; border: 1px solid #d1d5db; font-weight: 700; text-align: left; }
+    .print-table td { padding: 6px 10px; border: 1px solid #d1d5db; vertical-align: top; }
+    .print-table .eval-col { width: 40px; text-align: center; }
+    .print-table .type-header { background: #fef3c7; font-weight: 700; color: #92400e; }
+    .print-table .type-content { background: #ede9fe; font-weight: 700; color: #5b21b6; }
+    .print-table .type-activity { background: #dbeafe; font-weight: 700; color: #1e40af; }
+
+    @media print {
+      body { background: #fff !important; }
+      .header, .bottom-bar, .print-toolbar { display: none !important; }
+      .print-overlay { position: static; background: none; padding: 0; }
+      .print-container { max-height: none; box-shadow: none; border-radius: 0; }
+      .print-content { padding: 20px; }
+      .print-table { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════ HEADER ═══════ -->
+  <div class="header">
+    <div class="header-inner">
+      <div class="header-row">
+        <div>
+          <h1>Programas de Atención a la Diversidad</h1>
+          <div class="subtitle">CEIP Carlos III — Gestión de programas individualizados</div>
+        </div>
+        <button class="btn-back" id="btnBack" style="display:none" onclick="goBack()">← Alumnos</button>
+      </div>
+      <div class="student-badge" id="studentBadge" style="display:none">
+        <span style="font-size:18px">👤</span>
+        <div>
+          <div class="name" id="badgeName"></div>
+          <div class="meta" id="badgeMeta"></div>
+        </div>
+        <span class="badge-dirty" id="badgeDirty" style="display:none">Sin guardar</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ CONTENT ═══════ -->
+  <div class="content" id="content">
+    <!-- Filled by JS -->
+  </div>
+
+  <!-- ═══════ BOTTOM BAR ═══════ -->
+  <div class="bottom-bar" id="bottomBar" style="display:none">
+    <button class="btn btn-secondary" onclick="clearForm()">Limpiar</button>
+    <button class="btn btn-print" onclick="showPrintView()">🖨 Imprimir</button>
+    <button class="btn btn-primary" id="btnSave" onclick="saveData()">💾 Guardar</button>
+  </div>
+
+  <!-- ═══════ TOAST ═══════ -->
+  <div id="toast" class="toast" style="display:none"></div>
+
+  <script>
+    /* ═══════════════════════════════════════════
+       STATE
+    ═══════════════════════════════════════════ */
+    let state = {
+      view: 'list', // 'list' | 'form'
+      students: [],
+      selectedStudent: null,
+      isNew: false,
+      dirty: false,
+      saving: false,
+      // Form data
+      studentName: '',
+      course: '',
+      programType: '',
+      area: '',
+      objectives: []
+    };
+
+    const PROGRAM_TYPES = [
+      { value: 'PE', label: 'Programa Específico (PE)' },
+      { value: 'ACS', label: 'Adaptación Curricular Significativa (ACS)' },
+      { value: 'ACAI', label: 'Adapt. Curricular Altas Capacidades (ACAI)' },
+      { value: 'ACNS', label: 'Adapt. Curricular No Significativa (ACNS)' },
+      { value: 'PTI', label: 'Plan de Trabajo Individualizado (PTI)' }
+    ];
+
+    const COURSES = [
+      '1º Infantil','2º Infantil','3º Infantil',
+      '1º Primaria','2º Primaria','3º Primaria',
+      '4º Primaria','5º Primaria','6º Primaria'
+    ];
+
+    const AREAS = [
+      'Estimulación cognitiva y F. Ejecutivas',
+      'Comunicación y Lenguaje',
+      'Autonomía personal y social',
+      'Habilidades sociales',
+      'Lectoescritura',
+      'Razonamiento lógico-matemático',
+      'Atención y memoria',
+      'Psicomotricidad',
+      'Otro'
+    ];
+
+    let idCounter = 0;
+    function uid() { return 'id_' + (++idCounter) + '_' + Math.random().toString(36).substr(2,5); }
+
+    /* ═══════════════════════════════════════════
+       INIT
+    ═══════════════════════════════════════════ */
+    document.addEventListener('DOMContentLoaded', function() {
+      loadStudentList();
+    });
+
+    function loadStudentList() {
+      state.view = 'list';
+      renderListView('<div class="loading"><div class="icon">⏳</div>Cargando alumnos...</div>');
+      google.script.run
+        .withSuccessHandler(function(students) {
+          state.students = students || [];
+          renderListView();
+        })
+        .withFailureHandler(function(err) {
+          showToast('Error al cargar alumnos: ' + err.message, 'error');
+          state.students = [];
+          renderListView();
+        })
+        .getStudentList();
+    }
+
+    /* ═══════════════════════════════════════════
+       RENDER: Student List
+    ═══════════════════════════════════════════ */
+    function renderListView(loadingHtml) {
+      document.getElementById('btnBack').style.display = 'none';
+      document.getElementById('studentBadge').style.display = 'none';
+      document.getElementById('bottomBar').style.display = 'none';
+
+      if (loadingHtml) {
+        document.getElementById('content').innerHTML = loadingHtml;
+        return;
+      }
+
+      let html = '<div class="card">';
+      html += '<div class="student-list-header">';
+      html += '<h2><span style="font-size:18px">📋</span> Alumnos registrados (' + state.students.length + ')</h2>';
+      html += '<button class="btn-new" onclick="newStudent()">+ Nuevo alumno</button>';
+      html += '</div>';
+      html += '<div class="student-list-body">';
+      html += '<input class="search-input" type="text" placeholder="🔍 Buscar alumno, curso o programa..." oninput="filterStudents(this.value)">';
+      html += '<div id="studentItems">';
+      html += renderStudentItems(state.students);
+      html += '</div>';
+      html += '</div></div>';
+
+      document.getElementById('content').innerHTML = html;
+    }
+
+    function renderStudentItems(list) {
+      if (list.length === 0) {
+        return '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:13px">No hay alumnos registrados aún</div>';
+      }
+      let html = '';
+      list.forEach(function(s) {
+        html += '<button class="student-item" onclick="selectStudent(\'' + escHtml(s.name) + '\')">';
+        html += '<div><div class="name">' + escHtml(s.name) + '</div>';
+        html += '<div class="course">' + escHtml(s.course) + '</div></div>';
+        html += '<span class="program-badge">' + escHtml(s.program) + '</span>';
+        html += '</button>';
+      });
+      return html;
+    }
+
+    function filterStudents(query) {
+      const q = query.toLowerCase();
+      const filtered = state.students.filter(function(s) {
+        return s.name.toLowerCase().includes(q) || s.course.toLowerCase().includes(q) || s.program.toLowerCase().includes(q);
+      });
+      document.getElementById('studentItems').innerHTML = renderStudentItems(filtered);
+    }
+
+    /* ═══════════════════════════════════════════
+       ACTIONS: Select / New
+    ═══════════════════════════════════════════ */
+    function selectStudent(name) {
+      if (state.dirty && !confirm('Hay cambios sin guardar. ¿Continuar?')) return;
+      state.selectedStudent = name;
+      state.isNew = false;
+      state.dirty = false;
+
+      document.getElementById('content').innerHTML = '<div class="loading"><div class="icon">⏳</div>Cargando datos de ' + escHtml(name) + '...</div>';
+      document.getElementById('btnBack').style.display = '';
+      document.getElementById('bottomBar').style.display = 'none';
+
+      google.script.run
+        .withSuccessHandler(function(data) {
+          if (data) {
+            state.studentName = data.studentName;
+            state.course = data.course;
+            state.programType = data.programType;
+            state.area = data.area;
+            state.objectives = data.objectives.map(function(o) {
+              return {
+                id: uid(),
+                title: o.title,
+                indicators: o.indicators.map(function(x) { return { id: uid(), text: x.text }; }),
+                contents: o.contents.map(function(x) { return { id: uid(), text: x.text }; }),
+                activities: o.activities.map(function(x) { return { id: uid(), text: x.text }; })
+              };
+            });
+          } else {
+            // Student in index but no data yet
+            var s = state.students.find(function(st) { return st.name === name; });
+            state.studentName = name;
+            state.course = s ? s.course : '';
+            state.programType = s ? s.program : '';
+            state.area = s ? s.area : '';
+            state.objectives = [createEmptyObjective()];
+          }
+          state.view = 'form';
+          renderFormView();
+          showToast('Datos de ' + name + ' cargados', 'success');
+        })
+        .withFailureHandler(function(err) {
+          showToast('Error al cargar: ' + err.message, 'error');
+          renderListView();
+        })
+        .getStudentData(name);
+    }
+
+    function newStudent() {
+      if (state.dirty && !confirm('Hay cambios sin guardar. ¿Continuar?')) return;
+      state.selectedStudent = null;
+      state.isNew = true;
+      state.dirty = false;
+      state.studentName = '';
+      state.course = '';
+      state.programType = '';
+      state.area = '';
+      state.objectives = [createEmptyObjective()];
+      state.view = 'form';
+      renderFormView();
+      showToast('Introduce los datos del nuevo alumno', 'info');
+    }
+
+    function goBack() {
+      if (state.dirty && !confirm('Hay cambios sin guardar. ¿Volver a la lista?')) return;
+      state.dirty = false;
+      loadStudentList();
+    }
+
+    /* ═══════════════════════════════════════════
+       RENDER: Form View
+    ═══════════════════════════════════════════ */
+    function renderFormView() {
+      document.getElementById('btnBack').style.display = '';
+      document.getElementById('bottomBar').style.display = '';
+      updateBadge();
+
+      let html = '';
+
+      // ─── Student Info Card ───
+      html += '<div class="card"><div class="card-body">';
+      html += '<div class="card-title"><span class="card-icon">👤</span> Datos del alumno/a</div>';
+      html += '<div class="grid-2">';
+      html += '<div><label class="field-label">Nombre del alumno/a *</label>';
+      html += '<input class="field-input" id="fName" value="' + escAttr(state.studentName) + '" placeholder="Nombre y apellidos" oninput="onFieldChange()" ' + (state.selectedStudent && !state.isNew ? 'readonly' : '') + '></div>';
+      html += '<div><label class="field-label">Curso *</label>';
+      html += '<select class="field-select" id="fCourse" onchange="onFieldChange()"><option value="">Selecciona curso</option>';
+      COURSES.forEach(function(c) { html += '<option value="' + c + '"' + (state.course === c ? ' selected' : '') + '>' + c + '</option>'; });
+      html += '</select></div>';
+      html += '</div>';
+
+      html += '<div class="grid-2" style="margin-top:14px">';
+      html += '<div><label class="field-label">Tipo de programa *</label>';
+      html += '<select class="field-select" id="fProgram" onchange="onFieldChange()"><option value="">Selecciona tipo</option>';
+      PROGRAM_TYPES.forEach(function(p) { html += '<option value="' + p.value + '"' + (state.programType === p.value ? ' selected' : '') + '>' + p.label + '</option>'; });
+      html += '</select></div>';
+      html += '<div><label class="field-label">Área / Ámbito</label>';
+      html += '<select class="field-select" id="fArea" onchange="onFieldChange()"><option value="">Selecciona área</option>';
+      AREAS.forEach(function(a) { html += '<option value="' + a + '"' + (state.area === a ? ' selected' : '') + '>' + a + '</option>'; });
+      html += '</select></div>';
+      html += '</div>';
+      html += '</div></div>';
+
+      // ─── Objectives header ───
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:0 4px">';
+      html += '<div class="card-title" style="margin:0"><span class="card-icon">🎯</span> Objetivos (' + state.objectives.length + ')</div>';
+      html += '</div>';
+
+      // ─── Objective cards ───
+      state.objectives.forEach(function(obj, i) {
+        html += renderObjectiveCard(obj, i);
+      });
+
+      // ─── Add objective button ───
+      html += '<button class="btn-add-obj" onclick="addObjective()">+ Añadir nuevo objetivo</button>';
+
+      document.getElementById('content').innerHTML = html;
+    }
+
+    function renderObjectiveCard(obj, index) {
+      var titlePreview = obj.title ? obj.title.substring(0, 55) + (obj.title.length > 55 ? '...' : '') : 'Objetivo ' + (index + 1) + ' — sin título';
+      var canRemove = state.objectives.length > 1;
+
+      var html = '<div class="obj-card" id="obj_' + obj.id + '">';
+
+      // Header
+      html += '<div class="obj-header" onclick="toggleObjective(\'' + obj.id + '\')">';
+      html += '<div style="display:flex;align-items:center;gap:8px;overflow:hidden">';
+      html += '<span class="obj-num">' + (index + 1) + '</span>';
+      html += '<span class="obj-title-text">' + escHtml(titlePreview) + '</span>';
+      html += '</div>';
+      html += '<div style="display:flex;gap:6px;align-items:center;flex-shrink:0">';
+      if (canRemove) {
+        html += '<button class="btn-remove-obj" onclick="event.stopPropagation();removeObjective(\'' + obj.id + '\')">Eliminar</button>';
+      }
+      html += '<span class="obj-toggle" id="toggle_' + obj.id + '">▾</span>';
+      html += '</div></div>';
+
+      // Body
+      html += '<div class="obj-body" id="body_' + obj.id + '">';
+
+      // Description
+      html += '<div><label class="field-label" style="color:#2d6a4f">Descripción del objetivo</label>';
+      html += '<textarea class="list-textarea" rows="3" style="width:100%;font-size:13px" placeholder="Ej: Mejorar la capacidad del alumno para mantener la atención..." oninput="updateObjTitle(\'' + obj.id + '\',this.value)">' + escHtml(obj.title) + '</textarea></div>';
+
+      // Indicators
+      html += '<div class="section section-indicators">';
+      html += '<div class="section-label">Indicadores de evaluación</div>';
+      html += renderDynamicList(obj.id, 'indicators', obj.indicators, 'Ej: Mantiene la atención durante 10-15 min...');
+      html += '</div>';
+
+      // Contents
+      html += '<div class="section section-contents">';
+      html += '<div class="section-label">Contenidos</div>';
+      html += renderDynamicList(obj.id, 'contents', obj.contents, 'Ej: Resolución de problemas, numeración...');
+      html += '</div>';
+
+      // Activities
+      html += '<div class="section section-activities">';
+      html += '<div class="section-label">Actividades</div>';
+      html += renderDynamicList(obj.id, 'activities', obj.activities, 'Ej: Subrayado guiado de datos relevantes...');
+      html += '</div>';
+
+      html += '</div></div>';
+      return html;
+    }
+
+    function renderDynamicList(objId, listType, items, placeholder) {
+      var html = '';
+      items.forEach(function(item, idx) {
+        html += '<div class="list-item">';
+        html += '<span class="list-num">' + (idx + 1) + '</span>';
+        html += '<textarea class="list-textarea" rows="2" placeholder="' + escAttr(placeholder) + '" oninput="updateListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\',this.value)">' + escHtml(item.text) + '</textarea>';
+        if (items.length > 1) {
+          html += '<button class="btn-remove-item" onclick="removeListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\')">×</button>';
+        }
+        html += '</div>';
+      });
+      html += '<button class="btn-add-item" onclick="addListItem(\'' + objId + '\',\'' + listType + '\')">+ Añadir</button>';
+      return html;
+    }
+
+    /* ═══════════════════════════════════════════
+       FORM ACTIONS
+    ═══════════════════════════════════════════ */
+    function onFieldChange() {
+      state.studentName = document.getElementById('fName').value;
+      state.course = document.getElementById('fCourse').value;
+      state.programType = document.getElementById('fProgram').value;
+      state.area = document.getElementById('fArea').value;
+      markDirty();
+    }
+
+    function markDirty() {
+      state.dirty = true;
+      updateBadge();
+    }
+
+    function updateBadge() {
+      var badge = document.getElementById('studentBadge');
+      var dirty = document.getElementById('badgeDirty');
+      if (state.view === 'form' && (state.selectedStudent || state.studentName)) {
+        badge.style.display = '';
+        document.getElementById('badgeName').textContent = state.studentName || state.selectedStudent || 'Nuevo alumno';
+        document.getElementById('badgeMeta').textContent = (state.course || '—') + ' · ' + (state.programType || '—');
+        dirty.style.display = state.dirty ? '' : 'none';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    function toggleObjective(objId) {
+      var body = document.getElementById('body_' + objId);
+      var toggle = document.getElementById('toggle_' + objId);
+      if (body.classList.contains('hidden')) {
+        body.classList.remove('hidden');
+        toggle.classList.remove('collapsed');
+      } else {
+        body.classList.add('hidden');
+        toggle.classList.add('collapsed');
+      }
+    }
+
+    function updateObjTitle(objId, value) {
+      var obj = state.objectives.find(function(o) { return o.id === objId; });
+      if (obj) { obj.title = value; markDirty(); }
+    }
+
+    function updateListItem(objId, listType, itemId, value) {
+      var obj = state.objectives.find(function(o) { return o.id === objId; });
+      if (obj) {
+        var item = obj[listType].find(function(i) { return i.id === itemId; });
+        if (item) { item.text = value; markDirty(); }
+      }
+    }
+
+    function addListItem(objId, listType) {
+      var obj = state.objectives.find(function(o) { return o.id === objId; });
+      if (obj) {
+        obj[listType].push({ id: uid(), text: '' });
+        markDirty();
+        renderFormView();
+      }
+    }
+
+    function removeListItem(objId, listType, itemId) {
+      var obj = state.objectives.find(function(o) { return o.id === objId; });
+      if (obj && obj[listType].length > 1) {
+        obj[listType] = obj[listType].filter(function(i) { return i.id !== itemId; });
+        markDirty();
+        renderFormView();
+      }
+    }
+
+    function addObjective() {
+      state.objectives.push(createEmptyObjective());
+      markDirty();
+      renderFormView();
+      showToast('Objetivo añadido', 'success');
+    }
+
+    function removeObjective(objId) {
+      if (state.objectives.length <= 1) return;
+      if (!confirm('¿Eliminar este objetivo?')) return;
+      state.objectives = state.objectives.filter(function(o) { return o.id !== objId; });
+      markDirty();
+      renderFormView();
+    }
+
+    function createEmptyObjective() {
+      return {
+        id: uid(),
+        title: '',
+        indicators: [{ id: uid(), text: '' }],
+        contents: [{ id: uid(), text: '' }],
+        activities: [{ id: uid(), text: '' }]
+      };
+    }
+
+    function clearForm() {
+      if (!confirm('¿Borrar todos los cambios del formulario?')) return;
+      state.objectives = [createEmptyObjective()];
+      if (state.isNew) {
+        state.studentName = '';
+        state.course = '';
+        state.programType = '';
+        state.area = '';
+      }
+      state.dirty = false;
+      renderFormView();
+      showToast('Formulario limpiado', 'info');
+    }
+
+    /* ═══════════════════════════════════════════
+       SAVE
+    ═══════════════════════════════════════════ */
+    function saveData() {
+      // Read latest field values
+      state.studentName = document.getElementById('fName').value.trim();
+      state.course = document.getElementById('fCourse').value;
+      state.programType = document.getElementById('fProgram').value;
+      state.area = document.getElementById('fArea').value;
+
+      if (!state.studentName) { showToast('Introduce el nombre del alumno/a', 'error'); return; }
+      if (!state.course) { showToast('Selecciona un curso', 'error'); return; }
+      if (!state.programType) { showToast('Selecciona el tipo de programa', 'error'); return; }
+
+      state.saving = true;
+      var btn = document.getElementById('btnSave');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Guardando...';
+
+      var payload = JSON.stringify({
+        studentName: state.studentName,
+        course: state.course,
+        programType: state.programType,
+        area: state.area,
+        objectives: state.objectives.map(function(o) {
+          return {
+            title: o.title,
+            indicators: o.indicators.filter(function(i) { return i.text.trim(); }),
+            contents: o.contents.filter(function(c) { return c.text.trim(); }),
+            activities: o.activities.filter(function(a) { return a.text.trim(); })
+          };
+        })
+      });
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          state.saving = false;
+          state.dirty = false;
+          state.selectedStudent = state.studentName;
+          state.isNew = false;
+
+          // Update local students list
+          var existing = state.students.find(function(s) { return s.name === state.studentName; });
+          if (!existing) {
+            state.students.push({ name: state.studentName, course: state.course, program: state.programType, area: state.area });
+          } else {
+            existing.course = state.course;
+            existing.program = state.programType;
+            existing.area = state.area;
+          }
+
+          btn.disabled = false;
+          btn.innerHTML = '💾 Guardar';
+          updateBadge();
+          showToast('Datos guardados en Google Sheets ✓', 'success');
+        })
+        .withFailureHandler(function(err) {
+          state.saving = false;
+          btn.disabled = false;
+          btn.innerHTML = '💾 Guardar';
+          showToast('Error al guardar: ' + err.message, 'error');
+        })
+        .saveStudentData(payload);
+    }
+
+    /* ═══════════════════════════════════════════
+       PRINT VIEW
+    ═══════════════════════════════════════════ */
+    function showPrintView() {
+      // Read latest values
+      state.studentName = document.getElementById('fName').value.trim();
+      state.course = document.getElementById('fCourse').value;
+      state.programType = document.getElementById('fProgram').value;
+      state.area = document.getElementById('fArea').value;
+
+      var programLabel = '';
+      var p = PROGRAM_TYPES.find(function(pt) { return pt.value === state.programType; });
+      if (p) programLabel = p.label;
+
+      var html = '<div class="print-overlay" id="printOverlay" onclick="if(event.target===this)closePrint()">';
+      html += '<div class="print-container">';
+
+      // Toolbar
+      html += '<div class="print-toolbar">';
+      html += '<span style="font-weight:800;font-size:15px;color:#1b4332">Vista previa para imprimir</span>';
+      html += '<div style="display:flex;gap:8px">';
+      html += '<button class="btn btn-primary" onclick="window.print()" style="font-size:12px;padding:8px 16px">🖨 Imprimir</button>';
+      html += '<button class="btn btn-secondary" onclick="closePrint()" style="font-size:12px;padding:8px 16px">Cerrar</button>';
+      html += '</div></div>';
+
+      // Content
+      html += '<div class="print-content">';
+      html += '<h2>Seguimiento del ' + escHtml(programLabel || state.programType) + '</h2>';
+      html += '<div class="print-subtitle">CEIP Carlos III — La Carlota · Curso ' + getCurrentSchoolYear() + '</div>';
+
+      // Metadata
+      html += '<div class="print-meta">';
+      html += '<div><span>Alumno/a:</span> ' + escHtml(state.studentName) + '</div>';
+      html += '<div><span>Curso:</span> ' + escHtml(state.course) + '</div>';
+      html += '<div><span>Programa:</span> ' + escHtml(state.programType) + '</div>';
+      html += '<div><span>Área:</span> ' + escHtml(state.area) + '</div>';
+      html += '</div>';
+
+      // Objectives
+      state.objectives.forEach(function(obj, i) {
+        html += '<div class="print-obj-title">Objetivo ' + (i + 1) + '</div>';
+        html += '<div class="print-obj-desc">' + escHtml(obj.title || '—') + '</div>';
+
+        html += '<table class="print-table">';
+
+        // Indicators
+        if (obj.indicators.some(function(x) { return x.text.trim(); })) {
+          html += '<tr><th colspan="4" class="type-header">INDICADORES DE EVALUACIÓN</th></tr>';
+          html += '<tr><th style="width:auto">Indicador</th><th class="eval-col">NI</th><th class="eval-col">EP</th><th class="eval-col">C</th></tr>';
+          obj.indicators.forEach(function(ind) {
+            if (ind.text.trim()) {
+              html += '<tr><td>' + escHtml(ind.text) + '</td><td class="eval-col"></td><td class="eval-col"></td><td class="eval-col"></td></tr>';
+            }
+          });
+        }
+
+        // Contents
+        if (obj.contents.some(function(x) { return x.text.trim(); })) {
+          html += '<tr><th colspan="4" class="type-content">CONTENIDOS</th></tr>';
+          obj.contents.forEach(function(cnt) {
+            if (cnt.text.trim()) {
+              html += '<tr><td colspan="4">' + escHtml(cnt.text) + '</td></tr>';
+            }
+          });
+        }
+
+        // Activities
+        if (obj.activities.some(function(x) { return x.text.trim(); })) {
+          html += '<tr><th colspan="4" class="type-activity">ACTIVIDADES</th></tr>';
+          obj.activities.forEach(function(act) {
+            if (act.text.trim()) {
+              html += '<tr><td colspan="4">' + escHtml(act.text) + '</td></tr>';
+            }
+          });
+        }
+
+        html += '</table>';
+      });
+
+      // Observations section
+      html += '<div style="margin-top:24px;border:1px solid #d1d5db;border-radius:8px;padding:14px">';
+      html += '<div style="font-weight:800;font-size:13px;margin-bottom:8px">Observaciones:</div>';
+      html += '<div style="min-height:80px;border-bottom:1px dotted #d1d5db;margin-bottom:12px"></div>';
+      html += '<div style="min-height:80px;border-bottom:1px dotted #d1d5db;margin-bottom:12px"></div>';
+      html += '<div style="min-height:80px"></div>';
+      html += '</div>';
+
+      // Signature
+      html += '<div style="margin-top:30px;display:flex;justify-content:space-between;font-size:12px;color:#6b7280">';
+      html += '<div style="text-align:center;width:45%"><div style="border-top:1px solid #9ca3af;padding-top:6px;margin-top:60px">Firma del especialista</div></div>';
+      html += '<div style="text-align:center;width:45%"><div style="border-top:1px solid #9ca3af;padding-top:6px;margin-top:60px">Firma del tutor/a</div></div>';
+      html += '</div>';
+
+      html += '</div></div></div>';
+
+      // Insert overlay
+      var overlay = document.createElement('div');
+      overlay.id = 'printOverlayWrapper';
+      overlay.innerHTML = html;
+      document.body.appendChild(overlay);
+    }
+
+    function closePrint() {
+      var wrapper = document.getElementById('printOverlayWrapper');
+      if (wrapper) wrapper.remove();
+    }
+
+    /* ═══════════════════════════════════════════
+       UTILS
+    ═══════════════════════════════════════════ */
+    function escHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+    function escAttr(str) { return escHtml(str); }
+
+    function getCurrentSchoolYear() {
+      var now = new Date();
+      var year = now.getFullYear();
+      var month = now.getMonth(); // 0-based
+      if (month >= 8) { return year + '/' + (year + 1); }
+      return (year - 1) + '/' + year;
+    }
+
+    var toastTimer = null;
+    function showToast(message, type) {
+      var t = document.getElementById('toast');
+      t.textContent = (type === 'success' ? '✓ ' : type === 'error' ? '✗ ' : 'ℹ ') + message;
+      t.className = 'toast toast-' + (type || 'info');
+      t.style.display = '';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function() { t.style.display = 'none'; }, 3000);
+    }
+  </script>
+</body>
+</html>
