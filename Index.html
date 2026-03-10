@@ -157,6 +157,16 @@
       font-size: 13px; resize: vertical; font-family: 'Nunito', sans-serif;
       line-height: 1.5; min-height: 38px;
     }
+    .eval-select {
+      width: 56px; padding: 6px 2px; border-radius: 8px; border: 1.5px solid #e5e7eb;
+      font-size: 11px; font-family: 'Nunito', sans-serif; font-weight: 700;
+      text-align: center; cursor: pointer; background: #fff; flex-shrink: 0; margin-top: 5px;
+    }
+    .eval-select.eval-ni { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+    .eval-select.eval-ep { background: #fef3c7; border-color: #fde68a; color: #92400e; }
+    .eval-select.eval-c { background: #d1fae5; border-color: #86efac; color: #065f46; }
+    .eval-group { display: flex; gap: 4px; flex-shrink: 0; margin-top: 5px; }
+    .eval-label { font-size: 9px; font-weight: 700; color: #6b7280; text-align: center; }
     .btn-remove-item {
       width: 26px; height: 26px; border-radius: 50%; border: none;
       background: #fee2e2; color: #dc2626; cursor: pointer; font-size: 15px;
@@ -250,7 +260,7 @@
 
     @media print {
       body { background: #fff !important; }
-      .header, .bottom-bar, .print-toolbar { display: none !important; }
+      .header, .bottom-bar, .print-toolbar, .content { display: none !important; }
       .print-overlay { position: static; background: none; padding: 0; }
       .print-container { max-height: none; box-shadow: none; border-radius: 0; }
       .print-content { padding: 20px; }
@@ -442,7 +452,7 @@
               return {
                 id: uid(),
                 title: o.title,
-                indicators: o.indicators.map(function(x) { return { id: uid(), text: x.text }; }),
+                indicators: o.indicators.map(function(x) { return { id: uid(), text: x.text, eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '' }; }),
                 contents: o.contents.map(function(x) { return { id: uid(), text: x.text }; }),
                 activities: o.activities.map(function(x) { return { id: uid(), text: x.text }; })
               };
@@ -587,11 +597,26 @@
     }
 
     function renderDynamicList(objId, listType, items, placeholder) {
+      var isIndicator = (listType === 'indicators');
       var html = '';
+      if (isIndicator && items.length > 0) {
+        html += '<div style="display:flex;justify-content:flex-end;gap:4px;margin-bottom:4px;padding-right:38px">';
+        html += '<span class="eval-label" style="width:56px">1T</span>';
+        html += '<span class="eval-label" style="width:56px">2T</span>';
+        html += '<span class="eval-label" style="width:56px">3T</span>';
+        html += '</div>';
+      }
       items.forEach(function(item, idx) {
         html += '<div class="list-item">';
         html += '<span class="list-num">' + (idx + 1) + '</span>';
         html += '<textarea class="list-textarea" rows="2" placeholder="' + escAttr(placeholder) + '" oninput="updateListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\',this.value)">' + escHtml(item.text) + '</textarea>';
+        if (isIndicator) {
+          html += '<div class="eval-group">';
+          html += renderEvalSelect(objId, item.id, '1T', item.eval1T || '');
+          html += renderEvalSelect(objId, item.id, '2T', item.eval2T || '');
+          html += renderEvalSelect(objId, item.id, '3T', item.eval3T || '');
+          html += '</div>';
+        }
         if (items.length > 1) {
           html += '<button class="btn-remove-item" onclick="removeListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\')">×</button>';
         }
@@ -599,6 +624,37 @@
       });
       html += '<button class="btn-add-item" onclick="addListItem(\'' + objId + '\',\'' + listType + '\')">+ Añadir</button>';
       return html;
+    }
+
+    function renderEvalSelect(objId, itemId, trimester, value) {
+      var cls = 'eval-select';
+      if (value === 'NI') cls += ' eval-ni';
+      else if (value === 'EP') cls += ' eval-ep';
+      else if (value === 'C') cls += ' eval-c';
+      var html = '<select class="' + cls + '" onchange="updateEval(\'' + objId + '\',\'' + itemId + '\',\'' + trimester + '\',this)">';
+      html += '<option value=""' + (!value ? ' selected' : '') + '>—</option>';
+      html += '<option value="NI"' + (value === 'NI' ? ' selected' : '') + '>NI</option>';
+      html += '<option value="EP"' + (value === 'EP' ? ' selected' : '') + '>EP</option>';
+      html += '<option value="C"' + (value === 'C' ? ' selected' : '') + '>C</option>';
+      html += '</select>';
+      return html;
+    }
+
+    function updateEval(objId, itemId, trimester, selectEl) {
+      var obj = state.objectives.find(function(o) { return o.id === objId; });
+      if (obj) {
+        var item = obj.indicators.find(function(i) { return i.id === itemId; });
+        if (item) {
+          var key = 'eval' + trimester;
+          item[key] = selectEl.value;
+          // Update visual class
+          selectEl.className = 'eval-select';
+          if (selectEl.value === 'NI') selectEl.className += ' eval-ni';
+          else if (selectEl.value === 'EP') selectEl.className += ' eval-ep';
+          else if (selectEl.value === 'C') selectEl.className += ' eval-c';
+          markDirty();
+        }
+      }
     }
 
     /* ═══════════════════════════════════════════
@@ -739,7 +795,9 @@
         objectives: state.objectives.map(function(o) {
           return {
             title: o.title,
-            indicators: o.indicators.filter(function(i) { return i.text.trim(); }),
+            indicators: o.indicators.filter(function(i) { return i.text.trim(); }).map(function(i) {
+              return { text: i.text, eval1T: i.eval1T || '', eval2T: i.eval2T || '', eval3T: i.eval3T || '' };
+            }),
             contents: o.contents.filter(function(c) { return c.text.trim(); }),
             activities: o.activities.filter(function(a) { return a.text.trim(); })
           };
@@ -825,10 +883,13 @@
         // Indicators
         if (obj.indicators.some(function(x) { return x.text.trim(); })) {
           html += '<tr><th colspan="4" class="type-header">INDICADORES DE EVALUACIÓN</th></tr>';
-          html += '<tr><th style="width:auto">Indicador</th><th class="eval-col">NI</th><th class="eval-col">EP</th><th class="eval-col">C</th></tr>';
+          html += '<tr><th style="width:auto">Indicador</th><th class="eval-col">1T</th><th class="eval-col">2T</th><th class="eval-col">3T</th></tr>';
           obj.indicators.forEach(function(ind) {
             if (ind.text.trim()) {
-              html += '<tr><td>' + escHtml(ind.text) + '</td><td class="eval-col"></td><td class="eval-col"></td><td class="eval-col"></td></tr>';
+              html += '<tr><td>' + escHtml(ind.text) + '</td>';
+              html += '<td class="eval-col">' + escHtml(ind.eval1T || '') + '</td>';
+              html += '<td class="eval-col">' + escHtml(ind.eval2T || '') + '</td>';
+              html += '<td class="eval-col">' + escHtml(ind.eval3T || '') + '</td></tr>';
             }
           });
         }

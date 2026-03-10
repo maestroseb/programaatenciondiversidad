@@ -136,7 +136,7 @@ function saveStudentData(payload) {
   ]);
 
   // Row 2: empty
-  sheet.appendRow([]);
+  sheet.appendRow(['']);
 
   // Row 3: headers
   sheet.appendRow(['Nº OBJ', 'TIPO', 'TEXTO', '1T', '2T', '3T']);
@@ -150,7 +150,7 @@ function saveStudentData(payload) {
     // Objective description
     sheet.appendRow([objLabel, 'OBJETIVO', obj.title || '', '', '', '']);
 
-    // Indicators
+    // Indicators (with evaluation data)
     (obj.indicators || []).forEach(function(ind) {
       if (ind.text && ind.text.trim()) {
         sheet.appendRow([objLabel, 'INDICADOR', ind.text.trim(),
@@ -174,7 +174,7 @@ function saveStudentData(payload) {
 
     // Empty row between objectives
     if (i < objectives.length - 1) {
-      sheet.appendRow([]);
+      sheet.appendRow(['']);
     }
   }
 
