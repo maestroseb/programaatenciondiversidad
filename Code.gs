@@ -63,7 +63,7 @@ function getStudentData(studentName) {
   if (!sheet) return null;
 
   const data = sheet.getDataRange().getValues();
-  if (data.length < 3) return null;
+  if (data.length < 2) return null;
 
   // Row 1: metadata
   const meta = data[0];
@@ -75,10 +75,19 @@ function getStudentData(studentName) {
     objectives: []
   };
 
-  // Row 3+: data (Row 2 is empty, Row 3 is headers → data starts at index 3)
+  // Find the header row (contains 'TIPO') then read data after it
+  let headerIndex = -1;
+  for (let h = 1; h < data.length; h++) {
+    if (String(data[h][1] || '').trim().toUpperCase() === 'TIPO') {
+      headerIndex = h;
+      break;
+    }
+  }
+  if (headerIndex < 0) return result; // no data rows
+
   let currentObj = null;
 
-  for (let i = 3; i < data.length; i++) {
+  for (let i = headerIndex + 1; i < data.length; i++) {
     const row = data[i];
     const objNum = String(row[0] || '').trim();
     const tipo = String(row[1] || '').trim().toUpperCase();
@@ -135,10 +144,7 @@ function saveStudentData(payload) {
     'ÁREA', data.area
   ]);
 
-  // Row 2: empty
-  sheet.appendRow(['']);
-
-  // Row 3: headers
+  // Row 2: headers
   sheet.appendRow(['Nº OBJ', 'TIPO', 'TEXTO', '1T', '2T', '3T']);
 
   // Row 4+: objectives data
@@ -224,8 +230,8 @@ function formatStudentSheet_(sheet) {
   sheet.getRange(1, 6).setFontWeight('normal');
   sheet.getRange(1, 8).setFontWeight('normal');
 
-  // Headers row 3
-  const headerRange = sheet.getRange(3, 1, 1, 6);
+  // Headers row 2
+  const headerRange = sheet.getRange(2, 1, 1, 6);
   headerRange.setFontWeight('bold');
   headerRange.setBackground('#2d6a4f');
   headerRange.setFontColor('#ffffff');
@@ -239,17 +245,17 @@ function formatStudentSheet_(sheet) {
   sheet.setColumnWidth(6, 50);   // 3T
 
   // Freeze header rows
-  sheet.setFrozenRows(3);
+  sheet.setFrozenRows(2);
 
   // Color-code rows by type
   const lastRow = sheet.getLastRow();
-  if (lastRow > 3) {
-    const dataRange = sheet.getRange(4, 1, lastRow - 3, 6);
+  if (lastRow > 2) {
+    const dataRange = sheet.getRange(3, 1, lastRow - 2, 6);
     const values = dataRange.getValues();
 
     for (let i = 0; i < values.length; i++) {
       const tipo = String(values[i][1]).trim().toUpperCase();
-      const row = i + 4;
+      const row = i + 3;
       const range = sheet.getRange(row, 1, 1, 6);
 
       if (tipo === 'OBJETIVO') {
