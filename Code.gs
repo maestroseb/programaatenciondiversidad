@@ -7,6 +7,7 @@
 
 const SS_ID = '11bkLpUZKKkSbEPZkmCPqI23LBWreishKmIYL1yRJS74';
 const INDICE_TAB = 'Índice';
+const CONFIG_TAB = 'Config';
 
 /* ───────── Web App entry point ───────── */
 
@@ -33,6 +34,63 @@ function getOrCreateIndice_() {
     sheet.setFrozenRows(1);
   }
   return sheet;
+}
+
+/* ───────── CONFIG: datos del centro ───────── */
+
+function getOrCreateConfig_() {
+  const ss = getSS_();
+  let sheet = ss.getSheetByName(CONFIG_TAB);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG_TAB, 0);
+    sheet.appendRow(['CLAVE', 'VALOR']);
+    sheet.appendRow(['centro', 'CEIP Carlos III']);
+    sheet.appendRow(['localidad', 'La Carlota']);
+    sheet.appendRow(['cursoEscolar', '']);
+    sheet.getRange(1, 1, 1, 2).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function getConfig() {
+  const sheet = getOrCreateConfig_();
+  const data = sheet.getDataRange().getValues();
+  const config = {};
+  for (let i = 1; i < data.length; i++) {
+    const key = String(data[i][0]).trim();
+    const val = String(data[i][1]).trim();
+    if (key) config[key] = val;
+  }
+  // Auto-calculate cursoEscolar if empty
+  if (!config.cursoEscolar) {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    config.cursoEscolar = m >= 8 ? (y + '/' + (y + 1)) : ((y - 1) + '/' + y);
+  }
+  return config;
+}
+
+function saveConfig(payload) {
+  const data = JSON.parse(payload);
+  const sheet = getOrCreateConfig_();
+  const rows = sheet.getDataRange().getValues();
+
+  for (const key in data) {
+    let found = false;
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0]).trim() === key) {
+        sheet.getRange(i + 1, 2).setValue(data[key]);
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      sheet.appendRow([key, data[key]]);
+    }
+  }
+  return { success: true };
 }
 
 /* ───────── READ: lista de alumnos ───────── */

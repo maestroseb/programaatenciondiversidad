@@ -223,6 +223,41 @@
     .toast-info { background: #1e40af; }
     @keyframes slideUp { from { opacity:0; transform:translate(-50%,20px); } to { opacity:1; transform:translate(-50%,0); } }
 
+    /* ─── Settings Panel ─── */
+    .settings-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.4); z-index: 200; display: flex;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    .settings-panel {
+      background: #fff; border-radius: 16px; max-width: 480px; width: 100%;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.2); overflow: hidden;
+    }
+    .settings-header {
+      padding: 16px 20px; background: linear-gradient(135deg, #1b4332, #2d6a4f);
+      color: #fff; font-weight: 800; font-size: 16px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .settings-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+    .settings-footer { padding: 14px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 8px; }
+
+    /* ─── Course Filter ─── */
+    .course-filters {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;
+    }
+    .course-chip {
+      padding: 5px 14px; border-radius: 20px; border: 1.5px solid #d1d5db;
+      background: #fff; color: #6b7280; font-size: 13px; font-weight: 700;
+      cursor: pointer; font-family: 'Nunito', sans-serif; transition: all 0.15s;
+    }
+    .course-chip:hover { border-color: #86efac; color: #2d6a4f; }
+    .course-chip.active { background: #2d6a4f; color: #fff; border-color: #2d6a4f; }
+    .btn-settings {
+      background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 10px; color: #fff; padding: 7px 12px; cursor: pointer;
+      font-size: 16px; font-family: 'Nunito', sans-serif;
+    }
+
     /* ─── Loading ─── */
     .loading { text-align: center; padding: 40px; color: #6b7280; font-size: 16px; }
     .loading .icon { font-size: 32px; margin-bottom: 12px; }
@@ -278,9 +313,12 @@
       <div class="header-row">
         <div>
           <h1>Programas de Atención a la Diversidad</h1>
-          <div class="subtitle">CEIP Carlos III — Gestión de programas individualizados</div>
+          <div class="subtitle">Gestión de programas individualizados</div>
         </div>
-        <button class="btn-back" id="btnBack" style="display:none" onclick="goBack()">← Alumnos</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn-settings" id="btnSettings" onclick="openSettings()" title="Ajustes del centro">⚙</button>
+          <button class="btn-back" id="btnBack" style="display:none" onclick="goBack()">← Alumnos</button>
+        </div>
       </div>
       <div class="student-badge" id="studentBadge" style="display:none">
         <span style="font-size:18px">👤</span>
@@ -325,7 +363,10 @@
       course: '',
       programType: '',
       area: '',
-      objectives: []
+      objectives: [],
+      // Config
+      config: { centro: '', localidad: '', cursoEscolar: '' },
+      courseFilter: 'Todos'
     };
 
     const PROGRAM_TYPES = [
@@ -395,8 +436,31 @@
        INIT
     ═══════════════════════════════════════════ */
     document.addEventListener('DOMContentLoaded', function() {
-      loadStudentList();
+      loadConfig(function() { loadStudentList(); });
     });
+
+    function loadConfig(callback) {
+      google.script.run
+        .withSuccessHandler(function(cfg) {
+          if (cfg) state.config = cfg;
+          updateHeaderSubtitle();
+          if (callback) callback();
+        })
+        .withFailureHandler(function() {
+          if (callback) callback();
+        })
+        .getConfig();
+    }
+
+    function updateHeaderSubtitle() {
+      var sub = document.querySelector('.subtitle');
+      if (sub) {
+        var parts = [];
+        if (state.config.centro) parts.push(state.config.centro);
+        if (state.config.localidad) parts.push(state.config.localidad);
+        sub.textContent = parts.join(' — ') + (parts.length ? ' · Gestión de programas individualizados' : 'Gestión de programas individualizados');
+      }
+    }
 
     function loadStudentList() {
       state.view = 'list';
@@ -429,13 +493,28 @@
 
       let html = '<div class="card">';
       html += '<div class="student-list-header">';
-      html += '<h2><span style="font-size:18px">📋</span> Alumnos registrados (' + state.students.length + ')</h2>';
+      html += '<h2><span style="font-size:18px">📋</span> Alumnos (' + state.students.length + ')</h2>';
       html += '<button class="btn-new" onclick="newStudent()">+ Nuevo alumno</button>';
       html += '</div>';
       html += '<div class="student-list-body">';
-      html += '<input class="search-input" type="text" placeholder="🔍 Buscar alumno, curso o programa..." oninput="filterStudents(this.value)">';
+      html += '<input class="search-input" id="searchInput" type="text" placeholder="🔍 Buscar alumno, curso o programa..." oninput="filterStudents()">';
+
+      // Course filter chips
+      var coursesInUse = [];
+      state.students.forEach(function(s) {
+        if (s.course && coursesInUse.indexOf(s.course) === -1) coursesInUse.push(s.course);
+      });
+      if (coursesInUse.length > 1) {
+        html += '<div class="course-filters" id="courseFilters">';
+        html += '<button class="course-chip' + (state.courseFilter === 'Todos' ? ' active' : '') + '" onclick="setCourseFilter(\'Todos\')">Todos</button>';
+        coursesInUse.sort().forEach(function(c) {
+          html += '<button class="course-chip' + (state.courseFilter === c ? ' active' : '') + '" onclick="setCourseFilter(\'' + escAttr(c) + '\')">' + escHtml(c) + '</button>';
+        });
+        html += '</div>';
+      }
+
       html += '<div id="studentItems">';
-      html += renderStudentItems(state.students);
+      html += renderStudentItems(getFilteredStudents());
       html += '</div>';
       html += '</div></div>';
 
@@ -457,12 +536,28 @@
       return html;
     }
 
-    function filterStudents(query) {
-      const q = query.toLowerCase();
-      const filtered = state.students.filter(function(s) {
-        return s.name.toLowerCase().includes(q) || s.course.toLowerCase().includes(q) || s.program.toLowerCase().includes(q);
+    function getFilteredStudents() {
+      var searchEl = document.getElementById('searchInput');
+      var q = searchEl ? searchEl.value.toLowerCase() : '';
+      return state.students.filter(function(s) {
+        var matchesCourse = (state.courseFilter === 'Todos') || (s.course === state.courseFilter);
+        var matchesSearch = !q || s.name.toLowerCase().includes(q) || s.course.toLowerCase().includes(q) || s.program.toLowerCase().includes(q);
+        return matchesCourse && matchesSearch;
       });
-      document.getElementById('studentItems').innerHTML = renderStudentItems(filtered);
+    }
+
+    function filterStudents() {
+      document.getElementById('studentItems').innerHTML = renderStudentItems(getFilteredStudents());
+    }
+
+    function setCourseFilter(course) {
+      state.courseFilter = course;
+      // Update active chip
+      var chips = document.querySelectorAll('.course-chip');
+      chips.forEach(function(chip) {
+        chip.classList.toggle('active', chip.textContent === course);
+      });
+      filterStudents();
     }
 
     /* ═══════════════════════════════════════════
@@ -914,7 +1009,12 @@
       html += '<div><span style="font-weight:800">CURSO:</span> ' + escHtml(state.course) + '</div>';
       html += '</div></div>';
 
-      html += '<div style="text-align:center;font-size:10px;color:#6b7280;margin-bottom:16px">CEIP Carlos III — La Carlota · Curso ' + getCurrentSchoolYear() + '</div>';
+      var centroLabel = state.config.centro || 'Centro educativo';
+      var localidadLabel = state.config.localidad || '';
+      var cursoEscolarLabel = state.config.cursoEscolar || getCurrentSchoolYear();
+      var footerParts = [centroLabel];
+      if (localidadLabel) footerParts.push(localidadLabel);
+      html += '<div style="text-align:center;font-size:10px;color:#6b7280;margin-bottom:16px">' + escHtml(footerParts.join(' — ')) + ' · Curso ' + escHtml(cursoEscolarLabel) + '</div>';
 
       // Single table: Objetivos / Indicadores
       html += '<table class="print-table">';
@@ -1003,6 +1103,65 @@
     function closePrint() {
       var wrapper = document.getElementById('printOverlayWrapper');
       if (wrapper) wrapper.remove();
+    }
+
+    /* ═══════════════════════════════════════════
+       SETTINGS PANEL
+    ═══════════════════════════════════════════ */
+    function openSettings() {
+      var c = state.config;
+      var html = '<div class="settings-overlay" id="settingsOverlay" onclick="if(event.target===this)closeSettings()">';
+      html += '<div class="settings-panel">';
+      html += '<div class="settings-header"><span>⚙ Ajustes del centro</span><button style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer" onclick="closeSettings()">×</button></div>';
+      html += '<div class="settings-body">';
+      html += '<div><label class="field-label">Centro educativo</label>';
+      html += '<input class="field-input" id="cfgCentro" value="' + escAttr(c.centro || '') + '" placeholder="Ej: CEIP Carlos III"></div>';
+      html += '<div><label class="field-label">Localidad</label>';
+      html += '<input class="field-input" id="cfgLocalidad" value="' + escAttr(c.localidad || '') + '" placeholder="Ej: La Carlota"></div>';
+      html += '<div><label class="field-label">Curso escolar</label>';
+      html += '<input class="field-input" id="cfgCurso" value="' + escAttr(c.cursoEscolar || '') + '" placeholder="Ej: 2025/2026 (vacío = automático)"></div>';
+      html += '</div>';
+      html += '<div class="settings-footer">';
+      html += '<button class="btn btn-secondary" onclick="closeSettings()">Cancelar</button>';
+      html += '<button class="btn btn-primary" id="btnSaveConfig" onclick="saveConfigFromUI()">Guardar</button>';
+      html += '</div></div></div>';
+
+      var wrapper = document.createElement('div');
+      wrapper.id = 'settingsWrapper';
+      wrapper.innerHTML = html;
+      document.body.appendChild(wrapper);
+    }
+
+    function closeSettings() {
+      var w = document.getElementById('settingsWrapper');
+      if (w) w.remove();
+    }
+
+    function saveConfigFromUI() {
+      var payload = {
+        centro: document.getElementById('cfgCentro').value.trim(),
+        localidad: document.getElementById('cfgLocalidad').value.trim(),
+        cursoEscolar: document.getElementById('cfgCurso').value.trim()
+      };
+      var btn = document.getElementById('btnSaveConfig');
+      btn.disabled = true;
+      btn.textContent = 'Guardando...';
+
+      google.script.run
+        .withSuccessHandler(function() {
+          state.config.centro = payload.centro;
+          state.config.localidad = payload.localidad;
+          if (payload.cursoEscolar) state.config.cursoEscolar = payload.cursoEscolar;
+          updateHeaderSubtitle();
+          closeSettings();
+          showToast('Ajustes del centro guardados', 'success');
+        })
+        .withFailureHandler(function(err) {
+          btn.disabled = false;
+          btn.textContent = 'Guardar';
+          showToast('Error al guardar ajustes: ' + err.message, 'error');
+        })
+        .saveConfig(JSON.stringify(payload));
     }
 
     /* ═══════════════════════════════════════════
