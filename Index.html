@@ -64,8 +64,8 @@
       color: #374151; text-decoration: none; border-left: 3px solid transparent;
       transition: all 0.15s; cursor: pointer;
     }
-    .side-nav a:hover { background: #f0fdf4; border-left-color: #86efac; color: #2d6a4f; }
-    .side-nav a.nav-area { font-weight: 700; color: #1b4332; }
+    .side-nav a:hover { background: #f0fdf4; color: #2d6a4f; }
+    .side-nav a.nav-area { font-weight: 700; color: #1b4332; padding-left: 14px; }
     .side-nav a.nav-section { padding-left: 20px; font-size: 12px; color: #6b7280; }
     @media (max-width: 860px) { .side-nav { display: none; } .content-with-nav { max-width: 800px; } }
 
@@ -132,11 +132,10 @@
     .student-list-body { padding: 12px 16px; max-height: 300px; overflow-y: auto; }
 
     /* ─── Objective Cards ─── */
-    .obj-card { background: #fff; border-radius: 16px; border: 2px solid #d1fae5; overflow: hidden; margin-bottom: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
+    .obj-card { background: #fff; overflow: hidden; }
     .obj-header {
       display: flex; align-items: center; justify-content: space-between;
       padding: 12px 16px; cursor: pointer;
-      background: linear-gradient(135deg, #2d6a4f 0%, #40916c 100%);
     }
     .obj-num {
       background: rgba(255,255,255,0.25); border-radius: 50%;
@@ -219,12 +218,12 @@
 
     /* ─── Add objective ─── */
     .btn-add-obj {
-      width: 100%; padding: 14px; margin-top: 14px; border-radius: 14px;
-      border: 2px dashed #86efac; background: rgba(255,255,255,0.6);
-      cursor: pointer; font-size: 16px; font-weight: 700; color: #2d6a4f;
+      width: 100%; padding: 14px; margin-top: 0;
+      background: rgba(255,255,255,0.6);
+      cursor: pointer; font-size: 16px; font-weight: 700; color: #374151;
       font-family: 'Nunito', sans-serif;
     }
-    .btn-add-obj:hover { background: #d1fae5; border-color: #2d6a4f; }
+    .btn-add-obj:hover { background: #f3f4f6; }
 
     /* ─── Bottom Bar ─── */
     .bottom-bar {
@@ -693,7 +692,8 @@
       nav += '<a onclick="scrollToId(\'secDatos\')">Datos del alumno</a>';
       state.areas.forEach(function(area, i) {
         var shortName = area.name.replace('Desarrollo ', '');
-        nav += '<a class="nav-area" onclick="scrollToId(\'area_' + i + '\')">' + escHtml(shortName) + '</a>';
+        var navColor = getAreaColor(area.name);
+        nav += '<a class="nav-area" style="border-left:3px solid ' + navColor.border + '" onclick="scrollToId(\'area_' + i + '\')">' + escHtml(shortName) + '</a>';
       });
       nav += '<a class="nav-section" onclick="scrollToId(\'secValoracion\')">Valoración inicial</a>';
       nav += '<a class="nav-section" onclick="scrollToId(\'secSeg1T\')">Seguimiento 1T</a>';
@@ -778,40 +778,47 @@
       markDirty();
     }
 
-    function renderAreaSection(area, areaIdx) {
-      var areaColors = [
-        { bg: '#fef3c7', border: '#f59e0b', header: '#92400e', headerBg: 'linear-gradient(135deg, #92400e, #b45309)' },
-        { bg: '#dbeafe', border: '#3b82f6', header: '#1e40af', headerBg: 'linear-gradient(135deg, #1e40af, #2563eb)' },
-        { bg: '#fce7f3', border: '#ec4899', header: '#9d174d', headerBg: 'linear-gradient(135deg, #9d174d, #be185d)' },
-        { bg: '#ede9fe', border: '#8b5cf6', header: '#5b21b6', headerBg: 'linear-gradient(135deg, #5b21b6, #7c3aed)' },
-        { bg: '#d1fae5', border: '#10b981', header: '#065f46', headerBg: 'linear-gradient(135deg, #065f46, #047857)' },
-        { bg: '#ffedd5', border: '#f97316', header: '#9a3412', headerBg: 'linear-gradient(135deg, #9a3412, #c2410c)' }
-      ];
-      var color = areaColors[areaIdx % areaColors.length];
+    // Color map: area name → {headerBg, objHeaderBg, border}
+    var AREA_COLORS = {
+      'Desarrollo Cognitivo':                   { headerBg: 'linear-gradient(135deg, #9f1239, #be123c)', objHeaderBg: 'linear-gradient(135deg, #be123c, #e11d48)', border: '#fda4af' },
+      'Desarrollo Comunicativo y Lingüístico':  { headerBg: 'linear-gradient(135deg, #1e40af, #2563eb)', objHeaderBg: 'linear-gradient(135deg, #2563eb, #3b82f6)', border: '#93c5fd' },
+      'Desarrollo de la Autonomía Personal':    { headerBg: 'linear-gradient(135deg, #166534, #15803d)', objHeaderBg: 'linear-gradient(135deg, #15803d, #16a34a)', border: '#86efac' },
+      'Desarrollo Social y Emocional':          { headerBg: 'linear-gradient(135deg, #9d174d, #be185d)', objHeaderBg: 'linear-gradient(135deg, #be185d, #db2777)', border: '#f9a8d4' },
+      'Desarrollo Psicomotor':                  { headerBg: 'linear-gradient(135deg, #c2410c, #ea580c)', objHeaderBg: 'linear-gradient(135deg, #ea580c, #f97316)', border: '#fdba74' },
+      'Desarrollo Motor':                       { headerBg: 'linear-gradient(135deg, #78350f, #92400e)', objHeaderBg: 'linear-gradient(135deg, #92400e, #a16207)', border: '#fcd34d' }
+    };
+    var AREA_COLOR_DEFAULT = { headerBg: 'linear-gradient(135deg, #374151, #4b5563)', objHeaderBg: 'linear-gradient(135deg, #4b5563, #6b7280)', border: '#d1d5db' };
 
-      var html = '<div style="margin-top:20px" id="area_' + areaIdx + '">';
-      html += '<div style="background:' + color.headerBg + ';color:#fff;padding:12px 16px;border-radius:14px 14px 0 0;font-weight:800;font-size:15px;display:flex;justify-content:space-between;align-items:center">';
+    function getAreaColor(areaName) {
+      return AREA_COLORS[areaName] || AREA_COLOR_DEFAULT;
+    }
+
+    function renderAreaSection(area, areaIdx) {
+      var color = getAreaColor(area.name);
+
+      var html = '<div style="margin-top:20px;border:2px solid ' + color.border + ';border-radius:14px;overflow:hidden" id="area_' + areaIdx + '">';
+      html += '<div style="background:' + color.headerBg + ';color:#fff;padding:12px 16px;font-weight:800;font-size:15px;display:flex;justify-content:space-between;align-items:center">';
       html += '<span>' + escHtml(area.name) + ' (' + area.objectives.length + ' obj.)</span>';
       html += '</div>';
 
       area.objectives.forEach(function(obj, i) {
-        html += renderObjectiveCard(obj, i, areaIdx);
+        html += renderObjectiveCard(obj, i, areaIdx, color);
       });
 
-      html += '<button class="btn-add-obj" onclick="addObjective(' + areaIdx + ')" style="border-radius:0 0 14px 14px;margin-top:0;border-top:none">+ Añadir objetivo a ' + escHtml(area.name) + '</button>';
+      html += '<button class="btn-add-obj" onclick="addObjective(' + areaIdx + ')" style="border-radius:0;margin-top:0;border:none;border-top:2px dashed ' + color.border + '">+ Añadir objetivo a ' + escHtml(area.name) + '</button>';
       html += '</div>';
       return html;
     }
 
-    function renderObjectiveCard(obj, index, areaIdx) {
+    function renderObjectiveCard(obj, index, areaIdx, color) {
       var titlePreview = obj.title ? obj.title.substring(0, 55) + (obj.title.length > 55 ? '...' : '') : 'Objetivo ' + (index + 1) + ' — sin título';
       var area = state.areas[areaIdx];
       var canRemove = area.objectives.length > 1;
 
-      var html = '<div class="obj-card" id="obj_' + obj.id + '" style="border-radius:0;border-top:none">';
+      var html = '<div class="obj-card" id="obj_' + obj.id + '" style="border-radius:0;border-top:1px solid ' + color.border + '">';
 
       // Header
-      html += '<div class="obj-header" onclick="toggleObjective(\'' + obj.id + '\')">';
+      html += '<div class="obj-header" style="background:' + color.objHeaderBg + '" onclick="toggleObjective(\'' + obj.id + '\')">';
       html += '<div style="display:flex;align-items:center;gap:8px;overflow:hidden">';
       html += '<span class="obj-num">' + (index + 1) + '</span>';
       html += '<span class="obj-title-text">' + escHtml(titlePreview) + '</span>';
