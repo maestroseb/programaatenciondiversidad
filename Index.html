@@ -361,21 +361,11 @@
       // Form data
       studentName: '',
       course: '',
-      programType: '',
-      area: '',
-      objectives: [],
+      areas: [], // [{name, objectives: [{id,title,indicators,contents,activities}]}]
       // Config
       config: { centro: '', localidad: '', cursoEscolar: '' },
       courseFilter: 'Todos'
     };
-
-    const PROGRAM_TYPES = [
-      { value: 'PE', label: 'Programa Específico (PE)' },
-      { value: 'ACS', label: 'Adaptación Curricular Significativa (ACS)' },
-      { value: 'ACAI', label: 'Adapt. Curricular Altas Capacidades (ACAI)' },
-      { value: 'ACNS', label: 'Adapt. Curricular No Significativa (ACNS)' },
-      { value: 'PTI', label: 'Plan de Trabajo Individualizado (PTI)' }
-    ];
 
     const COURSES = [
       '1º Infantil','2º Infantil','3º Infantil',
@@ -384,15 +374,12 @@
     ];
 
     const AREAS = [
-      'Estimulación cognitiva y F. Ejecutivas',
-      'Comunicación y Lenguaje',
-      'Autonomía personal y social',
-      'Habilidades sociales',
-      'Lectoescritura',
-      'Razonamiento lógico-matemático',
-      'Atención y memoria',
-      'Psicomotricidad',
-      'Otro'
+      'Desarrollo Cognitivo',
+      'Desarrollo Comunicativo y Lingüístico',
+      'Desarrollo de la Autonomía Personal',
+      'Desarrollo Social y Emocional',
+      'Desarrollo Psicomotor',
+      'Desarrollo Motor'
     ];
 
     let undoStack = [];
@@ -402,9 +389,7 @@
       undoStack.push({
         studentName: state.studentName,
         course: state.course,
-        programType: state.programType,
-        area: state.area,
-        objectives: JSON.parse(JSON.stringify(state.objectives))
+        areas: JSON.parse(JSON.stringify(state.areas))
       });
       if (undoStack.length > MAX_UNDO) undoStack.shift();
       updateUndoButton();
@@ -415,9 +400,7 @@
       var snapshot = undoStack.pop();
       state.studentName = snapshot.studentName;
       state.course = snapshot.course;
-      state.programType = snapshot.programType;
-      state.area = snapshot.area;
-      state.objectives = snapshot.objectives;
+      state.areas = snapshot.areas;
       state.dirty = true;
       updateUndoButton();
       renderFormView();
@@ -530,7 +513,7 @@
         html += '<button class="student-item" onclick="selectStudent(\'' + escHtml(s.name) + '\')">';
         html += '<div><div class="name">' + escHtml(s.name) + '</div>';
         html += '<div class="course">' + escHtml(s.course) + '</div></div>';
-        html += '<span class="program-badge">' + escHtml(s.program) + '</span>';
+        html += '<span class="program-badge">PE</span>';
         html += '</button>';
       });
       return html;
@@ -579,25 +562,25 @@
           if (data) {
             state.studentName = data.studentName;
             state.course = data.course;
-            state.programType = data.programType;
-            state.area = data.area;
-            state.objectives = data.objectives.map(function(o) {
+            state.areas = (data.areas || []).map(function(a) {
               return {
-                id: uid(),
-                title: o.title,
-                indicators: o.indicators.map(function(x) { return { id: uid(), text: x.text, eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '' }; }),
-                contents: o.contents.map(function(x) { return { id: uid(), text: x.text }; }),
-                activities: o.activities.map(function(x) { return { id: uid(), text: x.text }; })
+                name: a.name,
+                objectives: a.objectives.map(function(o) {
+                  return {
+                    id: uid(),
+                    title: o.title,
+                    indicators: o.indicators.map(function(x) { return { id: uid(), text: x.text, eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '' }; }),
+                    contents: o.contents.map(function(x) { return { id: uid(), text: x.text }; }),
+                    activities: o.activities.map(function(x) { return { id: uid(), text: x.text }; })
+                  };
+                })
               };
             });
           } else {
-            // Student in index but no data yet
             var s = state.students.find(function(st) { return st.name === name; });
             state.studentName = name;
             state.course = s ? s.course : '';
-            state.programType = s ? s.program : '';
-            state.area = s ? s.area : '';
-            state.objectives = [createEmptyObjective()];
+            state.areas = [];
           }
           state.view = 'form';
           renderFormView();
@@ -618,9 +601,7 @@
       state.dirty = false;
       state.studentName = '';
       state.course = '';
-      state.programType = '';
-      state.area = '';
-      state.objectives = [createEmptyObjective()];
+      state.areas = [];
       state.view = 'form';
       renderFormView();
       showToast('Introduce los datos del nuevo alumno', 'info');
@@ -640,6 +621,7 @@
       document.getElementById('bottomBar').style.display = '';
       updateBadge();
 
+      var selectedAreaNames = state.areas.map(function(a) { return a.name; });
       let html = '';
 
       // ─── Student Info Card ───
@@ -654,39 +636,64 @@
       html += '</select></div>';
       html += '</div>';
 
-      html += '<div class="grid-2" style="margin-top:14px">';
-      html += '<div><label class="field-label">Tipo de programa *</label>';
-      html += '<select class="field-select" id="fProgram" onchange="onFieldChange()"><option value="">Selecciona tipo</option>';
-      PROGRAM_TYPES.forEach(function(p) { html += '<option value="' + p.value + '"' + (state.programType === p.value ? ' selected' : '') + '>' + p.label + '</option>'; });
-      html += '</select></div>';
-      html += '<div><label class="field-label">Área / Ámbito</label>';
-      html += '<select class="field-select" id="fArea" onchange="onFieldChange()"><option value="">Selecciona área</option>';
-      AREAS.forEach(function(a) { html += '<option value="' + a + '"' + (state.area === a ? ' selected' : '') + '>' + a + '</option>'; });
-      html += '</select></div>';
+      // Program type (fixed)
+      html += '<div style="margin-top:14px">';
+      html += '<label class="field-label">Tipo de programa</label>';
+      html += '<div style="padding:10px 14px;background:#d1fae5;border-radius:12px;font-weight:700;color:#065f46;font-size:14px">Programa Específico (PE)</div>';
       html += '</div>';
+
+      // Areas (multi-select checkboxes)
+      html += '<div style="margin-top:14px">';
+      html += '<label class="field-label">Ámbitos de trabajo *</label>';
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">';
+      AREAS.forEach(function(a) {
+        var checked = selectedAreaNames.indexOf(a) >= 0;
+        html += '<label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1.5px solid ' + (checked ? '#2d6a4f' : '#e5e7eb') + ';background:' + (checked ? '#f0fdf4' : '#fff') + ';cursor:pointer;font-size:14px;font-weight:' + (checked ? '700' : '600') + ';transition:all 0.15s">';
+        html += '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleArea(\'' + escAttr(a) + '\')" style="accent-color:#2d6a4f;width:18px;height:18px">';
+        html += escHtml(a) + '</label>';
+      });
+      html += '</div></div>';
       html += '</div></div>';
 
-      // ─── Objectives header ───
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:0 4px">';
-      html += '<div class="card-title" style="margin:0"><span class="card-icon">🎯</span> Objetivos (' + state.objectives.length + ')</div>';
-      html += '</div>';
-
-      // ─── Objective cards ───
-      state.objectives.forEach(function(obj, i) {
-        html += renderObjectiveCard(obj, i);
+      // ─── Areas with their objectives ───
+      state.areas.forEach(function(area, areaIdx) {
+        html += renderAreaSection(area, areaIdx);
       });
-
-      // ─── Add objective button ───
-      html += '<button class="btn-add-obj" onclick="addObjective()">+ Añadir nuevo objetivo</button>';
 
       document.getElementById('content').innerHTML = html;
     }
 
-    function renderObjectiveCard(obj, index) {
-      var titlePreview = obj.title ? obj.title.substring(0, 55) + (obj.title.length > 55 ? '...' : '') : 'Objetivo ' + (index + 1) + ' — sin título';
-      var canRemove = state.objectives.length > 1;
+    function renderAreaSection(area, areaIdx) {
+      var areaColors = [
+        { bg: '#fef3c7', border: '#f59e0b', header: '#92400e', headerBg: 'linear-gradient(135deg, #92400e, #b45309)' },
+        { bg: '#dbeafe', border: '#3b82f6', header: '#1e40af', headerBg: 'linear-gradient(135deg, #1e40af, #2563eb)' },
+        { bg: '#fce7f3', border: '#ec4899', header: '#9d174d', headerBg: 'linear-gradient(135deg, #9d174d, #be185d)' },
+        { bg: '#ede9fe', border: '#8b5cf6', header: '#5b21b6', headerBg: 'linear-gradient(135deg, #5b21b6, #7c3aed)' },
+        { bg: '#d1fae5', border: '#10b981', header: '#065f46', headerBg: 'linear-gradient(135deg, #065f46, #047857)' },
+        { bg: '#ffedd5', border: '#f97316', header: '#9a3412', headerBg: 'linear-gradient(135deg, #9a3412, #c2410c)' }
+      ];
+      var color = areaColors[areaIdx % areaColors.length];
 
-      var html = '<div class="obj-card" id="obj_' + obj.id + '">';
+      var html = '<div style="margin-top:20px">';
+      html += '<div style="background:' + color.headerBg + ';color:#fff;padding:12px 16px;border-radius:14px 14px 0 0;font-weight:800;font-size:15px;display:flex;justify-content:space-between;align-items:center">';
+      html += '<span>' + escHtml(area.name) + ' (' + area.objectives.length + ' obj.)</span>';
+      html += '</div>';
+
+      area.objectives.forEach(function(obj, i) {
+        html += renderObjectiveCard(obj, i, areaIdx);
+      });
+
+      html += '<button class="btn-add-obj" onclick="addObjective(' + areaIdx + ')" style="border-radius:0 0 14px 14px;margin-top:0;border-top:none">+ Añadir objetivo a ' + escHtml(area.name) + '</button>';
+      html += '</div>';
+      return html;
+    }
+
+    function renderObjectiveCard(obj, index, areaIdx) {
+      var titlePreview = obj.title ? obj.title.substring(0, 55) + (obj.title.length > 55 ? '...' : '') : 'Objetivo ' + (index + 1) + ' — sin título';
+      var area = state.areas[areaIdx];
+      var canRemove = area.objectives.length > 1;
+
+      var html = '<div class="obj-card" id="obj_' + obj.id + '" style="border-radius:0;border-top:none">';
 
       // Header
       html += '<div class="obj-header" onclick="toggleObjective(\'' + obj.id + '\')">';
@@ -696,7 +703,7 @@
       html += '</div>';
       html += '<div style="display:flex;gap:6px;align-items:center;flex-shrink:0">';
       if (canRemove) {
-        html += '<button class="btn-remove-obj" onclick="event.stopPropagation();removeObjective(\'' + obj.id + '\')">Eliminar</button>';
+        html += '<button class="btn-remove-obj" onclick="event.stopPropagation();removeObjective(' + areaIdx + ',\'' + obj.id + '\')">Eliminar</button>';
       }
       html += '<span class="obj-toggle" id="toggle_' + obj.id + '">▾</span>';
       html += '</div></div>';
@@ -775,9 +782,9 @@
     }
 
     function updateEval(objId, itemId, trimester, selectEl) {
-      var obj = state.objectives.find(function(o) { return o.id === objId; });
-      if (obj) {
-        var item = obj.indicators.find(function(i) { return i.id === itemId; });
+      var found = findObjInAreas(objId);
+      if (found) {
+        var item = found.obj.indicators.find(function(i) { return i.id === itemId; });
         if (item) {
           var key = 'eval' + trimester;
           item[key] = selectEl.value;
@@ -797,9 +804,26 @@
     function onFieldChange() {
       state.studentName = document.getElementById('fName').value;
       state.course = document.getElementById('fCourse').value;
-      state.programType = document.getElementById('fProgram').value;
-      state.area = document.getElementById('fArea').value;
       markDirty();
+    }
+
+    function toggleArea(areaName) {
+      pushUndo();
+      var idx = -1;
+      for (var i = 0; i < state.areas.length; i++) {
+        if (state.areas[i].name === areaName) { idx = i; break; }
+      }
+      if (idx >= 0) {
+        // Remove area (will lose its objectives)
+        if (!state.areas[idx].objectives.some(function(o) { return o.title.trim(); }) || confirm('¿Eliminar el ámbito "' + areaName + '" y sus objetivos?')) {
+          state.areas.splice(idx, 1);
+        }
+      } else {
+        // Add area with one empty objective
+        state.areas.push({ name: areaName, objectives: [createEmptyObjective()] });
+      }
+      markDirty();
+      renderFormView();
     }
 
     function markDirty() {
@@ -813,7 +837,8 @@
       if (state.view === 'form' && (state.selectedStudent || state.studentName)) {
         badge.style.display = '';
         document.getElementById('badgeName').textContent = state.studentName || state.selectedStudent || 'Nuevo alumno';
-        document.getElementById('badgeMeta').textContent = (state.course || '—') + ' · ' + (state.programType || '—');
+        var areaNames = state.areas.map(function(a) { return a.name; }).join(', ');
+        document.getElementById('badgeMeta').textContent = (state.course || '—') + ' · PE' + (areaNames ? ' · ' + areaNames : '');
         dirty.style.display = state.dirty ? '' : 'none';
       } else {
         badge.style.display = 'none';
@@ -832,50 +857,59 @@
       }
     }
 
+    function findObjInAreas(objId) {
+      for (var a = 0; a < state.areas.length; a++) {
+        var obj = state.areas[a].objectives.find(function(o) { return o.id === objId; });
+        if (obj) return { area: state.areas[a], obj: obj };
+      }
+      return null;
+    }
+
     function updateObjTitle(objId, value) {
-      var obj = state.objectives.find(function(o) { return o.id === objId; });
-      if (obj) { obj.title = value; markDirty(); }
+      var found = findObjInAreas(objId);
+      if (found) { found.obj.title = value; markDirty(); }
     }
 
     function updateListItem(objId, listType, itemId, value) {
-      var obj = state.objectives.find(function(o) { return o.id === objId; });
-      if (obj) {
-        var item = obj[listType].find(function(i) { return i.id === itemId; });
+      var found = findObjInAreas(objId);
+      if (found) {
+        var item = found.obj[listType].find(function(i) { return i.id === itemId; });
         if (item) { item.text = value; markDirty(); }
       }
     }
 
     function addListItem(objId, listType) {
-      var obj = state.objectives.find(function(o) { return o.id === objId; });
-      if (obj) {
-        obj[listType].push({ id: uid(), text: '' });
+      var found = findObjInAreas(objId);
+      if (found) {
+        found.obj[listType].push({ id: uid(), text: '' });
         markDirty();
         renderFormView();
       }
     }
 
     function removeListItem(objId, listType, itemId) {
-      var obj = state.objectives.find(function(o) { return o.id === objId; });
-      if (obj && obj[listType].length > 1) {
+      var found = findObjInAreas(objId);
+      if (found && found.obj[listType].length > 1) {
         pushUndo();
-        obj[listType] = obj[listType].filter(function(i) { return i.id !== itemId; });
+        found.obj[listType] = found.obj[listType].filter(function(i) { return i.id !== itemId; });
         markDirty();
         renderFormView();
       }
     }
 
-    function addObjective() {
-      state.objectives.push(createEmptyObjective());
+    function addObjective(areaIdx) {
+      state.areas[areaIdx].objectives.push(createEmptyObjective());
       markDirty();
       renderFormView();
       showToast('Objetivo añadido', 'success');
     }
 
-    function removeObjective(objId) {
-      if (state.objectives.length <= 1) return;
+    function removeObjective(areaIdx, objId) {
+      var area = state.areas[areaIdx];
+      if (area.objectives.length <= 1) return;
       if (!confirm('¿Eliminar este objetivo?')) return;
       pushUndo();
-      state.objectives = state.objectives.filter(function(o) { return o.id !== objId; });
+      area.objectives = area.objectives.filter(function(o) { return o.id !== objId; });
       markDirty();
       renderFormView();
     }
@@ -893,12 +927,11 @@
     function clearForm() {
       if (!confirm('¿Borrar todos los cambios del formulario?')) return;
       pushUndo();
-      state.objectives = [createEmptyObjective()];
+      state.areas = state.areas.map(function(a) { return { name: a.name, objectives: [createEmptyObjective()] }; });
       if (state.isNew) {
         state.studentName = '';
         state.course = '';
-        state.programType = '';
-        state.area = '';
+        state.areas = [];
       }
       state.dirty = false;
       renderFormView();
@@ -912,12 +945,10 @@
       // Read latest field values
       state.studentName = document.getElementById('fName').value.trim();
       state.course = document.getElementById('fCourse').value;
-      state.programType = document.getElementById('fProgram').value;
-      state.area = document.getElementById('fArea').value;
 
       if (!state.studentName) { showToast('Introduce el nombre del alumno/a', 'error'); return; }
       if (!state.course) { showToast('Selecciona un curso', 'error'); return; }
-      if (!state.programType) { showToast('Selecciona el tipo de programa', 'error'); return; }
+      if (state.areas.length === 0) { showToast('Selecciona al menos un ámbito', 'error'); return; }
 
       state.saving = true;
       var btn = document.getElementById('btnSave');
@@ -927,16 +958,19 @@
       var payload = JSON.stringify({
         studentName: state.studentName,
         course: state.course,
-        programType: state.programType,
-        area: state.area,
-        objectives: state.objectives.map(function(o) {
+        areas: state.areas.map(function(area) {
           return {
-            title: o.title,
-            indicators: o.indicators.filter(function(i) { return i.text.trim(); }).map(function(i) {
-              return { text: i.text, eval1T: i.eval1T || '', eval2T: i.eval2T || '', eval3T: i.eval3T || '' };
-            }),
-            contents: o.contents.filter(function(c) { return c.text.trim(); }),
-            activities: o.activities.filter(function(a) { return a.text.trim(); })
+            name: area.name,
+            objectives: area.objectives.map(function(o) {
+              return {
+                title: o.title,
+                indicators: o.indicators.filter(function(i) { return i.text.trim(); }).map(function(i) {
+                  return { text: i.text, eval1T: i.eval1T || '', eval2T: i.eval2T || '', eval3T: i.eval3T || '' };
+                }),
+                contents: o.contents.filter(function(c) { return c.text.trim(); }),
+                activities: o.activities.filter(function(a) { return a.text.trim(); })
+              };
+            })
           };
         })
       });
@@ -949,13 +983,14 @@
           state.isNew = false;
 
           // Update local students list
+          var areaStr = state.areas.map(function(a) { return a.name; }).join(', ');
           var existing = state.students.find(function(s) { return s.name === state.studentName; });
           if (!existing) {
-            state.students.push({ name: state.studentName, course: state.course, program: state.programType, area: state.area });
+            state.students.push({ name: state.studentName, course: state.course, program: 'PE', area: areaStr });
           } else {
             existing.course = state.course;
-            existing.program = state.programType;
-            existing.area = state.area;
+            existing.program = 'PE';
+            existing.area = areaStr;
           }
 
           btn.disabled = false;
@@ -979,12 +1014,6 @@
       // Read latest values
       state.studentName = document.getElementById('fName').value.trim();
       state.course = document.getElementById('fCourse').value;
-      state.programType = document.getElementById('fProgram').value;
-      state.area = document.getElementById('fArea').value;
-
-      var programLabel = '';
-      var p = PROGRAM_TYPES.find(function(pt) { return pt.value === state.programType; });
-      if (p) programLabel = p.label;
 
       var html = '<div class="print-overlay" id="printOverlay" onclick="if(event.target===this)closePrint()">';
       html += '<div class="print-container">';
@@ -1000,82 +1029,86 @@
       // Content
       html += '<div class="print-content">';
 
-      // Header like the reference: PE: Área on the left, student info on the right
-      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">';
-      html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-weight:800;font-size:14px">';
-      html += escHtml(state.programType) + ': ' + escHtml(state.area) + '</div>';
-      html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-size:13px;text-align:right">';
-      html += '<div><span style="font-weight:800">ALUMNO/A:</span> ' + escHtml(state.studentName) + '</div>';
-      html += '<div><span style="font-weight:800">CURSO:</span> ' + escHtml(state.course) + '</div>';
-      html += '</div></div>';
-
       var centroLabel = state.config.centro || 'Centro educativo';
       var localidadLabel = state.config.localidad || '';
       var cursoEscolarLabel = state.config.cursoEscolar || getCurrentSchoolYear();
       var footerParts = [centroLabel];
       if (localidadLabel) footerParts.push(localidadLabel);
-      html += '<div style="text-align:center;font-size:10px;color:#6b7280;margin-bottom:16px">' + escHtml(footerParts.join(' — ')) + ' · Curso ' + escHtml(cursoEscolarLabel) + '</div>';
 
-      // Single table: Objetivos / Indicadores
-      html += '<table class="print-table">';
-      html += '<tr><th style="width:auto">Objetivos / Indicadores</th><th class="eval-col">1T</th><th class="eval-col">2T</th><th class="eval-col">3T</th></tr>';
+      // One page/section per area
+      state.areas.forEach(function(area, areaIdx) {
 
-      state.objectives.forEach(function(obj, i) {
-        var objNum = i + 1;
+        // Page break between areas (not before first)
+        if (areaIdx > 0) html += '<div style="page-break-before:always;margin-top:30px"></div>';
 
-        // Objective row: bold, gray background
-        html += '<tr class="obj-row"><td colspan="4">' + objNum + '.- ' + escHtml(obj.title || '—') + '</td></tr>';
+        // Header: PE: Area on the left, student info on the right
+        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">';
+        html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-weight:800;font-size:14px">';
+        html += 'PE: ' + escHtml(area.name) + '</div>';
+        html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-size:13px;text-align:right">';
+        html += '<div><span style="font-weight:800">ALUMNO/A:</span> ' + escHtml(state.studentName) + '</div>';
+        html += '<div><span style="font-weight:800">CURSO:</span> ' + escHtml(state.course) + '</div>';
+        html += '</div></div>';
 
-        // Indicator rows: sub-numbered
-        var indCount = 0;
-        obj.indicators.forEach(function(ind) {
-          if (ind.text.trim()) {
-            indCount++;
-            html += '<tr>';
-            html += '<td>' + objNum + '.' + indCount + '.- ' + escHtml(ind.text) + '</td>';
-            html += '<td class="eval-col">' + escHtml(ind.eval1T || '') + '</td>';
-            html += '<td class="eval-col">' + escHtml(ind.eval2T || '') + '</td>';
-            html += '<td class="eval-col">' + escHtml(ind.eval3T || '') + '</td>';
-            html += '</tr>';
-          }
-        });
-      });
+        html += '<div style="text-align:center;font-size:10px;color:#6b7280;margin-bottom:16px">' + escHtml(footerParts.join(' — ')) + ' · Curso ' + escHtml(cursoEscolarLabel) + '</div>';
 
-      html += '</table>';
-
-      // Contenidos & Actividades (if any, as separate compact sections)
-      var hasContents = state.objectives.some(function(obj) {
-        return obj.contents.some(function(c) { return c.text.trim(); });
-      });
-      var hasActivities = state.objectives.some(function(obj) {
-        return obj.activities.some(function(a) { return a.text.trim(); });
-      });
-
-      if (hasContents) {
-        html += '<table class="print-table" style="margin-top:20px">';
-        html += '<tr><th colspan="4" class="type-content">CONTENIDOS</th></tr>';
-        state.objectives.forEach(function(obj, i) {
-          obj.contents.forEach(function(cnt) {
-            if (cnt.text.trim()) {
-              html += '<tr><td colspan="4">' + escHtml(cnt.text) + '</td></tr>';
-            }
-          });
-        });
-        html += '</table>';
-      }
-
-      if (hasActivities) {
+        // Table: Objetivos / Indicadores
         html += '<table class="print-table">';
-        html += '<tr><th colspan="4" class="type-activity">ACTIVIDADES</th></tr>';
-        state.objectives.forEach(function(obj, i) {
-          obj.activities.forEach(function(act) {
-            if (act.text.trim()) {
-              html += '<tr><td colspan="4">' + escHtml(act.text) + '</td></tr>';
+        html += '<tr><th style="width:auto">Objetivos / Indicadores</th><th class="eval-col">1T</th><th class="eval-col">2T</th><th class="eval-col">3T</th></tr>';
+
+        area.objectives.forEach(function(obj, i) {
+          var objNum = i + 1;
+          html += '<tr class="obj-row"><td colspan="4">' + objNum + '.- ' + escHtml(obj.title || '—') + '</td></tr>';
+
+          var indCount = 0;
+          obj.indicators.forEach(function(ind) {
+            if (ind.text.trim()) {
+              indCount++;
+              html += '<tr>';
+              html += '<td>' + objNum + '.' + indCount + '.- ' + escHtml(ind.text) + '</td>';
+              html += '<td class="eval-col">' + escHtml(ind.eval1T || '') + '</td>';
+              html += '<td class="eval-col">' + escHtml(ind.eval2T || '') + '</td>';
+              html += '<td class="eval-col">' + escHtml(ind.eval3T || '') + '</td>';
+              html += '</tr>';
             }
           });
         });
         html += '</table>';
-      }
+
+        // Contenidos & Actividades for this area
+        var hasContents = area.objectives.some(function(obj) {
+          return obj.contents.some(function(c) { return c.text.trim(); });
+        });
+        var hasActivities = area.objectives.some(function(obj) {
+          return obj.activities.some(function(a) { return a.text.trim(); });
+        });
+
+        if (hasContents) {
+          html += '<table class="print-table" style="margin-top:16px">';
+          html += '<tr><th colspan="4" class="type-content">CONTENIDOS</th></tr>';
+          area.objectives.forEach(function(obj) {
+            obj.contents.forEach(function(cnt) {
+              if (cnt.text.trim()) {
+                html += '<tr><td colspan="4">' + escHtml(cnt.text) + '</td></tr>';
+              }
+            });
+          });
+          html += '</table>';
+        }
+
+        if (hasActivities) {
+          html += '<table class="print-table">';
+          html += '<tr><th colspan="4" class="type-activity">ACTIVIDADES</th></tr>';
+          area.objectives.forEach(function(obj) {
+            obj.activities.forEach(function(act) {
+              if (act.text.trim()) {
+                html += '<tr><td colspan="4">' + escHtml(act.text) + '</td></tr>';
+              }
+            });
+          });
+          html += '</table>';
+        }
+      }); // end areas loop
 
       // Observations section
       html += '<div style="margin-top:24px;border:1px solid #d1d5db;border-radius:8px;padding:14px">';

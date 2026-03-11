@@ -128,9 +128,7 @@ function getStudentData(studentName) {
   const result = {
     studentName: String(meta[1] || '').trim(),
     course: String(meta[3] || '').trim(),
-    programType: String(meta[5] || '').trim(),
-    area: String(meta[7] || '').trim(),
-    objectives: []
+    areas: []
   };
 
   // Find the header row (contains 'TIPO') then read data after it
@@ -141,13 +139,14 @@ function getStudentData(studentName) {
       break;
     }
   }
-  if (headerIndex < 0) return result; // no data rows
+  if (headerIndex < 0) return result;
 
+  let currentArea = null;
   let currentObj = null;
 
   for (let i = headerIndex + 1; i < data.length; i++) {
     const row = data[i];
-    const objNum = String(row[0] || '').trim();
+    const col0 = String(row[0] || '').trim();
     const tipo = String(row[1] || '').trim().toUpperCase();
     const texto = String(row[2] || '').trim();
     const eval1T = String(row[3] || '').trim();
@@ -156,14 +155,18 @@ function getStudentData(studentName) {
 
     if (!tipo && !texto) continue;
 
-    if (tipo === 'OBJETIVO') {
+    if (tipo === 'ÁREA' || tipo === 'AREA') {
+      currentArea = { name: texto, objectives: [] };
+      result.areas.push(currentArea);
+      currentObj = null;
+    } else if (tipo === 'OBJETIVO' && currentArea) {
       currentObj = {
         title: texto,
         indicators: [],
         contents: [],
         activities: []
       };
-      result.objectives.push(currentObj);
+      currentArea.objectives.push(currentObj);
     } else if (currentObj) {
       const item = { text: texto, eval1T, eval2T, eval3T };
       if (tipo === 'INDICADOR') {
@@ -195,49 +198,54 @@ function saveStudentData(payload) {
   }
 
   // Row 1: metadata
+  const areaNames = (data.areas || []).map(function(a) { return a.name; }).join(', ');
   sheet.appendRow([
     'ALUMNO/A', data.studentName,
     'CURSO', data.course,
-    'PROGRAMA', data.programType,
-    'ÁREA', data.area
+    'PROGRAMA', 'PE',
+    'ÁMBITOS', areaNames
   ]);
 
   // Row 2: headers
-  sheet.appendRow(['Nº OBJ', 'TIPO', 'TEXTO', '1T', '2T', '3T']);
+  sheet.appendRow(['', 'TIPO', 'TEXTO', '1T', '2T', '3T']);
 
-  // Row 4+: objectives data
-  const objectives = data.objectives || [];
-  for (let i = 0; i < objectives.length; i++) {
-    const obj = objectives[i];
-    const objLabel = 'Obj. ' + (i + 1);
+  // Data rows grouped by area
+  const areas = data.areas || [];
+  for (let a = 0; a < areas.length; a++) {
+    const area = areas[a];
 
-    // Objective description
-    sheet.appendRow([objLabel, 'OBJETIVO', obj.title || '', '', '', '']);
+    // Area header row
+    sheet.appendRow(['', 'ÁREA', area.name, '', '', '']);
 
-    // Indicators (with evaluation data)
-    (obj.indicators || []).forEach(function(ind) {
-      if (ind.text && ind.text.trim()) {
-        sheet.appendRow([objLabel, 'INDICADOR', ind.text.trim(),
-          ind.eval1T || '', ind.eval2T || '', ind.eval3T || '']);
-      }
-    });
+    const objectives = area.objectives || [];
+    for (let i = 0; i < objectives.length; i++) {
+      const obj = objectives[i];
+      const objLabel = 'Obj. ' + (i + 1);
 
-    // Contents
-    (obj.contents || []).forEach(function(cnt) {
-      if (cnt.text && cnt.text.trim()) {
-        sheet.appendRow([objLabel, 'CONTENIDO', cnt.text.trim(), '', '', '']);
-      }
-    });
+      sheet.appendRow([objLabel, 'OBJETIVO', obj.title || '', '', '', '']);
 
-    // Activities
-    (obj.activities || []).forEach(function(act) {
-      if (act.text && act.text.trim()) {
-        sheet.appendRow([objLabel, 'ACTIVIDAD', act.text.trim(), '', '', '']);
-      }
-    });
+      (obj.indicators || []).forEach(function(ind) {
+        if (ind.text && ind.text.trim()) {
+          sheet.appendRow([objLabel, 'INDICADOR', ind.text.trim(),
+            ind.eval1T || '', ind.eval2T || '', ind.eval3T || '']);
+        }
+      });
 
-    // Empty row between objectives
-    if (i < objectives.length - 1) {
+      (obj.contents || []).forEach(function(cnt) {
+        if (cnt.text && cnt.text.trim()) {
+          sheet.appendRow([objLabel, 'CONTENIDO', cnt.text.trim(), '', '', '']);
+        }
+      });
+
+      (obj.activities || []).forEach(function(act) {
+        if (act.text && act.text.trim()) {
+          sheet.appendRow([objLabel, 'ACTIVIDAD', act.text.trim(), '', '', '']);
+        }
+      });
+    }
+
+    // Empty row between areas
+    if (a < areas.length - 1) {
       sheet.appendRow(['']);
     }
   }
@@ -246,7 +254,7 @@ function saveStudentData(payload) {
   formatStudentSheet_(sheet);
 
   // Update Índice
-  updateIndice_(data.studentName, data.course, data.programType, data.area);
+  updateIndice_(data.studentName, data.course, 'PE', areaNames);
 
   return { success: true, message: 'Datos guardados correctamente' };
 }
@@ -279,14 +287,7 @@ function formatStudentSheet_(sheet) {
   // Header row 1 (metadata)
   const metaRange = sheet.getRange(1, 1, 1, 8);
   metaRange.setFontWeight('bold');
-  sheet.getRange(1, 1).setFontWeight('bold');
-  sheet.getRange(1, 3).setFontWeight('bold');
-  sheet.getRange(1, 5).setFontWeight('bold');
-  sheet.getRange(1, 7).setFontWeight('bold');
-  sheet.getRange(1, 2).setFontWeight('normal');
-  sheet.getRange(1, 4).setFontWeight('normal');
-  sheet.getRange(1, 6).setFontWeight('normal');
-  sheet.getRange(1, 8).setFontWeight('normal');
+  [2, 4, 6, 8].forEach(function(c) { sheet.getRange(1, c).setFontWeight('normal'); });
 
   // Headers row 2
   const headerRange = sheet.getRange(2, 1, 1, 6);
@@ -316,7 +317,9 @@ function formatStudentSheet_(sheet) {
       const row = i + 3;
       const range = sheet.getRange(row, 1, 1, 6);
 
-      if (tipo === 'OBJETIVO') {
+      if (tipo === 'ÁREA' || tipo === 'AREA') {
+        range.setBackground('#1b4332').setFontColor('#ffffff').setFontWeight('bold');
+      } else if (tipo === 'OBJETIVO') {
         range.setBackground('#d1fae5').setFontWeight('bold');
       } else if (tipo === 'INDICADOR') {
         range.setBackground('#fef3c7');
