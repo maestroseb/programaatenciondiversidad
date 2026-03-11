@@ -132,7 +132,8 @@ function getStudentData(studentName) {
     seguimiento1T: '',
     seguimiento2T: '',
     seguimiento3T: '',
-    areas: []
+    areas: [],
+    informeFamilias: { indicadores: [], evaluaciones: [] }
   };
 
   // Find the header row (contains 'TIPO') then read data after it
@@ -156,6 +157,7 @@ function getStudentData(studentName) {
     const eval1T = String(row[3] || '').trim();
     const eval2T = String(row[4] || '').trim();
     const eval3T = String(row[5] || '').trim();
+    const col6 = String(row[6] || '').trim();
 
     if (!tipo && !texto) continue;
 
@@ -179,8 +181,11 @@ function getStudentData(studentName) {
       result.seguimiento2T = texto;
     } else if (tipo === 'SEGUIMIENTO 3T') {
       result.seguimiento3T = texto;
+    } else if (tipo === 'INFORME_INDICADOR') {
+      result.informeFamilias.indicadores.push({ text: texto });
+      result.informeFamilias.evaluaciones.push({ eval1T, eval2T, eval3T });
     } else if (currentObj) {
-      const item = { text: texto, eval1T, eval2T, eval3T };
+      const item = { text: texto, eval1T, eval2T, eval3T, observaciones: col6 };
       if (tipo === 'INDICADOR') {
         currentObj.indicators.push(item);
       } else if (tipo === 'CONTENIDO') {
@@ -219,7 +224,7 @@ function saveStudentData(payload) {
   ]);
 
   // Row 2: headers
-  sheet.appendRow(['', 'TIPO', 'TEXTO', '1T', '2T', '3T']);
+  sheet.appendRow(['', 'TIPO', 'TEXTO', '1T', '2T', '3T', 'OBSERVACIONES']);
 
   // Data rows grouped by area
   const areas = data.areas || [];
@@ -239,7 +244,7 @@ function saveStudentData(payload) {
       (obj.indicators || []).forEach(function(ind) {
         if (ind.text && ind.text.trim()) {
           sheet.appendRow([objLabel, 'INDICADOR', ind.text.trim(),
-            ind.eval1T || '', ind.eval2T || '', ind.eval3T || '']);
+            ind.eval1T || '', ind.eval2T || '', ind.eval3T || '', ind.observaciones || '']);
         }
       });
 
@@ -275,6 +280,20 @@ function saveStudentData(payload) {
   }
   if (data.seguimiento3T) {
     sheet.appendRow(['', 'SEGUIMIENTO 3T', data.seguimiento3T, '', '', '']);
+  }
+
+  // Informe a las familias
+  var informe = data.informeFamilias;
+  if (informe && informe.indicadores && informe.indicadores.length > 0) {
+    sheet.appendRow(['']);
+    for (var fi = 0; fi < informe.indicadores.length; fi++) {
+      var indText = informe.indicadores[fi].text || '';
+      var ev = (informe.evaluaciones && informe.evaluaciones[fi]) || {};
+      if (indText.trim()) {
+        sheet.appendRow(['', 'INFORME_INDICADOR', indText.trim(),
+          ev.eval1T || '', ev.eval2T || '', ev.eval3T || '']);
+      }
+    }
   }
 
   // Format the sheet
@@ -317,7 +336,7 @@ function formatStudentSheet_(sheet) {
   [2, 4, 6, 8].forEach(function(c) { sheet.getRange(1, c).setFontWeight('normal'); });
 
   // Headers row 2
-  const headerRange = sheet.getRange(2, 1, 1, 6);
+  const headerRange = sheet.getRange(2, 1, 1, 7);
   headerRange.setFontWeight('bold');
   headerRange.setBackground('#2d6a4f');
   headerRange.setFontColor('#ffffff');
@@ -329,6 +348,7 @@ function formatStudentSheet_(sheet) {
   sheet.setColumnWidth(4, 50);   // 1T
   sheet.setColumnWidth(5, 50);   // 2T
   sheet.setColumnWidth(6, 50);   // 3T
+  sheet.setColumnWidth(7, 300);  // OBSERVACIONES
 
   // Freeze header rows
   sheet.setFrozenRows(2);
@@ -336,13 +356,13 @@ function formatStudentSheet_(sheet) {
   // Color-code rows by type
   const lastRow = sheet.getLastRow();
   if (lastRow > 2) {
-    const dataRange = sheet.getRange(3, 1, lastRow - 2, 6);
+    const dataRange = sheet.getRange(3, 1, lastRow - 2, 7);
     const values = dataRange.getValues();
 
     for (let i = 0; i < values.length; i++) {
       const tipo = String(values[i][1]).trim().toUpperCase();
       const row = i + 3;
-      const range = sheet.getRange(row, 1, 1, 6);
+      const range = sheet.getRange(row, 1, 1, 7);
 
       if (tipo === 'ÁREA' || tipo === 'AREA') {
         range.setBackground('#1b4332').setFontColor('#ffffff').setFontWeight('bold');
@@ -357,6 +377,8 @@ function formatStudentSheet_(sheet) {
       } else if (tipo.startsWith('VALORACIÓN') || tipo.startsWith('SEGUIMIENTO')) {
         range.setBackground('#f3f4f6').setFontWeight('bold');
         sheet.getRange(row, 3).setWrap(true);
+      } else if (tipo === 'INFORME_INDICADOR') {
+        range.setBackground('#fce7f3');
       }
     }
   }

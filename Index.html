@@ -216,6 +216,44 @@
       resize: none; overflow: hidden; min-height: 60px;
     }
 
+    /* ─── Rich text toolbar ─── */
+    .richtext-wrap { border: 1.5px solid #e5e7eb; border-radius: 10px; overflow: hidden; }
+    .richtext-toolbar {
+      display: flex; gap: 2px; padding: 4px 8px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;
+    }
+    .richtext-toolbar button {
+      background: #fff; border: 1px solid #d1d5db; border-radius: 6px; padding: 4px 10px;
+      cursor: pointer; font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; color: #374151;
+    }
+    .richtext-toolbar button:hover { background: #f0fdf4; border-color: #86efac; }
+    .richtext-editor {
+      min-height: 60px; padding: 10px 14px; font-size: 14px; font-family: 'Nunito', sans-serif;
+      line-height: 1.6; outline: none; overflow-y: auto;
+    }
+    .richtext-editor:focus { background: #fefffe; }
+    .richtext-editor ul, .richtext-editor ol { margin-left: 20px; }
+
+    /* ─── Indicator observations ─── */
+    .ind-obs-textarea {
+      width: 100%; padding: 6px 10px; border-radius: 8px; border: 1px solid #e5e7eb;
+      font-size: 13px; font-family: 'Nunito', sans-serif; line-height: 1.4;
+      resize: none; overflow: hidden; min-height: 30px; margin-top: 4px;
+      background: #fffbeb; color: #78350f;
+    }
+
+    /* ─── Informe familias ─── */
+    .informe-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+    .informe-table th, .informe-table td { border: 1px solid #d1d5db; padding: 8px 10px; text-align: center; vertical-align: middle; }
+    .informe-table th { background: #f3f4f6; font-weight: 700; }
+    .informe-table td:first-child { text-align: left; }
+    .informe-level-btn {
+      width: 36px; height: 36px; border-radius: 50%; border: 2px solid #e5e7eb;
+      background: #fff; cursor: pointer; font-size: 20px; transition: all 0.15s;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .informe-level-btn:hover { transform: scale(1.15); }
+    .informe-level-btn.active { border-color: #2d6a4f; box-shadow: 0 0 0 3px rgba(45,106,79,0.2); transform: scale(1.15); }
+
     /* ─── Add objective ─── */
     .btn-add-obj {
       width: 100%; padding: 14px; margin-top: 0;
@@ -404,7 +442,9 @@
       seguimiento3T: '',
       // Config
       config: { centro: '', localidad: '', cursoEscolar: '' },
-      courseFilter: 'Todos'
+      courseFilter: 'Todos',
+      // Informe a las familias
+      informeFamilias: { indicadores: [], evaluaciones: [] }
     };
 
     const COURSES = [
@@ -433,7 +473,8 @@
         valoracionInicial: state.valoracionInicial,
         seguimiento1T: state.seguimiento1T,
         seguimiento2T: state.seguimiento2T,
-        seguimiento3T: state.seguimiento3T
+        seguimiento3T: state.seguimiento3T,
+        informeFamilias: JSON.parse(JSON.stringify(state.informeFamilias))
       });
       if (undoStack.length > MAX_UNDO) undoStack.shift();
       updateUndoButton();
@@ -449,6 +490,7 @@
       state.seguimiento1T = snapshot.seguimiento1T;
       state.seguimiento2T = snapshot.seguimiento2T;
       state.seguimiento3T = snapshot.seguimiento3T;
+      state.informeFamilias = snapshot.informeFamilias;
       state.dirty = true;
       updateUndoButton();
       renderFormView();
@@ -622,13 +664,19 @@
                   return {
                     id: uid(),
                     title: o.title,
-                    indicators: o.indicators.map(function(x) { return { id: uid(), text: x.text, eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '' }; }),
+                    indicators: o.indicators.map(function(x) { return { id: uid(), text: x.text, eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '', observaciones: x.observaciones || '' }; }),
                     contents: o.contents.map(function(x) { return { id: uid(), text: x.text }; }),
                     activities: o.activities.map(function(x) { return { id: uid(), text: x.text }; })
                   };
                 })
               };
             });
+            // Load informe familias
+            var inf = data.informeFamilias || { indicadores: [], evaluaciones: [] };
+            state.informeFamilias = {
+              indicadores: (inf.indicadores || []).map(function(x) { return { id: uid(), text: x.text || '' }; }),
+              evaluaciones: (inf.evaluaciones || []).map(function(x) { return { eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '' }; })
+            };
           } else {
             var s = state.students.find(function(st) { return st.name === name; });
             state.studentName = name;
@@ -638,6 +686,7 @@
             state.seguimiento1T = '';
             state.seguimiento2T = '';
             state.seguimiento3T = '';
+            state.informeFamilias = { indicadores: [], evaluaciones: [] };
           }
           state.view = 'form';
           renderFormView();
@@ -663,6 +712,7 @@
       state.seguimiento1T = '';
       state.seguimiento2T = '';
       state.seguimiento3T = '';
+      state.informeFamilias = { indicadores: [], evaluaciones: [] };
       state.view = 'form';
       renderFormView();
       showToast('Introduce los datos del nuevo alumno', 'info');
@@ -699,6 +749,7 @@
       nav += '<a class="nav-section" onclick="scrollToId(\'secSeg1T\')">Seguimiento 1T</a>';
       nav += '<a class="nav-section" onclick="scrollToId(\'secSeg2T\')">Seguimiento 2T</a>';
       nav += '<a class="nav-section" onclick="scrollToId(\'secSeg3T\')">Seguimiento 3T</a>';
+      nav += '<a class="nav-section" onclick="scrollToId(\'secInforme\')">Informe familias</a>';
       nav += '</nav>';
 
       // ─── Main content ───
@@ -751,16 +802,26 @@
         html += '<div class="followup-card" id="' + f.id + '">';
         html += '<div class="followup-header">' + f.icon + ' ' + escHtml(f.label) + '</div>';
         html += '<div class="followup-body">';
-        html += '<textarea class="followup-textarea" placeholder="Escribe aquí..." oninput="autoResize(this);updateFollowup(\'' + f.key + '\',this.value)">' + escHtml(state[f.key]) + '</textarea>';
+        html += '<div class="richtext-wrap">';
+        html += '<div class="richtext-toolbar">';
+        html += '<button onmousedown="event.preventDefault();richExec(\'bold\')" title="Negrita"><b>N</b></button>';
+        html += '<button onmousedown="event.preventDefault();richExec(\'italic\')" title="Cursiva"><i>K</i></button>';
+        html += '<button onmousedown="event.preventDefault();richExec(\'insertUnorderedList\')" title="Viñetas">• Lista</button>';
+        html += '</div>';
+        html += '<div class="richtext-editor" contenteditable="true" data-key="' + f.key + '" oninput="updateFollowupRich(\'' + f.key + '\',this)" onblur="updateFollowupRich(\'' + f.key + '\',this)">' + (state[f.key] || '') + '</div>';
+        html += '</div>';
         html += '</div></div>';
       });
+
+      // ─── Informe a las familias ───
+      html += renderInformeFamilias();
 
       html += '</div>'; // close content-main
 
       contentEl.innerHTML = html;
 
-      // Auto-resize all follow-up textareas on load
-      document.querySelectorAll('.followup-textarea').forEach(function(ta) { autoResize(ta); });
+      // Auto-resize observation textareas
+      document.querySelectorAll('.ind-obs-textarea').forEach(function(ta) { autoResize(ta); });
     }
 
     function scrollToId(id) {
@@ -775,6 +836,15 @@
 
     function updateFollowup(key, value) {
       state[key] = value;
+      markDirty();
+    }
+
+    function richExec(command) {
+      document.execCommand(command, false, null);
+    }
+
+    function updateFollowupRich(key, el) {
+      state[key] = el.innerHTML;
       markDirty();
     }
 
@@ -884,6 +954,11 @@
           html += '<button class="btn-remove-item" onclick="removeListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\')">×</button>';
         }
         html += '</div>';
+        if (isIndicator) {
+          html += '<div style="margin-left:28px;margin-bottom:8px">';
+          html += '<textarea class="ind-obs-textarea" placeholder="Observaciones del indicador..." oninput="autoResize(this);updateIndicatorObs(\'' + objId + '\',\'' + item.id + '\',this.value)">' + escHtml(item.observaciones || '') + '</textarea>';
+          html += '</div>';
+        }
       });
       html += '<button class="btn-add-item" onclick="addListItem(\'' + objId + '\',\'' + listType + '\')">+ Añadir</button>';
       return html;
@@ -1000,10 +1075,20 @@
       }
     }
 
+    function updateIndicatorObs(objId, itemId, value) {
+      var found = findObjInAreas(objId);
+      if (found) {
+        var item = found.obj.indicators.find(function(i) { return i.id === itemId; });
+        if (item) { item.observaciones = value; markDirty(); }
+      }
+    }
+
     function addListItem(objId, listType) {
       var found = findObjInAreas(objId);
       if (found) {
-        found.obj[listType].push({ id: uid(), text: '' });
+        var newItem = { id: uid(), text: '' };
+        if (listType === 'indicators') newItem.observaciones = '';
+        found.obj[listType].push(newItem);
         markDirty();
         renderFormView();
       }
@@ -1040,10 +1125,108 @@
       return {
         id: uid(),
         title: '',
-        indicators: [{ id: uid(), text: '' }],
+        indicators: [{ id: uid(), text: '', observaciones: '' }],
         contents: [{ id: uid(), text: '' }],
         activities: [{ id: uid(), text: '' }]
       };
+    }
+
+    /* ─── Informe a las familias ─── */
+    var INFORME_LEVELS = [
+      { key: 'muybien', label: 'Muy bien', emoji: '\uD83D\uDE0A\uD83D\uDC4D' },
+      { key: 'positivo', label: 'Evoluciona positivamente', emoji: '\uD83D\uDE0A' },
+      { key: 'regular', label: 'Regular', emoji: '\uD83D\uDE10' },
+      { key: 'mejorar', label: 'Necesita mejorar', emoji: '\uD83D\uDE1F' }
+    ];
+
+    function renderInformeFamilias() {
+      var inf = state.informeFamilias;
+      var html = '<div class="card" id="secInforme" style="margin-top:20px">';
+      html += '<div class="card-body">';
+      html += '<div class="card-title"><span class="card-icon">👨‍👩‍👧</span> Informe a las familias</div>';
+
+      // Indicator list editor
+      html += '<label class="field-label">Indicadores para el informe</label>';
+      html += '<div style="margin-bottom:14px">';
+      inf.indicadores.forEach(function(ind, idx) {
+        html += '<div style="display:flex;gap:6px;align-items:flex-start;margin-bottom:6px">';
+        html += '<span class="list-num" style="background:#fce7f3;margin-top:9px">' + (idx + 1) + '</span>';
+        html += '<textarea class="list-textarea" rows="2" placeholder="Describe el indicador..." oninput="updateInformeIndicador(' + idx + ',this.value)">' + escHtml(ind.text) + '</textarea>';
+        if (inf.indicadores.length > 1) {
+          html += '<button class="btn-remove-item" onclick="removeInformeIndicador(' + idx + ')">×</button>';
+        }
+        html += '</div>';
+      });
+      html += '<button class="btn-add-item" onclick="addInformeIndicador()">+ Añadir indicador</button>';
+      html += '</div>';
+
+      // Trimester tables
+      var trimesters = [
+        { key: '1T', label: 'SEGUIMIENTO DEL 1er TRIMESTRE P.T. y A.L.' },
+        { key: '2T', label: 'SEGUIMIENTO DEL 2º TRIMESTRE P.T. y A.L.' },
+        { key: '3T', label: 'SEGUIMIENTO DEL 3er TRIMESTRE P.T. y A.L.' }
+      ];
+
+      if (inf.indicadores.length > 0 && inf.indicadores.some(function(i) { return i.text.trim(); })) {
+        trimesters.forEach(function(tri) {
+          html += '<div style="margin-top:16px;font-weight:800;font-size:14px;text-align:center;color:#1b4332;margin-bottom:8px">' + tri.label + '</div>';
+          html += '<table class="informe-table">';
+          html += '<tr><th style="text-align:left;width:40%">Indicadores</th>';
+          INFORME_LEVELS.forEach(function(lv) {
+            html += '<th>' + escHtml(lv.label) + '<br><span style="font-size:22px">' + lv.emoji + '</span></th>';
+          });
+          html += '</tr>';
+          inf.indicadores.forEach(function(ind, idx) {
+            if (!ind.text.trim()) return;
+            var ev = inf.evaluaciones[idx] || {};
+            var currentVal = ev['eval' + tri.key] || '';
+            html += '<tr><td style="font-weight:600">' + (idx + 1) + '.- ' + escHtml(ind.text) + '</td>';
+            INFORME_LEVELS.forEach(function(lv) {
+              var isActive = currentVal === lv.key;
+              html += '<td><button class="informe-level-btn' + (isActive ? ' active' : '') + '" onclick="setInformeLevel(' + idx + ',\'' + tri.key + '\',\'' + lv.key + '\')">' + lv.emoji + '</button></td>';
+            });
+            html += '</tr>';
+          });
+          html += '</table>';
+        });
+      }
+
+      html += '</div></div>';
+      return html;
+    }
+
+    function addInformeIndicador() {
+      pushUndo();
+      state.informeFamilias.indicadores.push({ id: uid(), text: '' });
+      state.informeFamilias.evaluaciones.push({ eval1T: '', eval2T: '', eval3T: '' });
+      markDirty();
+      renderFormView();
+    }
+
+    function removeInformeIndicador(idx) {
+      if (state.informeFamilias.indicadores.length <= 1) return;
+      pushUndo();
+      state.informeFamilias.indicadores.splice(idx, 1);
+      state.informeFamilias.evaluaciones.splice(idx, 1);
+      markDirty();
+      renderFormView();
+    }
+
+    function updateInformeIndicador(idx, value) {
+      state.informeFamilias.indicadores[idx].text = value;
+      markDirty();
+    }
+
+    function setInformeLevel(idx, trimester, level) {
+      if (!state.informeFamilias.evaluaciones[idx]) {
+        state.informeFamilias.evaluaciones[idx] = { eval1T: '', eval2T: '', eval3T: '' };
+      }
+      var ev = state.informeFamilias.evaluaciones[idx];
+      var key = 'eval' + trimester;
+      // Toggle off if already selected
+      ev[key] = (ev[key] === level) ? '' : level;
+      markDirty();
+      renderFormView();
     }
 
     function clearForm() {
@@ -1058,6 +1241,7 @@
         state.seguimiento1T = '';
         state.seguimiento2T = '';
         state.seguimiento3T = '';
+        state.informeFamilias = { indicadores: [], evaluaciones: [] };
       }
       state.dirty = false;
       renderFormView();
@@ -1081,6 +1265,12 @@
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span> Guardando...';
 
+      // Read rich text follow-up fields from contenteditable
+      document.querySelectorAll('.richtext-editor').forEach(function(el) {
+        var key = el.getAttribute('data-key');
+        if (key) state[key] = el.innerHTML;
+      });
+
       var payload = JSON.stringify({
         studentName: state.studentName,
         course: state.course,
@@ -1088,6 +1278,10 @@
         seguimiento1T: state.seguimiento1T,
         seguimiento2T: state.seguimiento2T,
         seguimiento3T: state.seguimiento3T,
+        informeFamilias: {
+          indicadores: state.informeFamilias.indicadores.filter(function(i) { return i.text.trim(); }),
+          evaluaciones: state.informeFamilias.evaluaciones
+        },
         areas: state.areas.map(function(area) {
           return {
             name: area.name,
@@ -1095,7 +1289,7 @@
               return {
                 title: o.title,
                 indicators: o.indicators.filter(function(i) { return i.text.trim(); }).map(function(i) {
-                  return { text: i.text, eval1T: i.eval1T || '', eval2T: i.eval2T || '', eval3T: i.eval3T || '' };
+                  return { text: i.text, eval1T: i.eval1T || '', eval2T: i.eval2T || '', eval3T: i.eval3T || '', observaciones: i.observaciones || '' };
                 }),
                 contents: o.contents.filter(function(c) { return c.text.trim(); }),
                 activities: o.activities.filter(function(a) { return a.text.trim(); })
@@ -1144,6 +1338,11 @@
       // Read latest values
       state.studentName = document.getElementById('fName').value.trim();
       state.course = document.getElementById('fCourse').value;
+      // Read rich text follow-up fields
+      document.querySelectorAll('.richtext-editor').forEach(function(el) {
+        var key = el.getAttribute('data-key');
+        if (key) state[key] = el.innerHTML;
+      });
 
       var html = '<div class="print-overlay" id="printOverlay" onclick="if(event.target===this)closePrint()">';
       html += '<div class="print-container">';
@@ -1200,6 +1399,9 @@
               html += '<td class="eval-col">' + escHtml(ind.eval2T || '') + '</td>';
               html += '<td class="eval-col">' + escHtml(ind.eval3T || '') + '</td>';
               html += '</tr>';
+              if (ind.observaciones && ind.observaciones.trim()) {
+                html += '<tr><td colspan="4" style="font-size:11px;color:#78350f;font-style:italic;padding-left:24px;background:#fffbeb">Obs: ' + escHtml(ind.observaciones) + '</td></tr>';
+              }
             }
           });
         });
@@ -1261,13 +1463,52 @@
       printFollowups.forEach(function(f) {
         html += '<div style="margin-bottom:20px;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">';
         html += '<div style="padding:8px 14px;background:#e5e7eb;font-weight:800;font-size:13px">' + escHtml(f.label) + '</div>';
-        if (f.text.trim()) {
-          html += '<div style="padding:12px 14px;font-size:13px;line-height:1.6;white-space:pre-wrap">' + escHtml(f.text) + '</div>';
+        var hasContent = f.text && f.text.trim() && f.text.trim() !== '<br>';
+        if (hasContent) {
+          html += '<div style="padding:12px 14px;font-size:13px;line-height:1.6">' + f.text + '</div>';
         } else {
           html += '<div style="padding:12px 14px;min-height:80px;color:#9ca3af;font-size:12px;font-style:italic">Sin completar</div>';
         }
         html += '</div>';
       });
+
+      // Informe a las familias (print)
+      var inf = state.informeFamilias;
+      var hasInformeData = inf.indicadores && inf.indicadores.some(function(i) { return i.text && i.text.trim(); });
+      if (hasInformeData) {
+        var printTrimesters = [
+          { key: '1T', label: 'SEGUIMIENTO DEL 1er TRIMESTRE P.T. y A.L.' },
+          { key: '2T', label: 'SEGUIMIENTO DEL 2º TRIMESTRE P.T. y A.L.' },
+          { key: '3T', label: 'SEGUIMIENTO DEL 3er TRIMESTRE P.T. y A.L.' }
+        ];
+        printTrimesters.forEach(function(tri) {
+          html += '<div style="page-break-before:always;margin-top:30px"></div>';
+          html += '<div style="text-align:center;font-weight:800;font-size:16px;margin-bottom:12px;border:2px solid #000;padding:10px">' + tri.label + '</div>';
+          html += '<div style="margin-bottom:12px;font-size:13px"><b>Nombre:</b> ' + escHtml(state.studentName) + ' &nbsp; <b>Curso:</b> ' + escHtml(state.course) + '</div>';
+
+          html += '<table class="print-table" style="font-size:12px">';
+          html += '<tr><th colspan="5" style="text-align:center">Niveles de logro.</th></tr>';
+          html += '<tr><th rowspan="1" style="text-align:left;width:35%">Indicadores.</th>';
+          var levelEmojis = ['\uD83D\uDE0A\uD83D\uDC4D', '\uD83D\uDE0A', '\uD83D\uDE10', '\uD83D\uDE1F'];
+          var levelLabels = ['Muy bien.', 'Evoluciona positivamente.', 'Regular.', 'Necesita mejorar.'];
+          for (var li = 0; li < 4; li++) {
+            html += '<th style="text-align:center;width:16%"><b>' + levelLabels[li] + '</b><br><span style="font-size:24px">' + levelEmojis[li] + '</span></th>';
+          }
+          html += '</tr>';
+
+          inf.indicadores.forEach(function(ind, idx) {
+            if (!ind.text || !ind.text.trim()) return;
+            var ev = inf.evaluaciones[idx] || {};
+            var val = ev['eval' + tri.key] || '';
+            html += '<tr><td style="font-weight:600">' + (idx + 1) + '.- ' + escHtml(ind.text) + '</td>';
+            ['muybien', 'positivo', 'regular', 'mejorar'].forEach(function(lk) {
+              html += '<td style="text-align:center">' + (val === lk ? '✔' : '') + '</td>';
+            });
+            html += '</tr>';
+          });
+          html += '</table>';
+        });
+      }
 
       // Signature
       html += '<div style="margin-top:30px;display:flex;justify-content:space-between;font-size:12px;color:#6b7280">';
