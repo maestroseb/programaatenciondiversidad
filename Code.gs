@@ -128,6 +128,10 @@ function getStudentData(studentName) {
   const result = {
     studentName: String(meta[1] || '').trim(),
     course: String(meta[3] || '').trim(),
+    valoracionInicial: '',
+    seguimiento1T: '',
+    seguimiento2T: '',
+    seguimiento3T: '',
     areas: []
   };
 
@@ -167,6 +171,14 @@ function getStudentData(studentName) {
         activities: []
       };
       currentArea.objectives.push(currentObj);
+    } else if (tipo === 'VALORACIÓN INICIAL') {
+      result.valoracionInicial = texto;
+    } else if (tipo === 'SEGUIMIENTO 1T') {
+      result.seguimiento1T = texto;
+    } else if (tipo === 'SEGUIMIENTO 2T') {
+      result.seguimiento2T = texto;
+    } else if (tipo === 'SEGUIMIENTO 3T') {
+      result.seguimiento3T = texto;
     } else if (currentObj) {
       const item = { text: texto, eval1T, eval2T, eval3T };
       if (tipo === 'INDICADOR') {
@@ -250,6 +262,21 @@ function saveStudentData(payload) {
     }
   }
 
+  // Follow-up fields
+  sheet.appendRow(['']);
+  if (data.valoracionInicial) {
+    sheet.appendRow(['', 'VALORACIÓN INICIAL', data.valoracionInicial, '', '', '']);
+  }
+  if (data.seguimiento1T) {
+    sheet.appendRow(['', 'SEGUIMIENTO 1T', data.seguimiento1T, '', '', '']);
+  }
+  if (data.seguimiento2T) {
+    sheet.appendRow(['', 'SEGUIMIENTO 2T', data.seguimiento2T, '', '', '']);
+  }
+  if (data.seguimiento3T) {
+    sheet.appendRow(['', 'SEGUIMIENTO 3T', data.seguimiento3T, '', '', '']);
+  }
+
   // Format the sheet
   formatStudentSheet_(sheet);
 
@@ -297,7 +324,7 @@ function formatStudentSheet_(sheet) {
 
   // Column widths
   sheet.setColumnWidth(1, 80);   // Nº OBJ
-  sheet.setColumnWidth(2, 100);  // TIPO
+  sheet.setColumnWidth(2, 150);  // TIPO
   sheet.setColumnWidth(3, 450);  // TEXTO
   sheet.setColumnWidth(4, 50);   // 1T
   sheet.setColumnWidth(5, 50);   // 2T
@@ -327,6 +354,9 @@ function formatStudentSheet_(sheet) {
         range.setBackground('#ede9fe');
       } else if (tipo === 'ACTIVIDAD') {
         range.setBackground('#dbeafe');
+      } else if (tipo.startsWith('VALORACIÓN') || tipo.startsWith('SEGUIMIENTO')) {
+        range.setBackground('#f3f4f6').setFontWeight('bold');
+        sheet.getRange(row, 3).setWrap(true);
       }
     }
   }

@@ -45,6 +45,29 @@
 
     /* ─── Content ─── */
     .content { max-width: 800px; margin: 0 auto; padding: 20px 16px 100px; }
+    .content-with-nav { max-width: 1100px; margin: 0 auto; padding: 20px 16px 100px; display: flex; gap: 16px; }
+    .content-main { flex: 1; min-width: 0; }
+
+    /* ─── Side Nav ─── */
+    .side-nav {
+      width: 200px; flex-shrink: 0; position: sticky; top: 110px; align-self: flex-start;
+      background: #fff; border-radius: 14px; border: 1px solid #e5e7eb;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04); overflow: hidden;
+      max-height: calc(100vh - 130px); overflow-y: auto;
+    }
+    .side-nav-title {
+      padding: 10px 14px; background: #f3f4f6; font-size: 11px; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280;
+    }
+    .side-nav a {
+      display: block; padding: 8px 14px; font-size: 13px; font-weight: 600;
+      color: #374151; text-decoration: none; border-left: 3px solid transparent;
+      transition: all 0.15s; cursor: pointer;
+    }
+    .side-nav a:hover { background: #f0fdf4; border-left-color: #86efac; color: #2d6a4f; }
+    .side-nav a.nav-area { font-weight: 700; color: #1b4332; }
+    .side-nav a.nav-section { padding-left: 20px; font-size: 12px; color: #6b7280; }
+    @media (max-width: 860px) { .side-nav { display: none; } .content-with-nav { max-width: 800px; } }
 
     /* ─── Cards ─── */
     .card {
@@ -181,6 +204,19 @@
     }
     .btn-add-item:hover { border-color: #2d6a4f; color: #2d6a4f; }
 
+    /* ─── Follow-up fields ─── */
+    .followup-card { background: #fff; border-radius: 16px; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px rgba(0,0,0,0.04); margin-bottom: 14px; overflow: hidden; }
+    .followup-header {
+      padding: 10px 16px; font-weight: 800; font-size: 14px; color: #fff;
+      background: linear-gradient(135deg, #374151, #4b5563);
+    }
+    .followup-body { padding: 14px 16px; }
+    .followup-textarea {
+      width: 100%; padding: 10px 14px; border-radius: 10px; border: 1.5px solid #e5e7eb;
+      font-size: 14px; font-family: 'Nunito', sans-serif; line-height: 1.6;
+      resize: none; overflow: hidden; min-height: 60px;
+    }
+
     /* ─── Add objective ─── */
     .btn-add-obj {
       width: 100%; padding: 14px; margin-top: 14px; border-radius: 14px;
@@ -297,7 +333,7 @@
     @media print {
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
       body { background: #fff !important; }
-      .header, .bottom-bar, .print-toolbar, .content { display: none !important; }
+      .header, .bottom-bar, .print-toolbar, .content, .content-with-nav { display: none !important; }
       .print-overlay { position: static; background: none; padding: 0; }
       .print-container { max-height: none; box-shadow: none; border-radius: 0; }
       .print-content { padding: 20px; }
@@ -362,6 +398,11 @@
       studentName: '',
       course: '',
       areas: [], // [{name, objectives: [{id,title,indicators,contents,activities}]}]
+      // Follow-up text fields
+      valoracionInicial: '',
+      seguimiento1T: '',
+      seguimiento2T: '',
+      seguimiento3T: '',
       // Config
       config: { centro: '', localidad: '', cursoEscolar: '' },
       courseFilter: 'Todos'
@@ -389,7 +430,11 @@
       undoStack.push({
         studentName: state.studentName,
         course: state.course,
-        areas: JSON.parse(JSON.stringify(state.areas))
+        areas: JSON.parse(JSON.stringify(state.areas)),
+        valoracionInicial: state.valoracionInicial,
+        seguimiento1T: state.seguimiento1T,
+        seguimiento2T: state.seguimiento2T,
+        seguimiento3T: state.seguimiento3T
       });
       if (undoStack.length > MAX_UNDO) undoStack.shift();
       updateUndoButton();
@@ -401,6 +446,10 @@
       state.studentName = snapshot.studentName;
       state.course = snapshot.course;
       state.areas = snapshot.areas;
+      state.valoracionInicial = snapshot.valoracionInicial;
+      state.seguimiento1T = snapshot.seguimiento1T;
+      state.seguimiento2T = snapshot.seguimiento2T;
+      state.seguimiento3T = snapshot.seguimiento3T;
       state.dirty = true;
       updateUndoButton();
       renderFormView();
@@ -468,6 +517,7 @@
       document.getElementById('btnBack').style.display = 'none';
       document.getElementById('studentBadge').style.display = 'none';
       document.getElementById('bottomBar').style.display = 'none';
+      document.getElementById('content').className = 'content';
 
       if (loadingHtml) {
         document.getElementById('content').innerHTML = loadingHtml;
@@ -562,6 +612,10 @@
           if (data) {
             state.studentName = data.studentName;
             state.course = data.course;
+            state.valoracionInicial = data.valoracionInicial || '';
+            state.seguimiento1T = data.seguimiento1T || '';
+            state.seguimiento2T = data.seguimiento2T || '';
+            state.seguimiento3T = data.seguimiento3T || '';
             state.areas = (data.areas || []).map(function(a) {
               return {
                 name: a.name,
@@ -581,6 +635,10 @@
             state.studentName = name;
             state.course = s ? s.course : '';
             state.areas = [];
+            state.valoracionInicial = '';
+            state.seguimiento1T = '';
+            state.seguimiento2T = '';
+            state.seguimiento3T = '';
           }
           state.view = 'form';
           renderFormView();
@@ -602,6 +660,10 @@
       state.studentName = '';
       state.course = '';
       state.areas = [];
+      state.valoracionInicial = '';
+      state.seguimiento1T = '';
+      state.seguimiento2T = '';
+      state.seguimiento3T = '';
       state.view = 'form';
       renderFormView();
       showToast('Introduce los datos del nuevo alumno', 'info');
@@ -619,13 +681,31 @@
     function renderFormView() {
       document.getElementById('btnBack').style.display = '';
       document.getElementById('bottomBar').style.display = '';
+      var contentEl = document.getElementById('content');
+      contentEl.className = 'content-with-nav';
       updateBadge();
 
       var selectedAreaNames = state.areas.map(function(a) { return a.name; });
-      let html = '';
+
+      // ─── Side Nav ───
+      var nav = '<nav class="side-nav">';
+      nav += '<div class="side-nav-title">Navegación</div>';
+      nav += '<a onclick="scrollToId(\'secDatos\')">Datos del alumno</a>';
+      state.areas.forEach(function(area, i) {
+        var shortName = area.name.replace('Desarrollo ', '');
+        nav += '<a class="nav-area" onclick="scrollToId(\'area_' + i + '\')">' + escHtml(shortName) + '</a>';
+      });
+      nav += '<a class="nav-section" onclick="scrollToId(\'secValoracion\')">Valoración inicial</a>';
+      nav += '<a class="nav-section" onclick="scrollToId(\'secSeg1T\')">Seguimiento 1T</a>';
+      nav += '<a class="nav-section" onclick="scrollToId(\'secSeg2T\')">Seguimiento 2T</a>';
+      nav += '<a class="nav-section" onclick="scrollToId(\'secSeg3T\')">Seguimiento 3T</a>';
+      nav += '</nav>';
+
+      // ─── Main content ───
+      let html = nav + '<div class="content-main">';
 
       // ─── Student Info Card ───
-      html += '<div class="card"><div class="card-body">';
+      html += '<div class="card" id="secDatos"><div class="card-body">';
       html += '<div class="card-title"><span class="card-icon">👤</span> Datos del alumno/a</div>';
       html += '<div class="grid-2">';
       html += '<div><label class="field-label">Nombre del alumno/a *</label>';
@@ -660,7 +740,42 @@
         html += renderAreaSection(area, areaIdx);
       });
 
-      document.getElementById('content').innerHTML = html;
+      // ─── Follow-up fields ───
+      var followupFields = [
+        { id: 'secValoracion', key: 'valoracionInicial', label: 'Valoración inicial', icon: '📝' },
+        { id: 'secSeg1T', key: 'seguimiento1T', label: 'Seguimiento 1er Trimestre', icon: '1T' },
+        { id: 'secSeg2T', key: 'seguimiento2T', label: 'Seguimiento 2º Trimestre', icon: '2T' },
+        { id: 'secSeg3T', key: 'seguimiento3T', label: 'Seguimiento 3er Trimestre', icon: '3T' }
+      ];
+      followupFields.forEach(function(f) {
+        html += '<div class="followup-card" id="' + f.id + '">';
+        html += '<div class="followup-header">' + f.icon + ' ' + escHtml(f.label) + '</div>';
+        html += '<div class="followup-body">';
+        html += '<textarea class="followup-textarea" placeholder="Escribe aquí..." oninput="autoResize(this);updateFollowup(\'' + f.key + '\',this.value)">' + escHtml(state[f.key]) + '</textarea>';
+        html += '</div></div>';
+      });
+
+      html += '</div>'; // close content-main
+
+      contentEl.innerHTML = html;
+
+      // Auto-resize all follow-up textareas on load
+      document.querySelectorAll('.followup-textarea').forEach(function(ta) { autoResize(ta); });
+    }
+
+    function scrollToId(id) {
+      var el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    }
+
+    function updateFollowup(key, value) {
+      state[key] = value;
+      markDirty();
     }
 
     function renderAreaSection(area, areaIdx) {
@@ -674,7 +789,7 @@
       ];
       var color = areaColors[areaIdx % areaColors.length];
 
-      var html = '<div style="margin-top:20px">';
+      var html = '<div style="margin-top:20px" id="area_' + areaIdx + '">';
       html += '<div style="background:' + color.headerBg + ';color:#fff;padding:12px 16px;border-radius:14px 14px 0 0;font-weight:800;font-size:15px;display:flex;justify-content:space-between;align-items:center">';
       html += '<span>' + escHtml(area.name) + ' (' + area.objectives.length + ' obj.)</span>';
       html += '</div>';
@@ -932,6 +1047,10 @@
         state.studentName = '';
         state.course = '';
         state.areas = [];
+        state.valoracionInicial = '';
+        state.seguimiento1T = '';
+        state.seguimiento2T = '';
+        state.seguimiento3T = '';
       }
       state.dirty = false;
       renderFormView();
@@ -958,6 +1077,10 @@
       var payload = JSON.stringify({
         studentName: state.studentName,
         course: state.course,
+        valoracionInicial: state.valoracionInicial,
+        seguimiento1T: state.seguimiento1T,
+        seguimiento2T: state.seguimiento2T,
+        seguimiento3T: state.seguimiento3T,
         areas: state.areas.map(function(area) {
           return {
             name: area.name,
@@ -1110,13 +1233,34 @@
         }
       }); // end areas loop
 
-      // Observations section
-      html += '<div style="margin-top:24px;border:1px solid #d1d5db;border-radius:8px;padding:14px">';
-      html += '<div style="font-weight:800;font-size:13px;margin-bottom:8px">Observaciones:</div>';
-      html += '<div style="min-height:80px;border-bottom:1px dotted #d1d5db;margin-bottom:12px"></div>';
-      html += '<div style="min-height:80px;border-bottom:1px dotted #d1d5db;margin-bottom:12px"></div>';
-      html += '<div style="min-height:80px"></div>';
-      html += '</div>';
+      // Follow-up sections
+      var printFollowups = [
+        { label: 'Valoración inicial', text: state.valoracionInicial },
+        { label: 'Seguimiento 1er Trimestre', text: state.seguimiento1T },
+        { label: 'Seguimiento 2º Trimestre', text: state.seguimiento2T },
+        { label: 'Seguimiento 3er Trimestre', text: state.seguimiento3T }
+      ];
+      html += '<div style="page-break-before:always;margin-top:30px"></div>';
+
+      // Header for follow-up page
+      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">';
+      html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-weight:800;font-size:14px">';
+      html += 'PE: Valoración y seguimiento</div>';
+      html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-size:13px;text-align:right">';
+      html += '<div><span style="font-weight:800">ALUMNO/A:</span> ' + escHtml(state.studentName) + '</div>';
+      html += '<div><span style="font-weight:800">CURSO:</span> ' + escHtml(state.course) + '</div>';
+      html += '</div></div>';
+
+      printFollowups.forEach(function(f) {
+        html += '<div style="margin-bottom:20px;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">';
+        html += '<div style="padding:8px 14px;background:#e5e7eb;font-weight:800;font-size:13px">' + escHtml(f.label) + '</div>';
+        if (f.text.trim()) {
+          html += '<div style="padding:12px 14px;font-size:13px;line-height:1.6;white-space:pre-wrap">' + escHtml(f.text) + '</div>';
+        } else {
+          html += '<div style="padding:12px 14px;min-height:80px;color:#9ca3af;font-size:12px;font-style:italic">Sin completar</div>';
+        }
+        html += '</div>';
+      });
 
       // Signature
       html += '<div style="margin-top:30px;display:flex;justify-content:space-between;font-size:12px;color:#6b7280">';
