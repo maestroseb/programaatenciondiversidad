@@ -808,7 +808,7 @@
         html += '<button onmousedown="event.preventDefault();richExec(\'italic\')" title="Cursiva"><i>K</i></button>';
         html += '<button onmousedown="event.preventDefault();richExec(\'insertUnorderedList\')" title="Viñetas">• Lista</button>';
         html += '</div>';
-        html += '<div class="richtext-editor" contenteditable="true" data-key="' + f.key + '" oninput="updateFollowupRich(\'' + f.key + '\',this)" onblur="updateFollowupRich(\'' + f.key + '\',this)">' + (state[f.key] || '') + '</div>';
+        html += '<div class="richtext-editor" contenteditable="true" data-key="' + f.key + '" oninput="updateFollowupRich(\'' + f.key + '\',this)" onblur="updateFollowupRich(\'' + f.key + '\',this)">' + sanitizeRich(state[f.key] || '') + '</div>';
         html += '</div>';
         html += '</div></div>';
       });
@@ -1465,7 +1465,7 @@
         html += '<div style="padding:8px 14px;background:#e5e7eb;font-weight:800;font-size:13px">' + escHtml(f.label) + '</div>';
         var hasContent = f.text && f.text.trim() && f.text.trim() !== '<br>';
         if (hasContent) {
-          html += '<div style="padding:12px 14px;font-size:13px;line-height:1.6">' + f.text + '</div>';
+          html += '<div style="padding:12px 14px;font-size:13px;line-height:1.6">' + sanitizeRich(f.text) + '</div>';
         } else {
           html += '<div style="padding:12px 14px;min-height:80px;color:#9ca3af;font-size:12px;font-style:italic">Sin completar</div>';
         }
@@ -1597,6 +1597,19 @@
       return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     }
     function escAttr(str) { return escHtml(str); }
+
+    function sanitizeRich(html) {
+      if (!html) return '';
+      return String(html)
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/<(iframe|object|embed|form|style|link|meta)\b[\s\S]*?<\/\1>/gi, '')
+        .replace(/<(iframe|object|embed|form|style|link|meta)\b[^>]*\/?>/gi, '')
+        .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+        .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+        .replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
+        .replace(/(href|src)\s*=\s*"\s*javascript:[^"]*"/gi, '$1=""')
+        .replace(/(href|src)\s*=\s*'\s*javascript:[^']*'/gi, '$1=""');
+    }
 
     function getCurrentSchoolYear() {
       var now = new Date();
