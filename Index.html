@@ -130,13 +130,14 @@
       border-radius: 20px; font-size: 13px; font-weight: 700;
     }
     .student-item-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-    .btn-delete-student {
+    .btn-student-action {
       background: transparent; border: none; cursor: pointer;
       color: #9ca3af; font-size: 16px; line-height: 1;
       width: 30px; height: 30px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       transition: all 0.15s; font-family: 'Nunito', sans-serif;
     }
+    .btn-duplicate-student:hover { background: #dbeafe; color: #1e40af; }
     .btn-delete-student:hover { background: #fee2e2; color: #dc2626; }
     .student-list-body { padding: 12px 16px; max-height: 300px; overflow-y: auto; }
     .student-list-empty {
@@ -164,6 +165,15 @@
       justify-content: center; color: #fff; font-weight: 800; font-size: 14px; flex-shrink: 0;
     }
     .obj-title-text { color: #fff; font-weight: 700; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .obj-progress { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+    .prog-pill {
+      font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 10px;
+      background: rgba(255,255,255,0.2); color: rgba(255,255,255,0.85);
+      letter-spacing: 0.02em; white-space: nowrap;
+    }
+    .prog-pill.prog-none { opacity: 0.55; }
+    .prog-pill.prog-partial { background: rgba(254, 243, 199, 0.35); color: #fef3c7; }
+    .prog-pill.prog-done { background: rgba(209, 250, 229, 0.9); color: #065f46; }
     .obj-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
     .obj-body.hidden { display: none; }
     .obj-toggle { color: #fff; font-size: 16px; transition: transform 0.3s; }
@@ -322,6 +332,13 @@
     .modal-btn-cancel { border-color: #d1d5db; background: #fff; color: #6b7280; }
     .modal-btn-confirm { background: linear-gradient(135deg, #2d6a4f, #40916c); color: #fff; }
     .modal-btn-danger { background: linear-gradient(135deg, #b91c1c, #dc2626); color: #fff; }
+    .modal-input {
+      width: 100%; padding: 10px 14px; border-radius: 10px;
+      border: 1.5px solid #e5e7eb; font-size: 15px;
+      font-family: 'Nunito', sans-serif; margin-bottom: 10px;
+    }
+    .modal-input:focus { outline: none; border-color: #2d6a4f; }
+    .modal-error { font-size: 13px; color: #b91c1c; margin: -4px 0 10px; }
     @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
     @keyframes popIn { from { opacity:0; transform: scale(.96) } to { opacity:1; transform: scale(1) } }
 
@@ -681,11 +698,50 @@
         html += '<div class="course">' + escHtml(s.course) + '</div></div>';
         html += '<div class="student-item-actions">';
         html += '<span class="program-badge">PE</span>';
-        html += '<button class="btn-delete-student" title="Eliminar alumno" aria-label="Eliminar alumno" onclick="event.stopPropagation();confirmDeleteStudent(\'' + nameAttr + '\')">🗑</button>';
+        html += '<button class="btn-student-action btn-duplicate-student" title="Duplicar alumno" aria-label="Duplicar alumno" onclick="event.stopPropagation();confirmDuplicateStudent(\'' + nameAttr + '\')">⎘</button>';
+        html += '<button class="btn-student-action btn-delete-student" title="Eliminar alumno" aria-label="Eliminar alumno" onclick="event.stopPropagation();confirmDeleteStudent(\'' + nameAttr + '\')">🗑</button>';
         html += '</div>';
         html += '</div>';
       });
       return html;
+    }
+
+    async function confirmDuplicateStudent(oldName) {
+      var newName = await promptDialog('Se copiará toda la ficha de "' + oldName + '" con el nuevo nombre.', {
+        title: 'Duplicar alumno',
+        confirmText: 'Duplicar',
+        cancelText: 'Cancelar',
+        placeholder: 'Nombre y apellidos del nuevo alumno',
+        validate: function(v) {
+          if (!v) return 'El nombre no puede estar vacío';
+          if (state.students.some(function(s) { return s.name.trim().toLowerCase() === v.toLowerCase(); })) {
+            return 'Ya existe un alumno con ese nombre';
+          }
+          return '';
+        }
+      });
+      if (!newName) return;
+      showToast('Duplicando ficha...', 'info');
+      google.script.run
+        .withSuccessHandler(function(data) {
+          if (!data) { showToast('No se encontró la ficha original', 'error'); return; }
+          data.studentName = newName;
+          google.script.run
+            .withSuccessHandler(function() {
+              state.students.push({
+                name: newName,
+                course: data.course || '',
+                program: 'PE',
+                area: (data.areas || []).map(function(a) { return a.name; }).join(', ')
+              });
+              document.getElementById('studentItems').innerHTML = renderStudentItems(getFilteredStudents());
+              showToast('Alumno duplicado como "' + newName + '"', 'success');
+            })
+            .withFailureHandler(function(err) { showToast('Error al guardar: ' + err.message, 'error'); })
+            .saveStudentData(JSON.stringify(data));
+        })
+        .withFailureHandler(function(err) { showToast('Error al leer: ' + err.message, 'error'); })
+        .getStudentData(oldName);
     }
 
     async function confirmDeleteStudent(name) {
@@ -986,9 +1042,12 @@
 
       // Header
       html += '<div class="obj-header" style="background:' + color.objHeaderBg + '" onclick="toggleObjective(\'' + obj.id + '\')">';
-      html += '<div style="display:flex;align-items:center;gap:8px;overflow:hidden">';
+      html += '<div style="display:flex;align-items:center;gap:10px;overflow:hidden;min-width:0">';
       html += '<span class="obj-num">' + (index + 1) + '</span>';
+      html += '<div style="display:flex;flex-direction:column;min-width:0;overflow:hidden">';
       html += '<span class="obj-title-text">' + escHtml(titlePreview) + '</span>';
+      html += renderObjProgress(obj);
+      html += '</div>';
       html += '</div>';
       html += '<div style="display:flex;gap:6px;align-items:center;flex-shrink:0">';
       if (canRemove) {
@@ -1081,6 +1140,21 @@
       return 'Ej: Subrayado guiado de datos relevantes...';
     }
 
+    function renderObjProgress(obj) {
+      var total = (obj.indicators || []).length;
+      if (total === 0) return '';
+      var trims = ['1T', '2T', '3T'];
+      var html = '<div class="obj-progress">';
+      trims.forEach(function(t) {
+        var key = 'eval' + t;
+        var done = obj.indicators.filter(function(i) { return (i[key] || '').trim(); }).length;
+        var cls = 'prog-pill ' + (done === 0 ? 'prog-none' : (done === total ? 'prog-done' : 'prog-partial'));
+        html += '<span class="' + cls + '">' + t + ' ' + done + '/' + total + '</span>';
+      });
+      html += '</div>';
+      return html;
+    }
+
     function renderEvalSelect(objId, itemId, trimester, value) {
       var cls = 'eval-select';
       if (value === 'NI') cls += ' eval-ni';
@@ -1107,9 +1181,21 @@
           if (selectEl.value === 'NI') selectEl.className += ' eval-ni';
           else if (selectEl.value === 'EP') selectEl.className += ' eval-ep';
           else if (selectEl.value === 'C') selectEl.className += ' eval-c';
+          refreshObjProgress(found.obj);
           markDirty();
         }
       }
+    }
+
+    function refreshObjProgress(obj) {
+      var card = document.getElementById('obj_' + obj.id);
+      if (!card) return;
+      var prog = card.querySelector('.obj-header .obj-progress');
+      if (!prog) return;
+      var tmp = document.createElement('div');
+      tmp.innerHTML = renderObjProgress(obj);
+      var fresh = tmp.firstElementChild;
+      if (fresh) prog.replaceWith(fresh);
     }
 
     /* ═══════════════════════════════════════════
@@ -1215,6 +1301,7 @@
       tmp.innerHTML = renderListItem(objId, listType, newItem, idx, getPlaceholder(listType));
       var newNode = tmp.firstElementChild;
       list.appendChild(newNode);
+      if (listType === 'indicators') refreshObjProgress(found.obj);
       var ta = newNode.querySelector('.list-textarea');
       if (ta) ta.focus();
     }
@@ -1233,6 +1320,7 @@
       var nums = list.querySelectorAll('.list-num');
       nums.forEach(function(n, i) { n.textContent = i + 1; });
       if (found.obj[listType].length <= 1) list.classList.add('has-one');
+      if (listType === 'indicators') refreshObjProgress(found.obj);
     }
 
     function addObjective(areaIdx) {
@@ -1786,6 +1874,54 @@
           var btn = overlay.querySelector('[data-confirm]');
           if (btn) btn.focus();
         }, 10);
+      });
+    }
+
+    function promptDialog(message, opts) {
+      opts = opts || {};
+      var title = opts.title || 'Introduce un valor';
+      var confirmText = opts.confirmText || 'Aceptar';
+      var cancelText = opts.cancelText || 'Cancelar';
+      var defaultValue = opts.defaultValue || '';
+      var placeholder = opts.placeholder || '';
+      var validate = opts.validate || function() { return ''; };
+      return new Promise(function(resolve) {
+        var overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML =
+          '<div class="modal-box" role="dialog" aria-modal="true">' +
+            '<div class="modal-title">' + escHtml(title) + '</div>' +
+            '<div class="modal-message">' + escHtml(message) + '</div>' +
+            '<input type="text" class="modal-input" placeholder="' + escAttr(placeholder) + '" value="' + escAttr(defaultValue) + '">' +
+            '<div class="modal-error" style="display:none"></div>' +
+            '<div class="modal-actions">' +
+              '<button class="modal-btn modal-btn-cancel" data-cancel>' + escHtml(cancelText) + '</button>' +
+              '<button class="modal-btn modal-btn-confirm" data-confirm>' + escHtml(confirmText) + '</button>' +
+            '</div>' +
+          '</div>';
+        var input = overlay.querySelector('.modal-input');
+        var errEl = overlay.querySelector('.modal-error');
+        function close(result) {
+          document.removeEventListener('keydown', onKey);
+          overlay.remove();
+          resolve(result);
+        }
+        function tryConfirm() {
+          var v = input.value.trim();
+          var err = validate(v);
+          if (err) { errEl.textContent = err; errEl.style.display = ''; return; }
+          close(v);
+        }
+        function onKey(e) {
+          if (e.key === 'Escape') { e.preventDefault(); close(null); }
+          else if (e.key === 'Enter' && document.activeElement === input) { e.preventDefault(); tryConfirm(); }
+        }
+        overlay.addEventListener('click', function(e) { if (e.target === overlay) close(null); });
+        overlay.querySelector('[data-cancel]').addEventListener('click', function() { close(null); });
+        overlay.querySelector('[data-confirm]').addEventListener('click', tryConfirm);
+        document.addEventListener('keydown', onKey);
+        document.body.appendChild(overlay);
+        setTimeout(function() { input.focus(); input.select(); }, 10);
       });
     }
 
