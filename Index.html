@@ -263,6 +263,35 @@
     }
     .btn-add-obj:hover { background: #f3f4f6; }
 
+    /* ─── Dynamic list (hide remove when single) ─── */
+    .dynamic-list.has-one .btn-remove-item { display: none; }
+
+    /* ─── Confirm Modal ─── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200; padding: 16px;
+      animation: fadeIn 0.15s ease;
+    }
+    .modal-box {
+      background: #fff; border-radius: 16px; padding: 22px 24px;
+      max-width: 420px; width: 100%;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.25);
+      animation: popIn 0.2s ease;
+    }
+    .modal-title { font-weight: 800; font-size: 18px; color: #1b4332; margin-bottom: 8px; }
+    .modal-message { font-size: 15px; color: #374151; margin-bottom: 20px; line-height: 1.45; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+    .modal-btn {
+      padding: 9px 18px; border-radius: 10px; font-size: 15px; font-weight: 700;
+      cursor: pointer; font-family: 'Nunito', sans-serif; border: 1.5px solid transparent;
+    }
+    .modal-btn-cancel { border-color: #d1d5db; background: #fff; color: #6b7280; }
+    .modal-btn-confirm { background: linear-gradient(135deg, #2d6a4f, #40916c); color: #fff; }
+    .modal-btn-danger { background: linear-gradient(135deg, #b91c1c, #dc2626); color: #fff; }
+    @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+    @keyframes popIn { from { opacity:0; transform: scale(.96) } to { opacity:1; transform: scale(1) } }
+
     /* ─── Bottom Bar ─── */
     .bottom-bar {
       position: fixed; bottom: 0; left: 0; right: 0;
@@ -637,8 +666,8 @@
     /* ═══════════════════════════════════════════
        ACTIONS: Select / New
     ═══════════════════════════════════════════ */
-    function selectStudent(name) {
-      if (state.dirty && !confirm('Hay cambios sin guardar. ¿Continuar?')) return;
+    async function selectStudent(name) {
+      if (state.dirty && !(await confirmDialog('Tienes cambios sin guardar. Si continúas, se perderán.', { title: 'Cambios sin guardar', confirmText: 'Descartar y continuar', cancelText: 'Seguir editando', danger: true }))) return;
       undoStack = [];
       state.selectedStudent = name;
       state.isNew = false;
@@ -699,8 +728,8 @@
         .getStudentData(name);
     }
 
-    function newStudent() {
-      if (state.dirty && !confirm('Hay cambios sin guardar. ¿Continuar?')) return;
+    async function newStudent() {
+      if (state.dirty && !(await confirmDialog('Tienes cambios sin guardar. Si continúas, se perderán.', { title: 'Cambios sin guardar', confirmText: 'Descartar y continuar', cancelText: 'Seguir editando', danger: true }))) return;
       undoStack = [];
       state.selectedStudent = null;
       state.isNew = true;
@@ -718,8 +747,8 @@
       showToast('Introduce los datos del nuevo alumno', 'info');
     }
 
-    function goBack() {
-      if (state.dirty && !confirm('Hay cambios sin guardar. ¿Volver a la lista?')) return;
+    async function goBack() {
+      if (state.dirty && !(await confirmDialog('Tienes cambios sin guardar. Si vuelves a la lista, se perderán.', { title: 'Cambios sin guardar', confirmText: 'Descartar y volver', cancelText: 'Seguir editando', danger: true }))) return;
       state.dirty = false;
       loadStudentList();
     }
@@ -939,29 +968,44 @@
         html += '<span class="eval-label" style="width:56px">3T</span>';
         html += '</div>';
       }
+      var soloClass = (items.length <= 1) ? ' has-one' : '';
+      html += '<div class="dynamic-list' + soloClass + '" id="list_' + objId + '_' + listType + '">';
       items.forEach(function(item, idx) {
-        html += '<div class="list-item">';
-        html += '<span class="list-num">' + (idx + 1) + '</span>';
-        html += '<textarea class="list-textarea" rows="2" placeholder="' + escAttr(placeholder) + '" oninput="updateListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\',this.value)">' + escHtml(item.text) + '</textarea>';
-        if (isIndicator) {
-          html += '<div class="eval-group">';
-          html += renderEvalSelect(objId, item.id, '1T', item.eval1T || '');
-          html += renderEvalSelect(objId, item.id, '2T', item.eval2T || '');
-          html += renderEvalSelect(objId, item.id, '3T', item.eval3T || '');
-          html += '</div>';
-        }
-        if (items.length > 1) {
-          html += '<button class="btn-remove-item" onclick="removeListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\')">×</button>';
-        }
-        html += '</div>';
-        if (isIndicator) {
-          html += '<div style="margin-left:28px;margin-bottom:8px">';
-          html += '<textarea class="ind-obs-textarea" placeholder="Observaciones del indicador..." oninput="autoResize(this);updateIndicatorObs(\'' + objId + '\',\'' + item.id + '\',this.value)">' + escHtml(item.observaciones || '') + '</textarea>';
-          html += '</div>';
-        }
+        html += renderListItem(objId, listType, item, idx, placeholder);
       });
+      html += '</div>';
       html += '<button class="btn-add-item" onclick="addListItem(\'' + objId + '\',\'' + listType + '\')">+ Añadir</button>';
       return html;
+    }
+
+    function renderListItem(objId, listType, item, idx, placeholder) {
+      var isIndicator = (listType === 'indicators');
+      var html = '<div class="list-item-wrap" data-item-id="' + item.id + '">';
+      html += '<div class="list-item">';
+      html += '<span class="list-num">' + (idx + 1) + '</span>';
+      html += '<textarea class="list-textarea" rows="2" placeholder="' + escAttr(placeholder) + '" oninput="updateListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\',this.value)">' + escHtml(item.text) + '</textarea>';
+      if (isIndicator) {
+        html += '<div class="eval-group">';
+        html += renderEvalSelect(objId, item.id, '1T', item.eval1T || '');
+        html += renderEvalSelect(objId, item.id, '2T', item.eval2T || '');
+        html += renderEvalSelect(objId, item.id, '3T', item.eval3T || '');
+        html += '</div>';
+      }
+      html += '<button class="btn-remove-item" onclick="removeListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\')">×</button>';
+      html += '</div>';
+      if (isIndicator) {
+        html += '<div style="margin-left:28px;margin-bottom:8px">';
+        html += '<textarea class="ind-obs-textarea" placeholder="Observaciones del indicador..." oninput="autoResize(this);updateIndicatorObs(\'' + objId + '\',\'' + item.id + '\',this.value)">' + escHtml(item.observaciones || '') + '</textarea>';
+        html += '</div>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function getPlaceholder(listType) {
+      if (listType === 'indicators') return 'Ej: Mantiene la atención durante 10-15 min...';
+      if (listType === 'contents') return 'Ej: Resolución de problemas, numeración...';
+      return 'Ej: Subrayado guiado de datos relevantes...';
     }
 
     function renderEvalSelect(objId, itemId, trimester, value) {
@@ -1004,19 +1048,18 @@
       markDirty();
     }
 
-    function toggleArea(areaName) {
-      pushUndo();
+    async function toggleArea(areaName) {
       var idx = -1;
       for (var i = 0; i < state.areas.length; i++) {
         if (state.areas[i].name === areaName) { idx = i; break; }
       }
       if (idx >= 0) {
-        // Remove area (will lose its objectives)
-        if (!state.areas[idx].objectives.some(function(o) { return o.title.trim(); }) || confirm('¿Eliminar el ámbito "' + areaName + '" y sus objetivos?')) {
-          state.areas.splice(idx, 1);
-        }
+        var hasContent = state.areas[idx].objectives.some(function(o) { return o.title.trim(); });
+        if (hasContent && !(await confirmDialog('Se eliminará el ámbito "' + areaName + '" y todos sus objetivos.', { title: 'Eliminar ámbito', confirmText: 'Eliminar', cancelText: 'Cancelar', danger: true }))) return;
+        pushUndo();
+        state.areas.splice(idx, 1);
       } else {
-        // Add area with one empty objective
+        pushUndo();
         state.areas.push({ name: areaName, objectives: [createEmptyObjective()] });
       }
       markDirty();
@@ -1085,23 +1128,38 @@
 
     function addListItem(objId, listType) {
       var found = findObjInAreas(objId);
-      if (found) {
-        var newItem = { id: uid(), text: '' };
-        if (listType === 'indicators') newItem.observaciones = '';
-        found.obj[listType].push(newItem);
-        markDirty();
-        renderFormView();
-      }
+      if (!found) return;
+      var newItem = { id: uid(), text: '' };
+      if (listType === 'indicators') newItem.observaciones = '';
+      found.obj[listType].push(newItem);
+      markDirty();
+
+      var list = document.getElementById('list_' + objId + '_' + listType);
+      if (!list) { renderFormView(); return; }
+      list.classList.remove('has-one');
+      var idx = found.obj[listType].length - 1;
+      var tmp = document.createElement('div');
+      tmp.innerHTML = renderListItem(objId, listType, newItem, idx, getPlaceholder(listType));
+      var newNode = tmp.firstElementChild;
+      list.appendChild(newNode);
+      var ta = newNode.querySelector('.list-textarea');
+      if (ta) ta.focus();
     }
 
     function removeListItem(objId, listType, itemId) {
       var found = findObjInAreas(objId);
-      if (found && found.obj[listType].length > 1) {
-        pushUndo();
-        found.obj[listType] = found.obj[listType].filter(function(i) { return i.id !== itemId; });
-        markDirty();
-        renderFormView();
-      }
+      if (!found || found.obj[listType].length <= 1) return;
+      pushUndo();
+      found.obj[listType] = found.obj[listType].filter(function(i) { return i.id !== itemId; });
+      markDirty();
+
+      var list = document.getElementById('list_' + objId + '_' + listType);
+      if (!list) { renderFormView(); return; }
+      var node = list.querySelector('[data-item-id="' + itemId + '"]');
+      if (node) node.remove();
+      var nums = list.querySelectorAll('.list-num');
+      nums.forEach(function(n, i) { n.textContent = i + 1; });
+      if (found.obj[listType].length <= 1) list.classList.add('has-one');
     }
 
     function addObjective(areaIdx) {
@@ -1111,10 +1169,10 @@
       showToast('Objetivo añadido', 'success');
     }
 
-    function removeObjective(areaIdx, objId) {
+    async function removeObjective(areaIdx, objId) {
       var area = state.areas[areaIdx];
       if (area.objectives.length <= 1) return;
-      if (!confirm('¿Eliminar este objetivo?')) return;
+      if (!(await confirmDialog('Se eliminará el objetivo y sus indicadores, contenidos y actividades.', { title: 'Eliminar objetivo', confirmText: 'Eliminar', cancelText: 'Cancelar', danger: true }))) return;
       pushUndo();
       area.objectives = area.objectives.filter(function(o) { return o.id !== objId; });
       markDirty();
@@ -1229,8 +1287,8 @@
       renderFormView();
     }
 
-    function clearForm() {
-      if (!confirm('¿Borrar todos los cambios del formulario?')) return;
+    async function clearForm() {
+      if (!(await confirmDialog('Se borrarán los objetivos actuales del formulario. Podrás deshacer después.', { title: 'Limpiar formulario', confirmText: 'Limpiar', cancelText: 'Cancelar', danger: true }))) return;
       pushUndo();
       state.areas = state.areas.map(function(a) { return { name: a.name, objectives: [createEmptyObjective()] }; });
       if (state.isNew) {
@@ -1618,6 +1676,53 @@
       if (month >= 8) { return year + '/' + (year + 1); }
       return (year - 1) + '/' + year;
     }
+
+    function confirmDialog(message, opts) {
+      opts = opts || {};
+      var title = opts.title || 'Confirmar';
+      var confirmText = opts.confirmText || 'Aceptar';
+      var cancelText = opts.cancelText || 'Cancelar';
+      var danger = opts.danger === true;
+      return new Promise(function(resolve) {
+        var overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML =
+          '<div class="modal-box" role="dialog" aria-modal="true">' +
+            '<div class="modal-title">' + escHtml(title) + '</div>' +
+            '<div class="modal-message">' + escHtml(message) + '</div>' +
+            '<div class="modal-actions">' +
+              '<button class="modal-btn modal-btn-cancel" data-cancel>' + escHtml(cancelText) + '</button>' +
+              '<button class="modal-btn ' + (danger ? 'modal-btn-danger' : 'modal-btn-confirm') + '" data-confirm>' + escHtml(confirmText) + '</button>' +
+            '</div>' +
+          '</div>';
+        function close(result) {
+          document.removeEventListener('keydown', onKey);
+          overlay.remove();
+          resolve(result);
+        }
+        function onKey(e) {
+          if (e.key === 'Escape') { e.preventDefault(); close(false); }
+          else if (e.key === 'Enter') { e.preventDefault(); close(true); }
+        }
+        overlay.addEventListener('click', function(e) { if (e.target === overlay) close(false); });
+        overlay.querySelector('[data-cancel]').addEventListener('click', function() { close(false); });
+        overlay.querySelector('[data-confirm]').addEventListener('click', function() { close(true); });
+        document.addEventListener('keydown', onKey);
+        document.body.appendChild(overlay);
+        setTimeout(function() {
+          var btn = overlay.querySelector('[data-confirm]');
+          if (btn) btn.focus();
+        }, 10);
+      });
+    }
+
+    window.addEventListener('beforeunload', function(e) {
+      if (state.dirty && !state.saving) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    });
 
     var toastTimer = null;
     function showToast(message, type) {
