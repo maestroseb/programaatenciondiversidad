@@ -602,6 +602,8 @@
     let undoStack = [];
     let redoStack = [];
     const MAX_UNDO = 20;
+    const UNDO_COALESCE_MS = 1500;
+    let lastCoalescedPushAt = 0;
 
     function buildStateSnapshot() {
       return {
@@ -627,10 +629,18 @@
       state.informeFamilias = snapshot.informeFamilias;
     }
 
-    function pushUndo() {
+    function pushUndo(opts) {
+      opts = opts || {};
+      var now = Date.now();
+      if (opts.coalesce && lastCoalescedPushAt && (now - lastCoalescedPushAt) < UNDO_COALESCE_MS) {
+        // Same typing burst — extend the coalesce window without a new snapshot.
+        lastCoalescedPushAt = now;
+        return;
+      }
       undoStack.push(buildStateSnapshot());
       if (undoStack.length > MAX_UNDO) undoStack.shift();
       redoStack = [];
+      lastCoalescedPushAt = opts.coalesce ? now : 0;
       updateUndoRedoButtons();
     }
 
@@ -640,6 +650,7 @@
       if (redoStack.length > MAX_UNDO) redoStack.shift();
       applyStateSnapshot(undoStack.pop());
       state.dirty = true;
+      lastCoalescedPushAt = 0;
       updateUndoRedoButtons();
       renderFormView();
       showToast('Cambio deshecho', 'info', { action: 'Rehacer', onAction: redo, duration: 6000 });
@@ -651,6 +662,7 @@
       if (undoStack.length > MAX_UNDO) undoStack.shift();
       applyStateSnapshot(redoStack.pop());
       state.dirty = true;
+      lastCoalescedPushAt = 0;
       updateUndoRedoButtons();
       renderFormView();
       showToast('Cambio rehecho', 'info', { action: 'Deshacer', onAction: undo, duration: 6000 });
@@ -1041,6 +1053,7 @@
       draftLastSavedAt = null;
       undoStack = [];
       redoStack = [];
+      lastCoalescedPushAt = 0;
       updateUndoRedoButtons();
       state.selectedStudent = name;
       state.isNew = false;
@@ -1112,6 +1125,7 @@
       draftLastSavedAt = null;
       undoStack = [];
       redoStack = [];
+      lastCoalescedPushAt = 0;
       updateUndoRedoButtons();
       state.selectedStudent = null;
       state.isNew = true;
@@ -1260,7 +1274,10 @@
     }
 
     function updateFollowupRich(key, el) {
-      state[key] = el.innerHTML;
+      var html = el.innerHTML;
+      if (state[key] === html) return;
+      pushUndo({ coalesce: true });
+      state[key] = html;
       markDirty();
     }
 
@@ -1444,6 +1461,8 @@
         var item = found.obj.indicators.find(function(i) { return i.id === itemId; });
         if (item) {
           var key = 'eval' + trimester;
+          if (item[key] === selectEl.value) return;
+          pushUndo({ coalesce: true });
           item[key] = selectEl.value;
           // Update visual class
           selectEl.className = 'eval-select';
@@ -1471,8 +1490,12 @@
        FORM ACTIONS
     ═══════════════════════════════════════════ */
     function onFieldChange() {
-      state.studentName = document.getElementById('fName').value;
-      state.course = document.getElementById('fCourse').value;
+      var newName = document.getElementById('fName').value;
+      var newCourse = document.getElementById('fCourse').value;
+      if (state.studentName === newName && state.course === newCourse) return;
+      pushUndo({ coalesce: true });
+      state.studentName = newName;
+      state.course = newCourse;
       markDirty();
     }
 
@@ -1575,14 +1598,22 @@
 
     function updateObjTitle(objId, value) {
       var found = findObjInAreas(objId);
-      if (found) { found.obj.title = value; markDirty(); }
+      if (found && found.obj.title !== value) {
+        pushUndo({ coalesce: true });
+        found.obj.title = value;
+        markDirty();
+      }
     }
 
     function updateListItem(objId, listType, itemId, value) {
       var found = findObjInAreas(objId);
       if (found) {
         var item = found.obj[listType].find(function(i) { return i.id === itemId; });
-        if (item) { item.text = value; markDirty(); }
+        if (item && item.text !== value) {
+          pushUndo({ coalesce: true });
+          item.text = value;
+          markDirty();
+        }
       }
     }
 
@@ -1590,7 +1621,11 @@
       var found = findObjInAreas(objId);
       if (found) {
         var item = found.obj.indicators.find(function(i) { return i.id === itemId; });
-        if (item) { item.observaciones = value; markDirty(); }
+        if (item && item.observaciones !== value) {
+          pushUndo({ coalesce: true });
+          item.observaciones = value;
+          markDirty();
+        }
       }
     }
 
@@ -1746,6 +1781,8 @@
     }
 
     function updateInformeIndicador(idx, value) {
+      if (state.informeFamilias.indicadores[idx].text === value) return;
+      pushUndo({ coalesce: true });
       state.informeFamilias.indicadores[idx].text = value;
       markDirty();
     }
@@ -1756,7 +1793,7 @@
       }
       var ev = state.informeFamilias.evaluaciones[idx];
       var key = 'eval' + trimester;
-      // Toggle off if already selected
+      pushUndo({ coalesce: true });
       ev[key] = (ev[key] === level) ? '' : level;
       markDirty();
       renderFormView();
