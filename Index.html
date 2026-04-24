@@ -39,9 +39,15 @@
     .student-badge .name { color: #fff; font-weight: 700; font-size: 16px; }
     .student-badge .meta { color: rgba(255,255,255,0.6); font-size: 13px; }
     .badge-dirty {
-      margin-left: auto; background: #fbbf24; color: #78350f;
+      background: #fbbf24; color: #78350f;
       padding: 2px 10px; border-radius: 20px; font-size: 13px; font-weight: 700;
     }
+    .badge-draft {
+      background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85);
+      padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-status { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 
     /* ─── Content ─── */
     .content { max-width: 800px; margin: 0 auto; padding: 20px 16px 100px; }
@@ -507,7 +513,10 @@
           <div class="name" id="badgeName"></div>
           <div class="meta" id="badgeMeta"></div>
         </div>
-        <span class="badge-dirty" id="badgeDirty" style="display:none">Sin guardar</span>
+        <div class="badge-status">
+          <span class="badge-draft" id="badgeDraft" style="display:none" title="Guardado localmente en este navegador"></span>
+          <span class="badge-dirty" id="badgeDirty" style="display:none">Sin guardar</span>
+        </div>
       </div>
     </div>
   </div>
@@ -609,6 +618,169 @@
       var btn = document.getElementById('btnUndo');
       if (btn) btn.disabled = (undoStack.length === 0);
     }
+
+    /* ─── Autoguardado local (localStorage) ─── */
+    var DRAFT_KEY_PREFIX = 'padd:draft:';
+    var DRAFT_DEBOUNCE_MS = 1500;
+    var draftSaveTimer = null;
+    var draftLastSavedAt = null;
+    var hasLocalStorage = (function() {
+      try {
+        var k = '__padd_ls_test__';
+        localStorage.setItem(k, '1');
+        localStorage.removeItem(k);
+        return true;
+      } catch (e) { return false; }
+    })();
+
+    function draftKeyFor(name) {
+      var n = (name || '').trim();
+      return DRAFT_KEY_PREFIX + (n ? n : '__new__');
+    }
+
+    function buildDraftSnapshot() {
+      return {
+        savedAt: Date.now(),
+        studentName: state.studentName || '',
+        course: state.course || '',
+        areas: JSON.parse(JSON.stringify(state.areas || [])),
+        valoracionInicial: state.valoracionInicial || '',
+        seguimiento1T: state.seguimiento1T || '',
+        seguimiento2T: state.seguimiento2T || '',
+        seguimiento3T: state.seguimiento3T || '',
+        informeFamilias: JSON.parse(JSON.stringify(state.informeFamilias || { indicadores: [], evaluaciones: [] }))
+      };
+    }
+
+    function syncDomFieldsToState() {
+      var nameEl = document.getElementById('fName');
+      if (nameEl && !nameEl.readOnly) state.studentName = nameEl.value;
+      var courseEl = document.getElementById('fCourse');
+      if (courseEl) state.course = courseEl.value;
+      document.querySelectorAll('.richtext-editor').forEach(function(el) {
+        var key = el.getAttribute('data-key');
+        if (key) state[key] = el.innerHTML;
+      });
+    }
+
+    function saveDraftNow() {
+      if (!hasLocalStorage) return;
+      if (state.view !== 'form') return;
+      if (state.saving) return;
+      try {
+        syncDomFieldsToState();
+        var snap = buildDraftSnapshot();
+        var key = state.isNew ? draftKeyFor('') : draftKeyFor(snap.studentName);
+        localStorage.setItem(key, JSON.stringify(snap));
+        draftLastSavedAt = snap.savedAt;
+        updateDraftIndicator();
+      } catch (e) { /* quota / disabled — silent */ }
+    }
+
+    function scheduleDraftSave() {
+      if (!hasLocalStorage) return;
+      if (draftSaveTimer) clearTimeout(draftSaveTimer);
+      draftSaveTimer = setTimeout(saveDraftNow, DRAFT_DEBOUNCE_MS);
+    }
+
+    function flushDraftTimer() {
+      if (draftSaveTimer) { clearTimeout(draftSaveTimer); draftSaveTimer = null; }
+    }
+
+    function readDraft(name) {
+      if (!hasLocalStorage) return null;
+      try {
+        var raw = localStorage.getItem(draftKeyFor(name));
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) { return null; }
+    }
+
+    function clearDraft(name) {
+      if (!hasLocalStorage) return;
+      flushDraftTimer();
+      try {
+        localStorage.removeItem(draftKeyFor(name));
+        if ((name || '').trim()) localStorage.removeItem(draftKeyFor(''));
+      } catch (e) {}
+      draftLastSavedAt = null;
+      updateDraftIndicator();
+    }
+
+    function applyDraftToState(draft) {
+      state.studentName = draft.studentName || '';
+      state.course = draft.course || '';
+      state.valoracionInicial = draft.valoracionInicial || '';
+      state.seguimiento1T = draft.seguimiento1T || '';
+      state.seguimiento2T = draft.seguimiento2T || '';
+      state.seguimiento3T = draft.seguimiento3T || '';
+      state.areas = (draft.areas || []).map(function(a) {
+        return {
+          name: a.name,
+          objectives: (a.objectives || []).map(function(o) {
+            return {
+              id: uid(),
+              title: o.title || '',
+              indicators: (o.indicators || []).map(function(x) { return { id: uid(), text: x.text || '', eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '', observaciones: x.observaciones || '' }; }),
+              contents: (o.contents || []).map(function(x) { return { id: uid(), text: x.text || '' }; }),
+              activities: (o.activities || []).map(function(x) { return { id: uid(), text: x.text || '' }; })
+            };
+          })
+        };
+      });
+      var inf = draft.informeFamilias || { indicadores: [], evaluaciones: [] };
+      state.informeFamilias = {
+        indicadores: (inf.indicadores || []).map(function(x) { return { id: uid(), text: x.text || '' }; }),
+        evaluaciones: (inf.evaluaciones || []).map(function(x) { return { eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '' }; })
+      };
+      state.dirty = true;
+    }
+
+    function formatDraftAge(ts) {
+      if (!ts) return '';
+      var diff = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+      if (diff < 5) return 'ahora';
+      if (diff < 60) return 'hace ' + diff + ' s';
+      var min = Math.floor(diff / 60);
+      if (min < 60) return 'hace ' + min + ' min';
+      var hrs = Math.floor(min / 60);
+      if (hrs < 24) return 'hace ' + hrs + ' h';
+      try { return new Date(ts).toLocaleDateString(); } catch (e) { return ''; }
+    }
+
+    function updateDraftIndicator() {
+      var el = document.getElementById('badgeDraft');
+      if (!el) return;
+      if (state.view !== 'form' || !draftLastSavedAt) {
+        el.style.display = 'none';
+        return;
+      }
+      el.style.display = '';
+      el.textContent = '💾 Borrador local · ' + formatDraftAge(draftLastSavedAt);
+    }
+    setInterval(updateDraftIndicator, 15000);
+
+    async function offerDraftRecovery(name) {
+      var draft = readDraft(name);
+      if (!draft) return false;
+      var hasContent = (draft.studentName || draft.course || (draft.areas && draft.areas.length) ||
+                        draft.valoracionInicial || draft.seguimiento1T || draft.seguimiento2T || draft.seguimiento3T);
+      if (!hasContent) { clearDraft(name); return false; }
+      var label = formatDraftAge(draft.savedAt);
+      var who = (draft.studentName || name || 'nuevo alumno').trim() || 'nuevo alumno';
+      var msg = 'Hay un borrador local sin enviar para "' + who + '" (' + label + '). ¿Recuperarlo?';
+      var ok = await confirmDialog(msg, { title: 'Borrador local', confirmText: 'Recuperar', cancelText: 'Descartar' });
+      if (ok) {
+        applyDraftToState(draft);
+        draftLastSavedAt = draft.savedAt;
+        return true;
+      }
+      clearDraft(name);
+      return false;
+    }
+
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'hidden') saveDraftNow();
+    });
 
     let idCounter = 0;
     function uid() { return 'id_' + (++idCounter) + '_' + Math.random().toString(36).substr(2,5); }
@@ -821,6 +993,8 @@
     ═══════════════════════════════════════════ */
     async function selectStudent(name) {
       if (state.dirty && !(await confirmDialog('Tienes cambios sin guardar. Si continúas, se perderán.', { title: 'Cambios sin guardar', confirmText: 'Descartar y continuar', cancelText: 'Seguir editando', danger: true }))) return;
+      flushDraftTimer();
+      draftLastSavedAt = null;
       undoStack = [];
       state.selectedStudent = name;
       state.isNew = false;
@@ -831,7 +1005,7 @@
       document.getElementById('bottomBar').style.display = 'none';
 
       google.script.run
-        .withSuccessHandler(function(data) {
+        .withSuccessHandler(async function(data) {
           if (data) {
             state.studentName = data.studentName;
             state.course = data.course;
@@ -871,8 +1045,13 @@
             state.informeFamilias = { indicadores: [], evaluaciones: [] };
           }
           state.view = 'form';
+          var recovered = await offerDraftRecovery(name);
           renderFormView();
-          showToast('Datos de ' + name + ' cargados', 'success');
+          if (recovered) {
+            showToast('Borrador local recuperado · recuerda guardar en Google Sheets', 'info');
+          } else {
+            showToast('Datos de ' + name + ' cargados', 'success');
+          }
         })
         .withFailureHandler(function(err) {
           showToast('Error al cargar: ' + err.message, 'error');
@@ -883,6 +1062,8 @@
 
     async function newStudent() {
       if (state.dirty && !(await confirmDialog('Tienes cambios sin guardar. Si continúas, se perderán.', { title: 'Cambios sin guardar', confirmText: 'Descartar y continuar', cancelText: 'Seguir editando', danger: true }))) return;
+      flushDraftTimer();
+      draftLastSavedAt = null;
       undoStack = [];
       state.selectedStudent = null;
       state.isNew = true;
@@ -896,8 +1077,13 @@
       state.seguimiento3T = '';
       state.informeFamilias = { indicadores: [], evaluaciones: [] };
       state.view = 'form';
+      var recovered = await offerDraftRecovery('');
       renderFormView();
-      showToast('Introduce los datos del nuevo alumno', 'info');
+      if (recovered) {
+        showToast('Borrador local recuperado · recuerda guardar en Google Sheets', 'info');
+      } else {
+        showToast('Introduce los datos del nuevo alumno', 'info');
+      }
     }
 
     async function goBack() {
@@ -1263,6 +1449,7 @@
     function markDirty() {
       state.dirty = true;
       updateBadge();
+      scheduleDraftSave();
     }
 
     function updateBadge() {
@@ -1277,6 +1464,7 @@
       } else {
         badge.style.display = 'none';
       }
+      updateDraftIndicator();
     }
 
     function toggleObjective(objId) {
@@ -1597,6 +1785,7 @@
           state.dirty = false;
           state.selectedStudent = state.studentName;
           state.isNew = false;
+          clearDraft(state.studentName);
 
           // Update local students list
           var areaStr = state.areas.map(function(a) { return a.name; }).join(', ');
@@ -2000,6 +2189,7 @@
 
     window.addEventListener('beforeunload', function(e) {
       if (state.dirty && !state.saving) {
+        saveDraftNow();
         e.preventDefault();
         e.returnValue = '';
         return '';
