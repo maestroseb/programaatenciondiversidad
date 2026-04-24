@@ -390,6 +390,10 @@
       border: 1.5px solid #f59e0b; background: #fffbeb; color: #92400e;
     }
     .btn-undo:disabled { border-color: #d1d5db; background: #f9fafb; color: #d1d5db; cursor: not-allowed; }
+    .btn-redo {
+      border: 1.5px solid #3b82f6; background: #eff6ff; color: #1e40af;
+    }
+    .btn-redo:disabled { border-color: #d1d5db; background: #f9fafb; color: #d1d5db; cursor: not-allowed; }
     .btn-print { border: 1.5px solid #2d6a4f; background: #f0fdf4; color: #2d6a4f; }
     .btn-primary {
       border: none; background: linear-gradient(135deg, #2d6a4f, #40916c);
@@ -543,7 +547,8 @@
 
   <!-- ═══════ BOTTOM BAR ═══════ -->
   <div class="bottom-bar" id="bottomBar" style="display:none">
-    <button class="btn btn-undo" id="btnUndo" onclick="undo()" disabled>↩ Deshacer</button>
+    <button class="btn btn-undo" id="btnUndo" onclick="undo()" title="Deshacer (Ctrl+Z)" disabled>↩ Deshacer</button>
+    <button class="btn btn-redo" id="btnRedo" onclick="redo()" title="Rehacer (Ctrl+Shift+Z)" disabled>↪ Rehacer</button>
     <button class="btn btn-secondary" onclick="clearForm()">Limpiar</button>
     <button class="btn btn-print" onclick="showPrintView()">🖨 Imprimir</button>
     <button class="btn btn-primary" id="btnSave" onclick="saveData()">💾 Guardar</button>
@@ -595,10 +600,11 @@
     ];
 
     let undoStack = [];
+    let redoStack = [];
     const MAX_UNDO = 20;
 
-    function pushUndo() {
-      undoStack.push({
+    function buildStateSnapshot() {
+      return {
         studentName: state.studentName,
         course: state.course,
         areas: JSON.parse(JSON.stringify(state.areas)),
@@ -607,14 +613,10 @@
         seguimiento2T: state.seguimiento2T,
         seguimiento3T: state.seguimiento3T,
         informeFamilias: JSON.parse(JSON.stringify(state.informeFamilias))
-      });
-      if (undoStack.length > MAX_UNDO) undoStack.shift();
-      updateUndoButton();
+      };
     }
 
-    function undo() {
-      if (undoStack.length === 0) return;
-      var snapshot = undoStack.pop();
+    function applyStateSnapshot(snapshot) {
       state.studentName = snapshot.studentName;
       state.course = snapshot.course;
       state.areas = snapshot.areas;
@@ -623,15 +625,42 @@
       state.seguimiento2T = snapshot.seguimiento2T;
       state.seguimiento3T = snapshot.seguimiento3T;
       state.informeFamilias = snapshot.informeFamilias;
-      state.dirty = true;
-      updateUndoButton();
-      renderFormView();
-      showToast('Cambio deshecho', 'info');
     }
 
-    function updateUndoButton() {
-      var btn = document.getElementById('btnUndo');
-      if (btn) btn.disabled = (undoStack.length === 0);
+    function pushUndo() {
+      undoStack.push(buildStateSnapshot());
+      if (undoStack.length > MAX_UNDO) undoStack.shift();
+      redoStack = [];
+      updateUndoRedoButtons();
+    }
+
+    function undo() {
+      if (undoStack.length === 0) return;
+      redoStack.push(buildStateSnapshot());
+      if (redoStack.length > MAX_UNDO) redoStack.shift();
+      applyStateSnapshot(undoStack.pop());
+      state.dirty = true;
+      updateUndoRedoButtons();
+      renderFormView();
+      showToast('Cambio deshecho', 'info', { action: 'Rehacer', onAction: redo, duration: 6000 });
+    }
+
+    function redo() {
+      if (redoStack.length === 0) return;
+      undoStack.push(buildStateSnapshot());
+      if (undoStack.length > MAX_UNDO) undoStack.shift();
+      applyStateSnapshot(redoStack.pop());
+      state.dirty = true;
+      updateUndoRedoButtons();
+      renderFormView();
+      showToast('Cambio rehecho', 'info', { action: 'Deshacer', onAction: undo, duration: 6000 });
+    }
+
+    function updateUndoRedoButtons() {
+      var u = document.getElementById('btnUndo');
+      if (u) u.disabled = (undoStack.length === 0);
+      var r = document.getElementById('btnRedo');
+      if (r) r.disabled = (redoStack.length === 0);
     }
 
     /* ─── Autoguardado local (localStorage) ─── */
@@ -1011,6 +1040,8 @@
       flushDraftTimer();
       draftLastSavedAt = null;
       undoStack = [];
+      redoStack = [];
+      updateUndoRedoButtons();
       state.selectedStudent = name;
       state.isNew = false;
       state.dirty = false;
@@ -1080,6 +1111,8 @@
       flushDraftTimer();
       draftLastSavedAt = null;
       undoStack = [];
+      redoStack = [];
+      updateUndoRedoButtons();
       state.selectedStudent = null;
       state.isNew = true;
       state.dirty = false;
@@ -2225,15 +2258,19 @@
         }
         return;
       }
-      // Ctrl/Cmd + Z → page-level undo (unless editing a text field, where the
-      // browser's own undo for typing should win).
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'z' || e.key === 'Z')) {
+      // Ctrl/Cmd + Z → undo · Ctrl/Cmd + Shift + Z o Ctrl + Y → redo.
+      // Skip while focus is on a text field so the browser can handle its
+      // native undo/redo for typing.
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y')) {
         var ae = document.activeElement;
         var isEditing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable);
         if (isEditing) return;
-        if (state.view === 'form' && undoStack.length > 0) {
-          e.preventDefault();
-          undo();
+        if (state.view !== 'form') return;
+        var isRedo = e.shiftKey || e.key === 'y' || e.key === 'Y';
+        if (isRedo) {
+          if (redoStack.length > 0) { e.preventDefault(); redo(); }
+        } else {
+          if (undoStack.length > 0) { e.preventDefault(); undo(); }
         }
         return;
       }
