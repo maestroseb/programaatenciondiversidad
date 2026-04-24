@@ -401,13 +401,21 @@
     /* ─── Toast ─── */
     .toast {
       position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-      color: #fff; padding: 10px 22px; border-radius: 14px; font-size: 15px; font-weight: 600;
+      color: #fff; padding: 10px 18px; border-radius: 14px; font-size: 15px; font-weight: 600;
       box-shadow: 0 8px 32px rgba(0,0,0,0.2); z-index: 999;
       animation: slideUp 0.3s ease;
+      display: flex; align-items: center; gap: 12px; max-width: 90vw;
     }
     .toast-success { background: #065f46; }
     .toast-error { background: #991b1b; }
     .toast-info { background: #1e40af; }
+    .toast-action {
+      background: rgba(255,255,255,0.22); border: none; border-radius: 10px;
+      color: #fff; padding: 4px 12px; cursor: pointer;
+      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 14px;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .toast-action:hover { background: rgba(255,255,255,0.35); }
     @keyframes slideUp { from { opacity:0; transform:translate(-50%,20px); } to { opacity:1; transform:translate(-50%,0); } }
 
     /* ─── Settings Panel ─── */
@@ -1582,6 +1590,9 @@
       nums.forEach(function(n, i) { n.textContent = i + 1; });
       if (found.obj[listType].length <= 1) list.classList.add('has-one');
       if (listType === 'indicators') refreshObjProgress(found.obj);
+
+      var label = listType === 'indicators' ? 'Indicador' : listType === 'contents' ? 'Contenido' : 'Actividad';
+      showToast(label + ' eliminado', 'info', { action: 'Deshacer', onAction: undo, duration: 6000 });
     }
 
     function addObjective(areaIdx) {
@@ -1599,6 +1610,7 @@
       area.objectives = area.objectives.filter(function(o) { return o.id !== objId; });
       markDirty();
       renderFormView();
+      showToast('Objetivo eliminado', 'info', { action: 'Deshacer', onAction: undo, duration: 6000 });
     }
 
     function createEmptyObjective() {
@@ -1690,6 +1702,7 @@
       state.informeFamilias.evaluaciones.splice(idx, 1);
       markDirty();
       renderFormView();
+      showToast('Indicador del informe eliminado', 'info', { action: 'Deshacer', onAction: undo, duration: 6000 });
     }
 
     function updateInformeIndicador(idx, value) {
@@ -2213,13 +2226,31 @@
     });
 
     var toastTimer = null;
-    function showToast(message, type) {
+    function showToast(message, type, opts) {
+      opts = opts || {};
       var t = document.getElementById('toast');
-      t.textContent = (type === 'success' ? '✓ ' : type === 'error' ? '✗ ' : 'ℹ ') + message;
+      while (t.firstChild) t.removeChild(t.firstChild);
+      var prefix = type === 'success' ? '✓ ' : type === 'error' ? '✗ ' : 'ℹ ';
+      var span = document.createElement('span');
+      span.textContent = prefix + message;
+      t.appendChild(span);
+      if (opts.action && typeof opts.onAction === 'function') {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'toast-action';
+        btn.textContent = opts.action;
+        btn.onclick = function() {
+          clearTimeout(toastTimer);
+          t.style.display = 'none';
+          opts.onAction();
+        };
+        t.appendChild(btn);
+      }
       t.className = 'toast toast-' + (type || 'info');
       t.style.display = '';
       clearTimeout(toastTimer);
-      toastTimer = setTimeout(function() { t.style.display = 'none'; }, 3000);
+      var duration = opts.duration || 3000;
+      toastTimer = setTimeout(function() { t.style.display = 'none'; }, duration);
     }
   </script>
 </body>
