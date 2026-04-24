@@ -421,6 +421,7 @@
       position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
       background: rgba(255,255,255,0.85);
       transform-origin: left center; transform: scaleX(1);
+      pointer-events: none;
     }
     @keyframes slideUp { from { opacity:0; transform:translate(-50%,20px); } to { opacity:1; transform:translate(-50%,0); } }
 
@@ -2254,15 +2255,18 @@
       t.appendChild(span);
       var hasAction = opts.action && typeof opts.onAction === 'function';
       if (hasAction) {
+        var action = opts.onAction;
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'toast-action';
         btn.textContent = opts.action;
-        btn.onclick = function() {
+        btn.addEventListener('click', function(ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
           clearTimeout(toastTimer);
           t.style.display = 'none';
-          opts.onAction();
-        };
+          try { action(); } catch (err) { /* noop */ }
+        });
         t.appendChild(btn);
       }
       t.className = 'toast toast-' + (type || 'info');
