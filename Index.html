@@ -405,6 +405,7 @@
       box-shadow: 0 8px 32px rgba(0,0,0,0.2); z-index: 999;
       animation: slideUp 0.3s ease;
       display: flex; align-items: center; gap: 12px; max-width: 90vw;
+      overflow: hidden;
     }
     .toast-success { background: #065f46; }
     .toast-error { background: #991b1b; }
@@ -416,6 +417,11 @@
       text-transform: uppercase; letter-spacing: 0.04em;
     }
     .toast-action:hover { background: rgba(255,255,255,0.35); }
+    .toast-progress {
+      position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+      background: rgba(255,255,255,0.85);
+      transform-origin: left center; transform: scaleX(1);
+    }
     @keyframes slideUp { from { opacity:0; transform:translate(-50%,20px); } to { opacity:1; transform:translate(-50%,0); } }
 
     /* ─── Settings Panel ─── */
@@ -2218,6 +2224,18 @@
         }
         return;
       }
+      // Ctrl/Cmd + Z → page-level undo (unless editing a text field, where the
+      // browser's own undo for typing should win).
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'z' || e.key === 'Z')) {
+        var ae = document.activeElement;
+        var isEditing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable);
+        if (isEditing) return;
+        if (state.view === 'form' && undoStack.length > 0) {
+          e.preventDefault();
+          undo();
+        }
+        return;
+      }
       // Esc → close print overlay (modal handles its own Esc)
       if (e.key === 'Escape') {
         if (document.querySelector('.modal-overlay')) return;
@@ -2234,7 +2252,8 @@
       var span = document.createElement('span');
       span.textContent = prefix + message;
       t.appendChild(span);
-      if (opts.action && typeof opts.onAction === 'function') {
+      var hasAction = opts.action && typeof opts.onAction === 'function';
+      if (hasAction) {
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'toast-action';
@@ -2250,6 +2269,15 @@
       t.style.display = '';
       clearTimeout(toastTimer);
       var duration = opts.duration || 3000;
+      if (hasAction) {
+        var bar = document.createElement('div');
+        bar.className = 'toast-progress';
+        t.appendChild(bar);
+        // Force reflow so the transition registers from scaleX(1) → scaleX(0).
+        void bar.offsetWidth;
+        bar.style.transition = 'transform ' + duration + 'ms linear';
+        bar.style.transform = 'scaleX(0)';
+      }
       toastTimer = setTimeout(function() { t.style.display = 'none'; }, duration);
     }
   </script>
