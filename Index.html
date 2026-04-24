@@ -39,9 +39,15 @@
     .student-badge .name { color: #fff; font-weight: 700; font-size: 16px; }
     .student-badge .meta { color: rgba(255,255,255,0.6); font-size: 13px; }
     .badge-dirty {
-      margin-left: auto; background: #fbbf24; color: #78350f;
+      background: #fbbf24; color: #78350f;
       padding: 2px 10px; border-radius: 20px; font-size: 13px; font-weight: 700;
     }
+    .badge-draft {
+      background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85);
+      padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-status { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 
     /* ─── Content ─── */
     .content { max-width: 800px; margin: 0 auto; padding: 20px 16px 100px; }
@@ -129,7 +135,29 @@
       background: #d1fae5; color: #065f46; padding: 3px 10px;
       border-radius: 20px; font-size: 13px; font-weight: 700;
     }
+    .student-item-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .btn-student-action {
+      background: transparent; border: none; cursor: pointer;
+      color: #9ca3af; font-size: 16px; line-height: 1;
+      width: 30px; height: 30px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s; font-family: 'Nunito', sans-serif;
+    }
+    .btn-duplicate-student:hover { background: #dbeafe; color: #1e40af; }
+    .btn-delete-student:hover { background: #fee2e2; color: #dc2626; }
     .student-list-body { padding: 12px 16px; max-height: 300px; overflow-y: auto; }
+    .student-list-empty {
+      text-align: center; padding: 32px 20px; color: #6b7280;
+    }
+    .student-list-empty .empty-icon { font-size: 40px; margin-bottom: 8px; opacity: 0.5; }
+    .student-list-empty .empty-title { font-size: 15px; font-weight: 700; color: #374151; margin-bottom: 4px; }
+    .student-list-empty .empty-sub { font-size: 13px; margin-bottom: 14px; }
+    .student-list-empty .btn-empty-cta {
+      padding: 9px 18px; border-radius: 10px; border: none;
+      background: linear-gradient(135deg, #2d6a4f, #40916c); color: #fff;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+      font-family: 'Nunito', sans-serif;
+    }
 
     /* ─── Objective Cards ─── */
     .obj-card { background: #fff; overflow: hidden; }
@@ -143,6 +171,29 @@
       justify-content: center; color: #fff; font-weight: 800; font-size: 14px; flex-shrink: 0;
     }
     .obj-title-text { color: #fff; font-weight: 700; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .obj-title-text[contenteditable="true"] {
+      outline: none; cursor: text; border-radius: 4px;
+      padding: 2px 6px; margin: -2px -6px;
+      transition: background 0.15s;
+    }
+    .obj-title-text[contenteditable="true"]:hover { background: rgba(255,255,255,0.12); }
+    .obj-title-text[contenteditable="true"]:focus {
+      background: rgba(255,255,255,0.2); white-space: normal;
+      overflow: visible; text-overflow: clip;
+    }
+    .obj-title-text[contenteditable="true"]:empty::before {
+      content: attr(data-placeholder);
+      color: rgba(255,255,255,0.65); font-style: italic; font-weight: 500;
+    }
+    .obj-progress { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+    .prog-pill {
+      font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 10px;
+      background: rgba(255,255,255,0.2); color: rgba(255,255,255,0.85);
+      letter-spacing: 0.02em; white-space: nowrap;
+    }
+    .prog-pill.prog-none { opacity: 0.55; }
+    .prog-pill.prog-partial { background: rgba(254, 243, 199, 0.35); color: #fef3c7; }
+    .prog-pill.prog-done { background: rgba(209, 250, 229, 0.9); color: #065f46; }
     .obj-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
     .obj-body.hidden { display: none; }
     .obj-toggle { color: #fff; font-size: 16px; transition: transform 0.3s; }
@@ -153,6 +204,21 @@
       color: #fff; padding: 4px 10px; cursor: pointer; font-size: 14px;
       font-family: 'Nunito', sans-serif;
     }
+    .btn-move-obj {
+      background: rgba(255,255,255,0.2); border: none; border-radius: 6px;
+      color: #fff; width: 26px; height: 26px; cursor: pointer;
+      font-size: 14px; font-family: 'Nunito', sans-serif; font-weight: 700;
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 0; line-height: 1;
+    }
+    .btn-move-obj:hover:not(:disabled) { background: rgba(255,255,255,0.35); }
+    .btn-move-obj:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-collapse-area {
+      background: rgba(255,255,255,0.2); border: none; border-radius: 8px;
+      color: #fff; padding: 4px 10px; cursor: pointer; font-size: 13px;
+      font-family: 'Nunito', sans-serif; font-weight: 700;
+    }
+    .btn-collapse-area:hover { background: rgba(255,255,255,0.35); }
 
     /* ─── Sections inside objectives ─── */
     .section { border-radius: 12px; padding: 12px 14px; }
@@ -163,6 +229,18 @@
     .section-indicators .section-label { color: #92400e; }
     .section-contents .section-label { color: #5b21b6; }
     .section-activities .section-label { color: #1e40af; }
+    .section-legend {
+      display: flex; flex-wrap: wrap; gap: 4px 10px;
+      font-size: 11px; color: #78716c; font-weight: 600;
+      margin: -2px 0 8px;
+    }
+    .section-legend .eval-tag {
+      display: inline-block; padding: 1px 6px; border-radius: 6px;
+      font-weight: 800; font-size: 10px;
+    }
+    .section-legend .eval-tag-ni { background: #fee2e2; color: #991b1b; }
+    .section-legend .eval-tag-ep { background: #fef3c7; color: #92400e; }
+    .section-legend .eval-tag-c  { background: #d1fae5; color: #065f46; }
 
     /* ─── Dynamic list items ─── */
     .list-item { display: flex; gap: 6px; align-items: flex-start; margin-bottom: 6px; }
@@ -263,6 +341,42 @@
     }
     .btn-add-obj:hover { background: #f3f4f6; }
 
+    /* ─── Dynamic list (hide remove when single) ─── */
+    .dynamic-list.has-one .btn-remove-item { display: none; }
+
+    /* ─── Confirm Modal ─── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200; padding: 16px;
+      animation: fadeIn 0.15s ease;
+    }
+    .modal-box {
+      background: #fff; border-radius: 16px; padding: 22px 24px;
+      max-width: 420px; width: 100%;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.25);
+      animation: popIn 0.2s ease;
+    }
+    .modal-title { font-weight: 800; font-size: 18px; color: #1b4332; margin-bottom: 8px; }
+    .modal-message { font-size: 15px; color: #374151; margin-bottom: 20px; line-height: 1.45; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+    .modal-btn {
+      padding: 9px 18px; border-radius: 10px; font-size: 15px; font-weight: 700;
+      cursor: pointer; font-family: 'Nunito', sans-serif; border: 1.5px solid transparent;
+    }
+    .modal-btn-cancel { border-color: #d1d5db; background: #fff; color: #6b7280; }
+    .modal-btn-confirm { background: linear-gradient(135deg, #2d6a4f, #40916c); color: #fff; }
+    .modal-btn-danger { background: linear-gradient(135deg, #b91c1c, #dc2626); color: #fff; }
+    .modal-input {
+      width: 100%; padding: 10px 14px; border-radius: 10px;
+      border: 1.5px solid #e5e7eb; font-size: 15px;
+      font-family: 'Nunito', sans-serif; margin-bottom: 10px;
+    }
+    .modal-input:focus { outline: none; border-color: #2d6a4f; }
+    .modal-error { font-size: 13px; color: #b91c1c; margin: -4px 0 10px; }
+    @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+    @keyframes popIn { from { opacity:0; transform: scale(.96) } to { opacity:1; transform: scale(1) } }
+
     /* ─── Bottom Bar ─── */
     .bottom-bar {
       position: fixed; bottom: 0; left: 0; right: 0;
@@ -276,6 +390,10 @@
       border: 1.5px solid #f59e0b; background: #fffbeb; color: #92400e;
     }
     .btn-undo:disabled { border-color: #d1d5db; background: #f9fafb; color: #d1d5db; cursor: not-allowed; }
+    .btn-redo {
+      border: 1.5px solid #3b82f6; background: #eff6ff; color: #1e40af;
+    }
+    .btn-redo:disabled { border-color: #d1d5db; background: #f9fafb; color: #d1d5db; cursor: not-allowed; }
     .btn-print { border: 1.5px solid #2d6a4f; background: #f0fdf4; color: #2d6a4f; }
     .btn-primary {
       border: none; background: linear-gradient(135deg, #2d6a4f, #40916c);
@@ -287,13 +405,28 @@
     /* ─── Toast ─── */
     .toast {
       position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-      color: #fff; padding: 10px 22px; border-radius: 14px; font-size: 15px; font-weight: 600;
+      color: #fff; padding: 10px 18px; border-radius: 14px; font-size: 15px; font-weight: 600;
       box-shadow: 0 8px 32px rgba(0,0,0,0.2); z-index: 999;
       animation: slideUp 0.3s ease;
+      display: flex; align-items: center; gap: 12px; max-width: 90vw;
+      overflow: hidden;
     }
     .toast-success { background: #065f46; }
     .toast-error { background: #991b1b; }
     .toast-info { background: #1e40af; }
+    .toast-action {
+      background: rgba(255,255,255,0.22); border: none; border-radius: 10px;
+      color: #fff; padding: 4px 12px; cursor: pointer;
+      font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 14px;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .toast-action:hover { background: rgba(255,255,255,0.35); }
+    .toast-progress {
+      position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+      background: rgba(255,255,255,0.85);
+      transform-origin: left center; transform: scaleX(1);
+      pointer-events: none;
+    }
     @keyframes slideUp { from { opacity:0; transform:translate(-50%,20px); } to { opacity:1; transform:translate(-50%,0); } }
 
     /* ─── Settings Panel ─── */
@@ -399,7 +532,10 @@
           <div class="name" id="badgeName"></div>
           <div class="meta" id="badgeMeta"></div>
         </div>
-        <span class="badge-dirty" id="badgeDirty" style="display:none">Sin guardar</span>
+        <div class="badge-status">
+          <span class="badge-draft" id="badgeDraft" style="display:none" title="Guardado localmente en este navegador"></span>
+          <span class="badge-dirty" id="badgeDirty" style="display:none">Sin guardar</span>
+        </div>
       </div>
     </div>
   </div>
@@ -411,7 +547,8 @@
 
   <!-- ═══════ BOTTOM BAR ═══════ -->
   <div class="bottom-bar" id="bottomBar" style="display:none">
-    <button class="btn btn-undo" id="btnUndo" onclick="undo()" disabled>↩ Deshacer</button>
+    <button class="btn btn-undo" id="btnUndo" onclick="undo()" title="Deshacer (Ctrl+Z)" disabled>↩ Deshacer</button>
+    <button class="btn btn-redo" id="btnRedo" onclick="redo()" title="Rehacer (Ctrl+Shift+Z)" disabled>↪ Rehacer</button>
     <button class="btn btn-secondary" onclick="clearForm()">Limpiar</button>
     <button class="btn btn-print" onclick="showPrintView()">🖨 Imprimir</button>
     <button class="btn btn-primary" id="btnSave" onclick="saveData()">💾 Guardar</button>
@@ -463,10 +600,13 @@
     ];
 
     let undoStack = [];
+    let redoStack = [];
     const MAX_UNDO = 20;
+    const UNDO_COALESCE_MS = 1500;
+    let lastCoalescedPushAt = 0;
 
-    function pushUndo() {
-      undoStack.push({
+    function buildStateSnapshot() {
+      return {
         studentName: state.studentName,
         course: state.course,
         areas: JSON.parse(JSON.stringify(state.areas)),
@@ -475,14 +615,10 @@
         seguimiento2T: state.seguimiento2T,
         seguimiento3T: state.seguimiento3T,
         informeFamilias: JSON.parse(JSON.stringify(state.informeFamilias))
-      });
-      if (undoStack.length > MAX_UNDO) undoStack.shift();
-      updateUndoButton();
+      };
     }
 
-    function undo() {
-      if (undoStack.length === 0) return;
-      var snapshot = undoStack.pop();
+    function applyStateSnapshot(snapshot) {
       state.studentName = snapshot.studentName;
       state.course = snapshot.course;
       state.areas = snapshot.areas;
@@ -491,16 +627,216 @@
       state.seguimiento2T = snapshot.seguimiento2T;
       state.seguimiento3T = snapshot.seguimiento3T;
       state.informeFamilias = snapshot.informeFamilias;
-      state.dirty = true;
-      updateUndoButton();
-      renderFormView();
-      showToast('Cambio deshecho', 'info');
     }
 
-    function updateUndoButton() {
-      var btn = document.getElementById('btnUndo');
-      if (btn) btn.disabled = (undoStack.length === 0);
+    function pushUndo(opts) {
+      opts = opts || {};
+      var now = Date.now();
+      if (opts.coalesce && lastCoalescedPushAt && (now - lastCoalescedPushAt) < UNDO_COALESCE_MS) {
+        // Same typing burst — extend the coalesce window without a new snapshot.
+        lastCoalescedPushAt = now;
+        return;
+      }
+      undoStack.push(buildStateSnapshot());
+      if (undoStack.length > MAX_UNDO) undoStack.shift();
+      redoStack = [];
+      lastCoalescedPushAt = opts.coalesce ? now : 0;
+      updateUndoRedoButtons();
     }
+
+    function undo() {
+      if (undoStack.length === 0) return;
+      redoStack.push(buildStateSnapshot());
+      if (redoStack.length > MAX_UNDO) redoStack.shift();
+      applyStateSnapshot(undoStack.pop());
+      state.dirty = true;
+      lastCoalescedPushAt = 0;
+      updateUndoRedoButtons();
+      renderFormView();
+      showToast('Cambio deshecho', 'info', { action: 'Rehacer', onAction: redo, duration: 6000 });
+    }
+
+    function redo() {
+      if (redoStack.length === 0) return;
+      undoStack.push(buildStateSnapshot());
+      if (undoStack.length > MAX_UNDO) undoStack.shift();
+      applyStateSnapshot(redoStack.pop());
+      state.dirty = true;
+      lastCoalescedPushAt = 0;
+      updateUndoRedoButtons();
+      renderFormView();
+      showToast('Cambio rehecho', 'info', { action: 'Deshacer', onAction: undo, duration: 6000 });
+    }
+
+    function updateUndoRedoButtons() {
+      var u = document.getElementById('btnUndo');
+      if (u) u.disabled = (undoStack.length === 0);
+      var r = document.getElementById('btnRedo');
+      if (r) r.disabled = (redoStack.length === 0);
+    }
+
+    /* ─── Autoguardado local (localStorage) ─── */
+    var DRAFT_KEY_PREFIX = 'padd:draft:';
+    var DRAFT_DEBOUNCE_MS = 1500;
+    var draftSaveTimer = null;
+    var draftLastSavedAt = null;
+    var hasLocalStorage = (function() {
+      try {
+        var k = '__padd_ls_test__';
+        localStorage.setItem(k, '1');
+        localStorage.removeItem(k);
+        return true;
+      } catch (e) { return false; }
+    })();
+
+    function draftKeyFor(name) {
+      var n = (name || '').trim();
+      return DRAFT_KEY_PREFIX + (n ? n : '__new__');
+    }
+
+    function buildDraftSnapshot() {
+      return {
+        savedAt: Date.now(),
+        studentName: state.studentName || '',
+        course: state.course || '',
+        areas: JSON.parse(JSON.stringify(state.areas || [])),
+        valoracionInicial: state.valoracionInicial || '',
+        seguimiento1T: state.seguimiento1T || '',
+        seguimiento2T: state.seguimiento2T || '',
+        seguimiento3T: state.seguimiento3T || '',
+        informeFamilias: JSON.parse(JSON.stringify(state.informeFamilias || { indicadores: [], evaluaciones: [] }))
+      };
+    }
+
+    function syncDomFieldsToState() {
+      var nameEl = document.getElementById('fName');
+      if (nameEl && !nameEl.readOnly) state.studentName = nameEl.value;
+      var courseEl = document.getElementById('fCourse');
+      if (courseEl) state.course = courseEl.value;
+      document.querySelectorAll('.richtext-editor').forEach(function(el) {
+        var key = el.getAttribute('data-key');
+        if (key) state[key] = el.innerHTML;
+      });
+    }
+
+    function saveDraftNow() {
+      if (!hasLocalStorage) return;
+      if (state.view !== 'form') return;
+      if (state.saving) return;
+      try {
+        syncDomFieldsToState();
+        var snap = buildDraftSnapshot();
+        var key = state.isNew ? draftKeyFor('') : draftKeyFor(snap.studentName);
+        localStorage.setItem(key, JSON.stringify(snap));
+        draftLastSavedAt = snap.savedAt;
+        updateDraftIndicator();
+      } catch (e) { /* quota / disabled — silent */ }
+    }
+
+    function scheduleDraftSave() {
+      if (!hasLocalStorage) return;
+      if (draftSaveTimer) clearTimeout(draftSaveTimer);
+      draftSaveTimer = setTimeout(saveDraftNow, DRAFT_DEBOUNCE_MS);
+    }
+
+    function flushDraftTimer() {
+      if (draftSaveTimer) { clearTimeout(draftSaveTimer); draftSaveTimer = null; }
+    }
+
+    function readDraft(name) {
+      if (!hasLocalStorage) return null;
+      try {
+        var raw = localStorage.getItem(draftKeyFor(name));
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) { return null; }
+    }
+
+    function clearDraft(name) {
+      if (!hasLocalStorage) return;
+      flushDraftTimer();
+      try {
+        localStorage.removeItem(draftKeyFor(name));
+        if ((name || '').trim()) localStorage.removeItem(draftKeyFor(''));
+      } catch (e) {}
+      draftLastSavedAt = null;
+      updateDraftIndicator();
+    }
+
+    function applyDraftToState(draft) {
+      state.studentName = draft.studentName || '';
+      state.course = draft.course || '';
+      state.valoracionInicial = draft.valoracionInicial || '';
+      state.seguimiento1T = draft.seguimiento1T || '';
+      state.seguimiento2T = draft.seguimiento2T || '';
+      state.seguimiento3T = draft.seguimiento3T || '';
+      state.areas = (draft.areas || []).map(function(a) {
+        return {
+          name: a.name,
+          objectives: (a.objectives || []).map(function(o) {
+            return {
+              id: uid(),
+              title: o.title || '',
+              indicators: (o.indicators || []).map(function(x) { return { id: uid(), text: x.text || '', eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '', observaciones: x.observaciones || '' }; }),
+              contents: (o.contents || []).map(function(x) { return { id: uid(), text: x.text || '' }; }),
+              activities: (o.activities || []).map(function(x) { return { id: uid(), text: x.text || '' }; })
+            };
+          })
+        };
+      });
+      var inf = draft.informeFamilias || { indicadores: [], evaluaciones: [] };
+      state.informeFamilias = {
+        indicadores: (inf.indicadores || []).map(function(x) { return { id: uid(), text: x.text || '' }; }),
+        evaluaciones: (inf.evaluaciones || []).map(function(x) { return { eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '' }; })
+      };
+      state.dirty = true;
+    }
+
+    function formatDraftAge(ts) {
+      if (!ts) return '';
+      var diff = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+      if (diff < 5) return 'ahora';
+      if (diff < 60) return 'hace ' + diff + ' s';
+      var min = Math.floor(diff / 60);
+      if (min < 60) return 'hace ' + min + ' min';
+      var hrs = Math.floor(min / 60);
+      if (hrs < 24) return 'hace ' + hrs + ' h';
+      try { return new Date(ts).toLocaleDateString(); } catch (e) { return ''; }
+    }
+
+    function updateDraftIndicator() {
+      var el = document.getElementById('badgeDraft');
+      if (!el) return;
+      if (state.view !== 'form' || !draftLastSavedAt) {
+        el.style.display = 'none';
+        return;
+      }
+      el.style.display = '';
+      el.textContent = '💾 Borrador local · ' + formatDraftAge(draftLastSavedAt);
+    }
+    setInterval(updateDraftIndicator, 15000);
+
+    async function offerDraftRecovery(name) {
+      var draft = readDraft(name);
+      if (!draft) return false;
+      var hasContent = (draft.studentName || draft.course || (draft.areas && draft.areas.length) ||
+                        draft.valoracionInicial || draft.seguimiento1T || draft.seguimiento2T || draft.seguimiento3T);
+      if (!hasContent) { clearDraft(name); return false; }
+      var label = formatDraftAge(draft.savedAt);
+      var who = (draft.studentName || name || 'nuevo alumno').trim() || 'nuevo alumno';
+      var msg = 'Hay un borrador local sin enviar para "' + who + '" (' + label + '). ¿Recuperarlo?';
+      var ok = await confirmDialog(msg, { title: 'Borrador local', confirmText: 'Recuperar', cancelText: 'Descartar' });
+      if (ok) {
+        applyDraftToState(draft);
+        draftLastSavedAt = draft.savedAt;
+        return true;
+      }
+      clearDraft(name);
+      return false;
+    }
+
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'hidden') saveDraftNow();
+    });
 
     let idCounter = 0;
     function uid() { return 'id_' + (++idCounter) + '_' + Math.random().toString(36).substr(2,5); }
@@ -597,17 +933,91 @@
 
     function renderStudentItems(list) {
       if (list.length === 0) {
-        return '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:13px">No hay alumnos registrados aún</div>';
+        if (state.students.length === 0) {
+          return '<div class="student-list-empty">' +
+            '<div class="empty-icon">📋</div>' +
+            '<div class="empty-title">Aún no hay alumnos registrados</div>' +
+            '<div class="empty-sub">Crea el primero para empezar a trabajar.</div>' +
+            '<button class="btn-empty-cta" onclick="newStudent()">+ Crear primer alumno</button>' +
+          '</div>';
+        }
+        return '<div class="student-list-empty">' +
+          '<div class="empty-icon">🔍</div>' +
+          '<div class="empty-title">Ningún alumno coincide con la búsqueda</div>' +
+          '<div class="empty-sub">Prueba con otro término o limpia el filtro.</div>' +
+        '</div>';
       }
       let html = '';
       list.forEach(function(s) {
-        html += '<button class="student-item" onclick="selectStudent(\'' + escHtml(s.name) + '\')">';
+        var nameAttr = escAttr(s.name);
+        html += '<div class="student-item" role="button" tabindex="0" onclick="selectStudent(\'' + nameAttr + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();selectStudent(\'' + nameAttr + '\')}">';
         html += '<div><div class="name">' + escHtml(s.name) + '</div>';
         html += '<div class="course">' + escHtml(s.course) + '</div></div>';
+        html += '<div class="student-item-actions">';
         html += '<span class="program-badge">PE</span>';
-        html += '</button>';
+        html += '<button class="btn-student-action btn-duplicate-student" title="Duplicar alumno" aria-label="Duplicar alumno" onclick="event.stopPropagation();confirmDuplicateStudent(\'' + nameAttr + '\')">⎘</button>';
+        html += '<button class="btn-student-action btn-delete-student" title="Eliminar alumno" aria-label="Eliminar alumno" onclick="event.stopPropagation();confirmDeleteStudent(\'' + nameAttr + '\')">🗑</button>';
+        html += '</div>';
+        html += '</div>';
       });
       return html;
+    }
+
+    async function confirmDuplicateStudent(oldName) {
+      var newName = await promptDialog('Se copiará toda la ficha de "' + oldName + '" con el nuevo nombre.', {
+        title: 'Duplicar alumno',
+        confirmText: 'Duplicar',
+        cancelText: 'Cancelar',
+        placeholder: 'Nombre y apellidos del nuevo alumno',
+        validate: function(v) {
+          if (!v) return 'El nombre no puede estar vacío';
+          if (state.students.some(function(s) { return s.name.trim().toLowerCase() === v.toLowerCase(); })) {
+            return 'Ya existe un alumno con ese nombre';
+          }
+          return '';
+        }
+      });
+      if (!newName) return;
+      showToast('Duplicando ficha...', 'info');
+      google.script.run
+        .withSuccessHandler(function(data) {
+          if (!data) { showToast('No se encontró la ficha original', 'error'); return; }
+          data.studentName = newName;
+          google.script.run
+            .withSuccessHandler(function() {
+              state.students.push({
+                name: newName,
+                course: data.course || '',
+                program: 'PE',
+                area: (data.areas || []).map(function(a) { return a.name; }).join(', ')
+              });
+              document.getElementById('studentItems').innerHTML = renderStudentItems(getFilteredStudents());
+              showToast('Alumno duplicado como "' + newName + '"', 'success');
+            })
+            .withFailureHandler(function(err) { showToast('Error al guardar: ' + err.message, 'error'); })
+            .saveStudentData(JSON.stringify(data));
+        })
+        .withFailureHandler(function(err) { showToast('Error al leer: ' + err.message, 'error'); })
+        .getStudentData(oldName);
+    }
+
+    async function confirmDeleteStudent(name) {
+      var ok = await confirmDialog('Se eliminará "' + name + '" y toda su ficha. Esta acción no se puede deshacer.', { title: 'Eliminar alumno', confirmText: 'Eliminar', cancelText: 'Cancelar', danger: true });
+      if (!ok) return;
+      google.script.run
+        .withSuccessHandler(function() {
+          state.students = state.students.filter(function(s) { return s.name !== name; });
+          if (state.selectedStudent === name) {
+            state.selectedStudent = null;
+            state.dirty = false;
+            loadStudentList();
+          } else {
+            document.getElementById('studentItems').innerHTML = renderStudentItems(getFilteredStudents());
+          }
+          showToast('Alumno eliminado', 'success');
+        })
+        .withFailureHandler(function(err) { showToast('Error al eliminar: ' + err.message, 'error'); })
+        .deleteStudent(name);
     }
 
     function getFilteredStudents() {
@@ -637,9 +1047,14 @@
     /* ═══════════════════════════════════════════
        ACTIONS: Select / New
     ═══════════════════════════════════════════ */
-    function selectStudent(name) {
-      if (state.dirty && !confirm('Hay cambios sin guardar. ¿Continuar?')) return;
+    async function selectStudent(name) {
+      if (state.dirty && !(await confirmDialog('Tienes cambios sin guardar. Si continúas, se perderán.', { title: 'Cambios sin guardar', confirmText: 'Descartar y continuar', cancelText: 'Seguir editando', danger: true }))) return;
+      flushDraftTimer();
+      draftLastSavedAt = null;
       undoStack = [];
+      redoStack = [];
+      lastCoalescedPushAt = 0;
+      updateUndoRedoButtons();
       state.selectedStudent = name;
       state.isNew = false;
       state.dirty = false;
@@ -649,7 +1064,7 @@
       document.getElementById('bottomBar').style.display = 'none';
 
       google.script.run
-        .withSuccessHandler(function(data) {
+        .withSuccessHandler(async function(data) {
           if (data) {
             state.studentName = data.studentName;
             state.course = data.course;
@@ -689,8 +1104,13 @@
             state.informeFamilias = { indicadores: [], evaluaciones: [] };
           }
           state.view = 'form';
+          var recovered = await offerDraftRecovery(name);
           renderFormView();
-          showToast('Datos de ' + name + ' cargados', 'success');
+          if (recovered) {
+            showToast('Borrador local recuperado · recuerda guardar en Google Sheets', 'info');
+          } else {
+            showToast('Datos de ' + name + ' cargados', 'success');
+          }
         })
         .withFailureHandler(function(err) {
           showToast('Error al cargar: ' + err.message, 'error');
@@ -699,9 +1119,14 @@
         .getStudentData(name);
     }
 
-    function newStudent() {
-      if (state.dirty && !confirm('Hay cambios sin guardar. ¿Continuar?')) return;
+    async function newStudent() {
+      if (state.dirty && !(await confirmDialog('Tienes cambios sin guardar. Si continúas, se perderán.', { title: 'Cambios sin guardar', confirmText: 'Descartar y continuar', cancelText: 'Seguir editando', danger: true }))) return;
+      flushDraftTimer();
+      draftLastSavedAt = null;
       undoStack = [];
+      redoStack = [];
+      lastCoalescedPushAt = 0;
+      updateUndoRedoButtons();
       state.selectedStudent = null;
       state.isNew = true;
       state.dirty = false;
@@ -714,12 +1139,17 @@
       state.seguimiento3T = '';
       state.informeFamilias = { indicadores: [], evaluaciones: [] };
       state.view = 'form';
+      var recovered = await offerDraftRecovery('');
       renderFormView();
-      showToast('Introduce los datos del nuevo alumno', 'info');
+      if (recovered) {
+        showToast('Borrador local recuperado · recuerda guardar en Google Sheets', 'info');
+      } else {
+        showToast('Introduce los datos del nuevo alumno', 'info');
+      }
     }
 
-    function goBack() {
-      if (state.dirty && !confirm('Hay cambios sin guardar. ¿Volver a la lista?')) return;
+    async function goBack() {
+      if (state.dirty && !(await confirmDialog('Tienes cambios sin guardar. Si vuelves a la lista, se perderán.', { title: 'Cambios sin guardar', confirmText: 'Descartar y volver', cancelText: 'Seguir editando', danger: true }))) return;
       state.dirty = false;
       loadStudentList();
     }
@@ -844,7 +1274,10 @@
     }
 
     function updateFollowupRich(key, el) {
-      state[key] = el.innerHTML;
+      var html = el.innerHTML;
+      if (state[key] === html) return;
+      pushUndo({ coalesce: true });
+      state[key] = html;
       markDirty();
     }
 
@@ -867,8 +1300,9 @@
       var color = getAreaColor(area.name);
 
       var html = '<div style="margin-top:20px;border:2px solid ' + color.border + ';border-radius:14px;overflow:hidden" id="area_' + areaIdx + '">';
-      html += '<div style="background:' + color.headerBg + ';color:#fff;padding:12px 16px;font-weight:800;font-size:15px;display:flex;justify-content:space-between;align-items:center">';
-      html += '<span>' + escHtml(area.name) + ' (' + area.objectives.length + ' obj.)</span>';
+      html += '<div style="background:' + color.headerBg + ';color:#fff;padding:12px 16px;font-weight:800;font-size:15px;display:flex;justify-content:space-between;align-items:center;gap:10px">';
+      html += '<span style="min-width:0;overflow:hidden;text-overflow:ellipsis">' + escHtml(area.name) + ' (' + area.objectives.length + ' obj.)</span>';
+      html += '<button class="btn-collapse-area" id="collapseArea_' + areaIdx + '" onclick="toggleAreaCollapse(' + areaIdx + ')" title="Colapsar o expandir todos los objetivos de este ámbito">Colapsar todo</button>';
       html += '</div>';
 
       area.objectives.forEach(function(obj, i) {
@@ -881,7 +1315,6 @@
     }
 
     function renderObjectiveCard(obj, index, areaIdx, color) {
-      var titlePreview = obj.title ? obj.title.substring(0, 55) + (obj.title.length > 55 ? '...' : '') : 'Objetivo ' + (index + 1) + ' — sin título';
       var area = state.areas[areaIdx];
       var canRemove = area.objectives.length > 1;
 
@@ -889,11 +1322,24 @@
 
       // Header
       html += '<div class="obj-header" style="background:' + color.objHeaderBg + '" onclick="toggleObjective(\'' + obj.id + '\')">';
-      html += '<div style="display:flex;align-items:center;gap:8px;overflow:hidden">';
+      html += '<div style="display:flex;align-items:center;gap:10px;overflow:hidden;min-width:0;flex:1">';
       html += '<span class="obj-num">' + (index + 1) + '</span>';
-      html += '<span class="obj-title-text">' + escHtml(titlePreview) + '</span>';
+      html += '<div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;flex:1">';
+      html += '<span class="obj-title-text" contenteditable="true" spellcheck="true"'
+           + ' data-placeholder="Escribe el objetivo..."'
+           + ' onclick="event.stopPropagation()"'
+           + ' onfocus="event.stopPropagation()"'
+           + ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}"'
+           + ' oninput="updateObjTitle(\'' + obj.id + '\',this.textContent)">'
+           + escHtml(obj.title) + '</span>';
+      html += renderObjProgress(obj);
+      html += '</div>';
       html += '</div>';
       html += '<div style="display:flex;gap:6px;align-items:center;flex-shrink:0">';
+      var isFirst = index === 0;
+      var isLast = index === area.objectives.length - 1;
+      html += '<button class="btn-move-obj" onclick="event.stopPropagation();moveObjective(' + areaIdx + ',\'' + obj.id + '\',-1)" title="Subir objetivo"' + (isFirst ? ' disabled' : '') + '>↑</button>';
+      html += '<button class="btn-move-obj" onclick="event.stopPropagation();moveObjective(' + areaIdx + ',\'' + obj.id + '\',1)" title="Bajar objetivo"' + (isLast ? ' disabled' : '') + '>↓</button>';
       if (canRemove) {
         html += '<button class="btn-remove-obj" onclick="event.stopPropagation();removeObjective(' + areaIdx + ',\'' + obj.id + '\')">Eliminar</button>';
       }
@@ -903,13 +1349,14 @@
       // Body
       html += '<div class="obj-body" id="body_' + obj.id + '">';
 
-      // Description
-      html += '<div><label class="field-label" style="color:#2d6a4f">Descripción del objetivo</label>';
-      html += '<textarea class="list-textarea" rows="3" style="width:100%" placeholder="Ej: Mejorar la capacidad del alumno para mantener la atención..." oninput="updateObjTitle(\'' + obj.id + '\',this.value)">' + escHtml(obj.title) + '</textarea></div>';
-
       // Indicators
       html += '<div class="section section-indicators">';
       html += '<div class="section-label">Indicadores de evaluación</div>';
+      html += '<div class="section-legend">';
+      html += '<span><span class="eval-tag eval-tag-ni">NI</span> No iniciado</span>';
+      html += '<span><span class="eval-tag eval-tag-ep">EP</span> En proceso</span>';
+      html += '<span><span class="eval-tag eval-tag-c">C</span> Conseguido</span>';
+      html += '</div>';
       html += renderDynamicList(obj.id, 'indicators', obj.indicators, 'Ej: Mantiene la atención durante 10-15 min...');
       html += '</div>';
 
@@ -939,28 +1386,58 @@
         html += '<span class="eval-label" style="width:56px">3T</span>';
         html += '</div>';
       }
+      var soloClass = (items.length <= 1) ? ' has-one' : '';
+      html += '<div class="dynamic-list' + soloClass + '" id="list_' + objId + '_' + listType + '">';
       items.forEach(function(item, idx) {
-        html += '<div class="list-item">';
-        html += '<span class="list-num">' + (idx + 1) + '</span>';
-        html += '<textarea class="list-textarea" rows="2" placeholder="' + escAttr(placeholder) + '" oninput="updateListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\',this.value)">' + escHtml(item.text) + '</textarea>';
-        if (isIndicator) {
-          html += '<div class="eval-group">';
-          html += renderEvalSelect(objId, item.id, '1T', item.eval1T || '');
-          html += renderEvalSelect(objId, item.id, '2T', item.eval2T || '');
-          html += renderEvalSelect(objId, item.id, '3T', item.eval3T || '');
-          html += '</div>';
-        }
-        if (items.length > 1) {
-          html += '<button class="btn-remove-item" onclick="removeListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\')">×</button>';
-        }
-        html += '</div>';
-        if (isIndicator) {
-          html += '<div style="margin-left:28px;margin-bottom:8px">';
-          html += '<textarea class="ind-obs-textarea" placeholder="Observaciones del indicador..." oninput="autoResize(this);updateIndicatorObs(\'' + objId + '\',\'' + item.id + '\',this.value)">' + escHtml(item.observaciones || '') + '</textarea>';
-          html += '</div>';
-        }
+        html += renderListItem(objId, listType, item, idx, placeholder);
       });
+      html += '</div>';
       html += '<button class="btn-add-item" onclick="addListItem(\'' + objId + '\',\'' + listType + '\')">+ Añadir</button>';
+      return html;
+    }
+
+    function renderListItem(objId, listType, item, idx, placeholder) {
+      var isIndicator = (listType === 'indicators');
+      var html = '<div class="list-item-wrap" data-item-id="' + item.id + '">';
+      html += '<div class="list-item">';
+      html += '<span class="list-num">' + (idx + 1) + '</span>';
+      html += '<textarea class="list-textarea" rows="2" placeholder="' + escAttr(placeholder) + '" oninput="updateListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\',this.value)">' + escHtml(item.text) + '</textarea>';
+      if (isIndicator) {
+        html += '<div class="eval-group">';
+        html += renderEvalSelect(objId, item.id, '1T', item.eval1T || '');
+        html += renderEvalSelect(objId, item.id, '2T', item.eval2T || '');
+        html += renderEvalSelect(objId, item.id, '3T', item.eval3T || '');
+        html += '</div>';
+      }
+      html += '<button class="btn-remove-item" onclick="removeListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\')">×</button>';
+      html += '</div>';
+      if (isIndicator) {
+        html += '<div style="margin-left:28px;margin-bottom:8px">';
+        html += '<textarea class="ind-obs-textarea" placeholder="Observaciones del indicador..." oninput="autoResize(this);updateIndicatorObs(\'' + objId + '\',\'' + item.id + '\',this.value)">' + escHtml(item.observaciones || '') + '</textarea>';
+        html += '</div>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function getPlaceholder(listType) {
+      if (listType === 'indicators') return 'Ej: Mantiene la atención durante 10-15 min...';
+      if (listType === 'contents') return 'Ej: Resolución de problemas, numeración...';
+      return 'Ej: Subrayado guiado de datos relevantes...';
+    }
+
+    function renderObjProgress(obj) {
+      var total = (obj.indicators || []).length;
+      if (total === 0) return '';
+      var trims = ['1T', '2T', '3T'];
+      var html = '<div class="obj-progress">';
+      trims.forEach(function(t) {
+        var key = 'eval' + t;
+        var done = obj.indicators.filter(function(i) { return (i[key] || '').trim(); }).length;
+        var cls = 'prog-pill ' + (done === 0 ? 'prog-none' : (done === total ? 'prog-done' : 'prog-partial'));
+        html += '<span class="' + cls + '">' + t + ' ' + done + '/' + total + '</span>';
+      });
+      html += '</div>';
       return html;
     }
 
@@ -984,39 +1461,56 @@
         var item = found.obj.indicators.find(function(i) { return i.id === itemId; });
         if (item) {
           var key = 'eval' + trimester;
+          if (item[key] === selectEl.value) return;
+          pushUndo({ coalesce: true });
           item[key] = selectEl.value;
           // Update visual class
           selectEl.className = 'eval-select';
           if (selectEl.value === 'NI') selectEl.className += ' eval-ni';
           else if (selectEl.value === 'EP') selectEl.className += ' eval-ep';
           else if (selectEl.value === 'C') selectEl.className += ' eval-c';
+          refreshObjProgress(found.obj);
           markDirty();
         }
       }
+    }
+
+    function refreshObjProgress(obj) {
+      var card = document.getElementById('obj_' + obj.id);
+      if (!card) return;
+      var prog = card.querySelector('.obj-header .obj-progress');
+      if (!prog) return;
+      var tmp = document.createElement('div');
+      tmp.innerHTML = renderObjProgress(obj);
+      var fresh = tmp.firstElementChild;
+      if (fresh) prog.replaceWith(fresh);
     }
 
     /* ═══════════════════════════════════════════
        FORM ACTIONS
     ═══════════════════════════════════════════ */
     function onFieldChange() {
-      state.studentName = document.getElementById('fName').value;
-      state.course = document.getElementById('fCourse').value;
+      var newName = document.getElementById('fName').value;
+      var newCourse = document.getElementById('fCourse').value;
+      if (state.studentName === newName && state.course === newCourse) return;
+      pushUndo({ coalesce: true });
+      state.studentName = newName;
+      state.course = newCourse;
       markDirty();
     }
 
-    function toggleArea(areaName) {
-      pushUndo();
+    async function toggleArea(areaName) {
       var idx = -1;
       for (var i = 0; i < state.areas.length; i++) {
         if (state.areas[i].name === areaName) { idx = i; break; }
       }
       if (idx >= 0) {
-        // Remove area (will lose its objectives)
-        if (!state.areas[idx].objectives.some(function(o) { return o.title.trim(); }) || confirm('¿Eliminar el ámbito "' + areaName + '" y sus objetivos?')) {
-          state.areas.splice(idx, 1);
-        }
+        var hasContent = state.areas[idx].objectives.some(function(o) { return o.title.trim(); });
+        if (hasContent && !(await confirmDialog('Se eliminará el ámbito "' + areaName + '" y todos sus objetivos.', { title: 'Eliminar ámbito', confirmText: 'Eliminar', cancelText: 'Cancelar', danger: true }))) return;
+        pushUndo();
+        state.areas.splice(idx, 1);
       } else {
-        // Add area with one empty objective
+        pushUndo();
         state.areas.push({ name: areaName, objectives: [createEmptyObjective()] });
       }
       markDirty();
@@ -1026,6 +1520,7 @@
     function markDirty() {
       state.dirty = true;
       updateBadge();
+      scheduleDraftSave();
     }
 
     function updateBadge() {
@@ -1040,6 +1535,7 @@
       } else {
         badge.style.display = 'none';
       }
+      updateDraftIndicator();
     }
 
     function toggleObjective(objId) {
@@ -1054,6 +1550,44 @@
       }
     }
 
+    function toggleAreaCollapse(areaIdx) {
+      var area = state.areas[areaIdx];
+      if (!area) return;
+      var allCollapsed = area.objectives.every(function(o) {
+        var body = document.getElementById('body_' + o.id);
+        return body && body.classList.contains('hidden');
+      });
+      area.objectives.forEach(function(o) {
+        var body = document.getElementById('body_' + o.id);
+        var toggle = document.getElementById('toggle_' + o.id);
+        if (!body || !toggle) return;
+        if (allCollapsed) {
+          body.classList.remove('hidden');
+          toggle.classList.remove('collapsed');
+        } else {
+          body.classList.add('hidden');
+          toggle.classList.add('collapsed');
+        }
+      });
+      var btn = document.getElementById('collapseArea_' + areaIdx);
+      if (btn) btn.textContent = allCollapsed ? 'Colapsar todo' : 'Expandir todo';
+    }
+
+    function moveObjective(areaIdx, objId, direction) {
+      var area = state.areas[areaIdx];
+      if (!area) return;
+      var idx = area.objectives.findIndex(function(o) { return o.id === objId; });
+      if (idx < 0) return;
+      var newIdx = idx + direction;
+      if (newIdx < 0 || newIdx >= area.objectives.length) return;
+      pushUndo();
+      var tmp = area.objectives[idx];
+      area.objectives[idx] = area.objectives[newIdx];
+      area.objectives[newIdx] = tmp;
+      markDirty();
+      renderFormView();
+    }
+
     function findObjInAreas(objId) {
       for (var a = 0; a < state.areas.length; a++) {
         var obj = state.areas[a].objectives.find(function(o) { return o.id === objId; });
@@ -1064,14 +1598,22 @@
 
     function updateObjTitle(objId, value) {
       var found = findObjInAreas(objId);
-      if (found) { found.obj.title = value; markDirty(); }
+      if (found && found.obj.title !== value) {
+        pushUndo({ coalesce: true });
+        found.obj.title = value;
+        markDirty();
+      }
     }
 
     function updateListItem(objId, listType, itemId, value) {
       var found = findObjInAreas(objId);
       if (found) {
         var item = found.obj[listType].find(function(i) { return i.id === itemId; });
-        if (item) { item.text = value; markDirty(); }
+        if (item && item.text !== value) {
+          pushUndo({ coalesce: true });
+          item.text = value;
+          markDirty();
+        }
       }
     }
 
@@ -1079,29 +1621,53 @@
       var found = findObjInAreas(objId);
       if (found) {
         var item = found.obj.indicators.find(function(i) { return i.id === itemId; });
-        if (item) { item.observaciones = value; markDirty(); }
+        if (item && item.observaciones !== value) {
+          pushUndo({ coalesce: true });
+          item.observaciones = value;
+          markDirty();
+        }
       }
     }
 
     function addListItem(objId, listType) {
       var found = findObjInAreas(objId);
-      if (found) {
-        var newItem = { id: uid(), text: '' };
-        if (listType === 'indicators') newItem.observaciones = '';
-        found.obj[listType].push(newItem);
-        markDirty();
-        renderFormView();
-      }
+      if (!found) return;
+      var newItem = { id: uid(), text: '' };
+      if (listType === 'indicators') newItem.observaciones = '';
+      found.obj[listType].push(newItem);
+      markDirty();
+
+      var list = document.getElementById('list_' + objId + '_' + listType);
+      if (!list) { renderFormView(); return; }
+      list.classList.remove('has-one');
+      var idx = found.obj[listType].length - 1;
+      var tmp = document.createElement('div');
+      tmp.innerHTML = renderListItem(objId, listType, newItem, idx, getPlaceholder(listType));
+      var newNode = tmp.firstElementChild;
+      list.appendChild(newNode);
+      if (listType === 'indicators') refreshObjProgress(found.obj);
+      var ta = newNode.querySelector('.list-textarea');
+      if (ta) ta.focus();
     }
 
     function removeListItem(objId, listType, itemId) {
       var found = findObjInAreas(objId);
-      if (found && found.obj[listType].length > 1) {
-        pushUndo();
-        found.obj[listType] = found.obj[listType].filter(function(i) { return i.id !== itemId; });
-        markDirty();
-        renderFormView();
-      }
+      if (!found || found.obj[listType].length <= 1) return;
+      pushUndo();
+      found.obj[listType] = found.obj[listType].filter(function(i) { return i.id !== itemId; });
+      markDirty();
+
+      var list = document.getElementById('list_' + objId + '_' + listType);
+      if (!list) { renderFormView(); return; }
+      var node = list.querySelector('[data-item-id="' + itemId + '"]');
+      if (node) node.remove();
+      var nums = list.querySelectorAll('.list-num');
+      nums.forEach(function(n, i) { n.textContent = i + 1; });
+      if (found.obj[listType].length <= 1) list.classList.add('has-one');
+      if (listType === 'indicators') refreshObjProgress(found.obj);
+
+      var label = listType === 'indicators' ? 'Indicador' : listType === 'contents' ? 'Contenido' : 'Actividad';
+      showToast(label + ' eliminado', 'info', { action: 'Deshacer', onAction: undo, duration: 6000 });
     }
 
     function addObjective(areaIdx) {
@@ -1111,14 +1677,15 @@
       showToast('Objetivo añadido', 'success');
     }
 
-    function removeObjective(areaIdx, objId) {
+    async function removeObjective(areaIdx, objId) {
       var area = state.areas[areaIdx];
       if (area.objectives.length <= 1) return;
-      if (!confirm('¿Eliminar este objetivo?')) return;
+      if (!(await confirmDialog('Se eliminará el objetivo y sus indicadores, contenidos y actividades.', { title: 'Eliminar objetivo', confirmText: 'Eliminar', cancelText: 'Cancelar', danger: true }))) return;
       pushUndo();
       area.objectives = area.objectives.filter(function(o) { return o.id !== objId; });
       markDirty();
       renderFormView();
+      showToast('Objetivo eliminado', 'info', { action: 'Deshacer', onAction: undo, duration: 6000 });
     }
 
     function createEmptyObjective() {
@@ -1210,9 +1777,12 @@
       state.informeFamilias.evaluaciones.splice(idx, 1);
       markDirty();
       renderFormView();
+      showToast('Indicador del informe eliminado', 'info', { action: 'Deshacer', onAction: undo, duration: 6000 });
     }
 
     function updateInformeIndicador(idx, value) {
+      if (state.informeFamilias.indicadores[idx].text === value) return;
+      pushUndo({ coalesce: true });
       state.informeFamilias.indicadores[idx].text = value;
       markDirty();
     }
@@ -1223,14 +1793,14 @@
       }
       var ev = state.informeFamilias.evaluaciones[idx];
       var key = 'eval' + trimester;
-      // Toggle off if already selected
+      pushUndo({ coalesce: true });
       ev[key] = (ev[key] === level) ? '' : level;
       markDirty();
       renderFormView();
     }
 
-    function clearForm() {
-      if (!confirm('¿Borrar todos los cambios del formulario?')) return;
+    async function clearForm() {
+      if (!(await confirmDialog('Se borrarán los objetivos actuales del formulario. Podrás deshacer después.', { title: 'Limpiar formulario', confirmText: 'Limpiar', cancelText: 'Cancelar', danger: true }))) return;
       pushUndo();
       state.areas = state.areas.map(function(a) { return { name: a.name, objectives: [createEmptyObjective()] }; });
       if (state.isNew) {
@@ -1251,6 +1821,9 @@
     /* ═══════════════════════════════════════════
        SAVE
     ═══════════════════════════════════════════ */
+    var slowSaveTimer = null;
+    var SLOW_SAVE_MS = 10000;
+
     function saveData() {
       // Read latest field values
       state.studentName = document.getElementById('fName').value.trim();
@@ -1264,6 +1837,13 @@
       var btn = document.getElementById('btnSave');
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span> Guardando...';
+
+      clearTimeout(slowSaveTimer);
+      slowSaveTimer = setTimeout(function() {
+        if (!state.saving) return;
+        btn.innerHTML = '<span class="spinner"></span> Aún guardando…';
+        showToast('Está tardando más de lo normal. Tus datos están guardados en el borrador local.', 'info', { duration: 5000 });
+      }, SLOW_SAVE_MS);
 
       // Read rich text follow-up fields from contenteditable
       document.querySelectorAll('.richtext-editor').forEach(function(el) {
@@ -1301,10 +1881,12 @@
 
       google.script.run
         .withSuccessHandler(function(result) {
+          clearTimeout(slowSaveTimer);
           state.saving = false;
           state.dirty = false;
           state.selectedStudent = state.studentName;
           state.isNew = false;
+          clearDraft(state.studentName);
 
           // Update local students list
           var areaStr = state.areas.map(function(a) { return a.name; }).join(', ');
@@ -1323,10 +1905,16 @@
           showToast('Datos guardados en Google Sheets ✓', 'success');
         })
         .withFailureHandler(function(err) {
+          clearTimeout(slowSaveTimer);
           state.saving = false;
           btn.disabled = false;
           btn.innerHTML = '💾 Guardar';
-          showToast('Error al guardar: ' + err.message, 'error');
+          var msg = (err && err.message) ? err.message : 'No se pudo conectar';
+          showToast('Error al guardar: ' + msg + ' · tus datos siguen en el borrador local', 'error', {
+            action: 'Reintentar',
+            onAction: saveData,
+            duration: 10000
+          });
         })
         .saveStudentData(payload);
     }
@@ -1619,14 +2207,173 @@
       return (year - 1) + '/' + year;
     }
 
+    function confirmDialog(message, opts) {
+      opts = opts || {};
+      var title = opts.title || 'Confirmar';
+      var confirmText = opts.confirmText || 'Aceptar';
+      var cancelText = opts.cancelText || 'Cancelar';
+      var danger = opts.danger === true;
+      return new Promise(function(resolve) {
+        var overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML =
+          '<div class="modal-box" role="dialog" aria-modal="true">' +
+            '<div class="modal-title">' + escHtml(title) + '</div>' +
+            '<div class="modal-message">' + escHtml(message) + '</div>' +
+            '<div class="modal-actions">' +
+              '<button class="modal-btn modal-btn-cancel" data-cancel>' + escHtml(cancelText) + '</button>' +
+              '<button class="modal-btn ' + (danger ? 'modal-btn-danger' : 'modal-btn-confirm') + '" data-confirm>' + escHtml(confirmText) + '</button>' +
+            '</div>' +
+          '</div>';
+        function close(result) {
+          document.removeEventListener('keydown', onKey);
+          overlay.remove();
+          resolve(result);
+        }
+        function onKey(e) {
+          if (e.key === 'Escape') { e.preventDefault(); close(false); }
+          else if (e.key === 'Enter') { e.preventDefault(); close(true); }
+        }
+        overlay.addEventListener('click', function(e) { if (e.target === overlay) close(false); });
+        overlay.querySelector('[data-cancel]').addEventListener('click', function() { close(false); });
+        overlay.querySelector('[data-confirm]').addEventListener('click', function() { close(true); });
+        document.addEventListener('keydown', onKey);
+        document.body.appendChild(overlay);
+        setTimeout(function() {
+          var btn = overlay.querySelector('[data-confirm]');
+          if (btn) btn.focus();
+        }, 10);
+      });
+    }
+
+    function promptDialog(message, opts) {
+      opts = opts || {};
+      var title = opts.title || 'Introduce un valor';
+      var confirmText = opts.confirmText || 'Aceptar';
+      var cancelText = opts.cancelText || 'Cancelar';
+      var defaultValue = opts.defaultValue || '';
+      var placeholder = opts.placeholder || '';
+      var validate = opts.validate || function() { return ''; };
+      return new Promise(function(resolve) {
+        var overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML =
+          '<div class="modal-box" role="dialog" aria-modal="true">' +
+            '<div class="modal-title">' + escHtml(title) + '</div>' +
+            '<div class="modal-message">' + escHtml(message) + '</div>' +
+            '<input type="text" class="modal-input" placeholder="' + escAttr(placeholder) + '" value="' + escAttr(defaultValue) + '">' +
+            '<div class="modal-error" style="display:none"></div>' +
+            '<div class="modal-actions">' +
+              '<button class="modal-btn modal-btn-cancel" data-cancel>' + escHtml(cancelText) + '</button>' +
+              '<button class="modal-btn modal-btn-confirm" data-confirm>' + escHtml(confirmText) + '</button>' +
+            '</div>' +
+          '</div>';
+        var input = overlay.querySelector('.modal-input');
+        var errEl = overlay.querySelector('.modal-error');
+        function close(result) {
+          document.removeEventListener('keydown', onKey);
+          overlay.remove();
+          resolve(result);
+        }
+        function tryConfirm() {
+          var v = input.value.trim();
+          var err = validate(v);
+          if (err) { errEl.textContent = err; errEl.style.display = ''; return; }
+          close(v);
+        }
+        function onKey(e) {
+          if (e.key === 'Escape') { e.preventDefault(); close(null); }
+          else if (e.key === 'Enter' && document.activeElement === input) { e.preventDefault(); tryConfirm(); }
+        }
+        overlay.addEventListener('click', function(e) { if (e.target === overlay) close(null); });
+        overlay.querySelector('[data-cancel]').addEventListener('click', function() { close(null); });
+        overlay.querySelector('[data-confirm]').addEventListener('click', tryConfirm);
+        document.addEventListener('keydown', onKey);
+        document.body.appendChild(overlay);
+        setTimeout(function() { input.focus(); input.select(); }, 10);
+      });
+    }
+
+    window.addEventListener('beforeunload', function(e) {
+      if (state.dirty && !state.saving) {
+        saveDraftNow();
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    });
+
+    document.addEventListener('keydown', function(e) {
+      // Ctrl/Cmd + S → save when the form is visible
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 's' || e.key === 'S')) {
+        if (state.view === 'form' && !state.saving) {
+          e.preventDefault();
+          saveData();
+        }
+        return;
+      }
+      // Ctrl/Cmd + Z → undo · Ctrl/Cmd + Shift + Z o Ctrl + Y → redo.
+      // Skip while focus is on a text field so the browser can handle its
+      // native undo/redo for typing.
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y')) {
+        var ae = document.activeElement;
+        var isEditing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable);
+        if (isEditing) return;
+        if (state.view !== 'form') return;
+        var isRedo = e.shiftKey || e.key === 'y' || e.key === 'Y';
+        if (isRedo) {
+          if (redoStack.length > 0) { e.preventDefault(); redo(); }
+        } else {
+          if (undoStack.length > 0) { e.preventDefault(); undo(); }
+        }
+        return;
+      }
+      // Esc → close print overlay (modal handles its own Esc)
+      if (e.key === 'Escape') {
+        if (document.querySelector('.modal-overlay')) return;
+        if (document.getElementById('printOverlayWrapper')) closePrint();
+      }
+    });
+
     var toastTimer = null;
-    function showToast(message, type) {
+    function showToast(message, type, opts) {
+      opts = opts || {};
       var t = document.getElementById('toast');
-      t.textContent = (type === 'success' ? '✓ ' : type === 'error' ? '✗ ' : 'ℹ ') + message;
+      while (t.firstChild) t.removeChild(t.firstChild);
+      var prefix = type === 'success' ? '✓ ' : type === 'error' ? '✗ ' : 'ℹ ';
+      var span = document.createElement('span');
+      span.textContent = prefix + message;
+      t.appendChild(span);
+      var hasAction = opts.action && typeof opts.onAction === 'function';
+      if (hasAction) {
+        var action = opts.onAction;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'toast-action';
+        btn.textContent = opts.action;
+        btn.addEventListener('click', function(ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          clearTimeout(toastTimer);
+          t.style.display = 'none';
+          try { action(); } catch (err) { /* noop */ }
+        });
+        t.appendChild(btn);
+      }
       t.className = 'toast toast-' + (type || 'info');
       t.style.display = '';
       clearTimeout(toastTimer);
-      toastTimer = setTimeout(function() { t.style.display = 'none'; }, 3000);
+      var duration = opts.duration || 3000;
+      if (hasAction) {
+        var bar = document.createElement('div');
+        bar.className = 'toast-progress';
+        t.appendChild(bar);
+        // Force reflow so the transition registers from scaleX(1) → scaleX(0).
+        void bar.offsetWidth;
+        bar.style.transition = 'transform ' + duration + 'ms linear';
+        bar.style.transform = 'scaleX(0)';
+      }
+      toastTimer = setTimeout(function() { t.style.display = 'none'; }, duration);
     }
   </script>
 </body>
