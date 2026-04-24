@@ -1821,6 +1821,9 @@
     /* ═══════════════════════════════════════════
        SAVE
     ═══════════════════════════════════════════ */
+    var slowSaveTimer = null;
+    var SLOW_SAVE_MS = 10000;
+
     function saveData() {
       // Read latest field values
       state.studentName = document.getElementById('fName').value.trim();
@@ -1834,6 +1837,13 @@
       var btn = document.getElementById('btnSave');
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span> Guardando...';
+
+      clearTimeout(slowSaveTimer);
+      slowSaveTimer = setTimeout(function() {
+        if (!state.saving) return;
+        btn.innerHTML = '<span class="spinner"></span> Aún guardando…';
+        showToast('Está tardando más de lo normal. Tus datos están guardados en el borrador local.', 'info', { duration: 5000 });
+      }, SLOW_SAVE_MS);
 
       // Read rich text follow-up fields from contenteditable
       document.querySelectorAll('.richtext-editor').forEach(function(el) {
@@ -1871,6 +1881,7 @@
 
       google.script.run
         .withSuccessHandler(function(result) {
+          clearTimeout(slowSaveTimer);
           state.saving = false;
           state.dirty = false;
           state.selectedStudent = state.studentName;
@@ -1894,10 +1905,16 @@
           showToast('Datos guardados en Google Sheets ✓', 'success');
         })
         .withFailureHandler(function(err) {
+          clearTimeout(slowSaveTimer);
           state.saving = false;
           btn.disabled = false;
           btn.innerHTML = '💾 Guardar';
-          showToast('Error al guardar: ' + err.message, 'error');
+          var msg = (err && err.message) ? err.message : 'No se pudo conectar';
+          showToast('Error al guardar: ' + msg + ' · tus datos siguen en el borrador local', 'error', {
+            action: 'Reintentar',
+            onAction: saveData,
+            duration: 10000
+          });
         })
         .saveStudentData(payload);
     }
