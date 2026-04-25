@@ -49,6 +49,8 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html { scrollbar-gutter: stable; }
+
     body {
       font-family: 'Sofia Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
       min-height: 100vh;
@@ -129,29 +131,54 @@
 
     /* ─── Content ─── */
     .content { max-width: 880px; margin: 0 auto; padding: 24px 20px 110px; }
-    .content-with-nav { max-width: 1160px; margin: 0 auto; padding: 24px 20px 110px; display: flex; gap: 20px; }
-    .content-main { flex: 1; min-width: 0; }
+    .content-with-nav {
+      max-width: 1340px;
+      margin: 0 auto;
+      padding: 24px 20px 110px;
+      display: grid;
+      grid-template-columns: 220px minmax(0, 880px) 220px;
+      column-gap: 20px;
+      align-items: start;
+      justify-content: center;
+    }
+    .content-main { grid-column: 2; min-width: 0; }
 
     /* ─── Side Nav ─── */
     .side-nav {
-      width: 220px; flex-shrink: 0; position: sticky; top: 110px; align-self: flex-start;
+      grid-column: 1;
+      width: 220px;
+      position: sticky;
+      top: 180px;
       background: var(--gris-0); border-radius: var(--radio-lg); border: 1px solid var(--gris-200);
       box-shadow: var(--sombra-xs); overflow: hidden;
-      max-height: calc(100vh - 130px); overflow-y: auto;
+      max-height: calc(100vh - 200px); overflow-y: auto;
     }
     .side-nav-title {
-      padding: 12px 16px; background: var(--gris-100); font-size: 11px; font-weight: 800;
+      padding: 12px 16px 8px; font-size: 11px; font-weight: 800;
       text-transform: uppercase; letter-spacing: 0.08em; color: var(--gris-500);
     }
+    .side-nav-title--sub { padding-top: 14px; border-top: 1px solid var(--gris-200); margin-top: 4px; }
     .side-nav a {
-      display: block; padding: 10px 16px; font-size: 14px; font-weight: 600;
+      display: block; padding: 9px 16px; font-size: 14px; font-weight: 600;
       color: var(--gris-700); text-decoration: none; border-left: 3px solid transparent;
       transition: all var(--trans); cursor: pointer;
     }
     .side-nav a:hover { background: var(--verde-tint); color: var(--verde-medio); border-left-color: var(--verde-acento); }
-    .side-nav a.nav-area { font-weight: 700; color: var(--verde-oscuro); padding-left: 16px; }
-    .side-nav a.nav-section { padding-left: 22px; font-size: 13px; color: var(--gris-500); }
-    @media (max-width: 860px) { .side-nav { display: none; } .content-with-nav { max-width: 880px; } }
+    .side-nav a.nav-area {
+      font-weight: 700;
+      color: var(--area-color, var(--verde-oscuro));
+      border-left: 3px solid var(--area-color, var(--verde-acento));
+      padding-left: 14px;
+    }
+    .side-nav a.nav-area:hover {
+      background: color-mix(in srgb, var(--area-color, var(--verde-medio)) 8%, transparent);
+      color: var(--area-color, var(--verde-medio));
+    }
+    .side-nav a.nav-section { padding-left: 22px; font-size: 13px; color: var(--gris-500); font-weight: 500; }
+    @media (max-width: 1140px) {
+      .content-with-nav { grid-template-columns: minmax(0, 880px); justify-content: center; }
+      .side-nav { display: none; }
+    }
 
     /* ─── Cards ─── */
     .card {
@@ -270,7 +297,7 @@
     .btn-student-action svg { width: 14px; height: 14px; }
     .btn-duplicate-student:hover { background: var(--azul-light); color: var(--azul-dark); }
     .btn-delete-student:hover { background: var(--rojo-light); color: var(--rojo-dark); }
-    .student-list-body { padding: 14px 16px; max-height: 340px; overflow-y: auto; }
+    .student-list-body { padding: 14px 16px; max-height: calc(100vh - 290px); overflow-y: auto; }
     .student-list-empty {
       text-align: center; padding: 40px 20px; color: var(--gris-500);
     }
@@ -354,16 +381,26 @@
       content: attr(data-placeholder);
       color: var(--gris-400); font-style: italic; font-weight: 500;
     }
-    .obj-progress { display: flex; gap: 4px; margin-top: 5px; flex-wrap: wrap; }
-    .prog-pill {
-      font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: var(--radio-pill);
-      background: var(--gris-100); color: var(--gris-500);
-      letter-spacing: 0.04em; white-space: nowrap;
-      text-transform: uppercase;
+    .obj-eval-row {
+      display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap;
     }
-    .prog-pill.prog-none { opacity: 0.7; }
-    .prog-pill.prog-partial { background: var(--ambar-light); color: var(--ambar-dark); }
-    .prog-pill.prog-done { background: var(--verde-tint-dark); color: var(--verde-oscuro); }
+    .obj-eval-item {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 8px 3px 6px; background: var(--gris-0);
+      border: 1px solid var(--gris-200); border-radius: var(--radio-pill);
+    }
+    .obj-eval-label {
+      font-size: 11px; font-weight: 800; color: var(--gris-500);
+      letter-spacing: 0.06em; line-height: 1;
+    }
+    .obj-eval-count {
+      font-size: 11px; font-weight: 700; color: var(--gris-500);
+      letter-spacing: 0.02em;
+    }
+    .eval-select.obj-eval-select {
+      width: auto; min-width: 50px; padding: 3px 6px; margin-top: 0;
+      font-size: 11px; border-radius: 6px;
+    }
     .obj-body { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
     .obj-body.hidden { display: none; }
     .obj-toggle {
@@ -489,6 +526,19 @@
       border: 1px solid var(--gris-200);
       box-shadow: var(--sombra-xs); margin-bottom: 14px; overflow: hidden;
     }
+    .followup-card:first-of-type { margin-top: 28px; }
+    .followup-card.followup-card--evaluacion:first-of-type { margin-top: 0; }
+    .followup-section-divider {
+      margin: 28px 0 14px;
+      padding: 0 4px;
+      font-size: 11px; font-weight: 800;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--gris-500);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .followup-section-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--gris-200);
+    }
     .followup-header {
       padding: 13px 18px; font-weight: 700; font-size: 15px; color: var(--verde-oscuro);
       background: var(--gris-50);
@@ -513,12 +563,13 @@
       color: var(--verde-oscuro); background: var(--gris-0);
     }
 
-    /* ─── Rich text toolbar ─── */
-    .richtext-wrap { border: 1px solid var(--gris-300); border-radius: var(--radio); overflow: hidden; }
+    /* ─── Rich text editor (flat, integrated into followup card) ─── */
+    .richtext-wrap { display: flex; flex-direction: column; }
     .richtext-toolbar {
-      display: flex; gap: 4px; padding: 6px 10px; background: var(--gris-50);
+      display: flex; gap: 4px; padding: 8px 18px; background: var(--gris-50);
       border-bottom: 1px solid var(--gris-200);
     }
+    .followup-card .richtext-toolbar { padding: 8px 18px; }
     .richtext-toolbar button {
       background: var(--gris-0); border: 1px solid var(--gris-300); border-radius: 6px; padding: 5px 11px;
       cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; color: var(--gris-700);
@@ -527,11 +578,11 @@
     }
     .richtext-toolbar button:hover { background: var(--verde-tint); border-color: var(--verde-acento); color: var(--verde-medio); }
     .richtext-editor {
-      min-height: 70px; padding: 12px 16px; font-size: 15px; font-family: inherit;
+      min-height: 110px; padding: 14px 18px; font-size: 15px; font-family: inherit;
       line-height: 1.6; outline: none; overflow-y: auto;
-      color: var(--verde-oscuro);
+      color: var(--verde-oscuro); background: var(--gris-0);
     }
-    .richtext-editor:focus { background: var(--gris-50); }
+    .richtext-editor:focus { background: var(--gris-0); box-shadow: inset 0 0 0 2px rgba(45,106,79,.15); }
     .richtext-editor ul, .richtext-editor ol { margin-left: 20px; }
 
     /* ─── Indicator observations ─── */
@@ -1150,6 +1201,7 @@
             return {
               id: uid(),
               title: o.title || '',
+              eval1T: o.eval1T || '', eval2T: o.eval2T || '', eval3T: o.eval3T || '',
               indicators: (o.indicators || []).map(function(x) { return { id: uid(), text: x.text || '', eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '', observaciones: x.observaciones || '' }; }),
               contents: (o.contents || []).map(function(x) { return { id: uid(), text: x.text || '' }; }),
               activities: (o.activities || []).map(function(x) { return { id: uid(), text: x.text || '' }; })
@@ -1470,6 +1522,7 @@
                   return {
                     id: uid(),
                     title: o.title,
+                    eval1T: o.eval1T || '', eval2T: o.eval2T || '', eval3T: o.eval3T || '',
                     indicators: o.indicators.map(function(x) { return { id: uid(), text: x.text, eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '', observaciones: x.observaciones || '' }; }),
                     contents: o.contents.map(function(x) { return { id: uid(), text: x.text }; }),
                     activities: o.activities.map(function(x) { return { id: uid(), text: x.text }; })
@@ -1559,13 +1612,17 @@
 
       // ─── Side Nav ───
       var nav = '<nav class="side-nav">';
-      nav += '<div class="side-nav-title">Navegación</div>';
+      nav += '<div class="side-nav-title">Programa</div>';
       nav += '<a onclick="scrollToId(\'secDatos\')">Datos del alumno</a>';
-      state.areas.forEach(function(area, i) {
-        var shortName = area.name.replace('Desarrollo ', '');
-        var navColor = getAreaColor(area.name);
-        nav += '<a class="nav-area" style="border-left:3px solid ' + navColor.border + '" onclick="scrollToId(\'area_' + i + '\')">' + escHtml(shortName) + '</a>';
-      });
+      if (state.areas.length) {
+        nav += '<div class="side-nav-title side-nav-title--sub">Ámbitos</div>';
+        state.areas.forEach(function(area, i) {
+          var shortName = area.name.replace('Desarrollo ', '');
+          var navColor = getAreaColor(area.name);
+          nav += '<a class="nav-area" style="--area-color:' + navColor.headerBg + '" onclick="scrollToId(\'area_' + i + '\')">' + escHtml(shortName) + '</a>';
+        });
+      }
+      nav += '<div class="side-nav-title side-nav-title--sub">Evaluación</div>';
       nav += '<a class="nav-section" onclick="scrollToId(\'secValoracion\')">Valoración inicial</a>';
       nav += '<a class="nav-section" onclick="scrollToId(\'secSeg1T\')">Seguimiento 1T</a>';
       nav += '<a class="nav-section" onclick="scrollToId(\'secSeg2T\')">Seguimiento 2T</a>';
@@ -1588,14 +1645,8 @@
       html += '</select></div>';
       html += '</div>';
 
-      // Program type (fixed)
-      html += '<div style="margin-top:16px">';
-      html += '<label class="field-label">Tipo de programa</label>';
-      html += '<div class="program-tag"><span class="tag">PE</span>Programa Específico</div>';
-      html += '</div>';
-
       // Areas (multi-select checkboxes)
-      html += '<div style="margin-top:16px">';
+      html += '<div style="margin-top:18px">';
       html += '<label class="field-label">Ámbitos de trabajo *</label>';
       html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">';
       AREAS.forEach(function(a) {
@@ -1613,6 +1664,7 @@
       });
 
       // ─── Follow-up fields ───
+      html += '<div class="followup-section-divider">Evaluación</div>';
       var followupFields = [
         { id: 'secValoracion', key: 'valoracionInicial', label: 'Valoración inicial', badge: svgIcon('pencil') },
         { id: 'secSeg1T', key: 'seguimiento1T', label: 'Seguimiento 1er Trimestre', badge: '1T' },
@@ -1620,9 +1672,8 @@
         { id: 'secSeg3T', key: 'seguimiento3T', label: 'Seguimiento 3er Trimestre', badge: '3T' }
       ];
       followupFields.forEach(function(f) {
-        html += '<div class="followup-card" id="' + f.id + '">';
+        html += '<div class="followup-card followup-card--evaluacion" id="' + f.id + '">';
         html += '<div class="followup-header"><span class="followup-badge">' + f.badge + '</span>' + escHtml(f.label) + '</div>';
-        html += '<div class="followup-body">';
         html += '<div class="richtext-wrap">';
         html += '<div class="richtext-toolbar">';
         html += '<button onmousedown="event.preventDefault();richExec(\'bold\')" title="Negrita"><b>N</b></button>';
@@ -1631,7 +1682,7 @@
         html += '</div>';
         html += '<div class="richtext-editor" contenteditable="true" data-key="' + f.key + '" oninput="updateFollowupRich(\'' + f.key + '\',this)" onblur="updateFollowupRich(\'' + f.key + '\',this)">' + sanitizeRich(state[f.key] || '') + '</div>';
         html += '</div>';
-        html += '</div></div>';
+        html += '</div>';
       });
 
       // ─── Informe a las familias ───
@@ -1819,17 +1870,50 @@
 
     function renderObjProgress(obj) {
       var total = (obj.indicators || []).length;
-      if (total === 0) return '';
       var trims = ['1T', '2T', '3T'];
-      var html = '<div class="obj-progress">';
+      var html = '<div class="obj-eval-row" onclick="event.stopPropagation()">';
       trims.forEach(function(t) {
         var key = 'eval' + t;
-        var done = obj.indicators.filter(function(i) { return (i[key] || '').trim(); }).length;
-        var cls = 'prog-pill ' + (done === 0 ? 'prog-none' : (done === total ? 'prog-done' : 'prog-partial'));
-        html += '<span class="' + cls + '">' + t + ' ' + done + '/' + total + '</span>';
+        var value = obj[key] || '';
+        var doneCount = obj.indicators ? obj.indicators.filter(function(i) { return (i[key] || '').trim(); }).length : 0;
+        html += '<div class="obj-eval-item">';
+        html += '<span class="obj-eval-label">' + t + '</span>';
+        html += renderObjEvalSelect(obj.id, t, value);
+        if (total > 0) {
+          html += '<span class="obj-eval-count" title="Indicadores evaluados">' + doneCount + '/' + total + '</span>';
+        }
+        html += '</div>';
       });
       html += '</div>';
       return html;
+    }
+
+    function renderObjEvalSelect(objId, trimester, value) {
+      var cls = 'eval-select obj-eval-select';
+      if (value === 'NI') cls += ' eval-ni';
+      else if (value === 'EP') cls += ' eval-ep';
+      else if (value === 'C') cls += ' eval-c';
+      var html = '<select class="' + cls + '" onchange="updateObjEval(\'' + objId + '\',\'' + trimester + '\',this)" onclick="event.stopPropagation()">';
+      html += '<option value=""' + (!value ? ' selected' : '') + '>—</option>';
+      html += '<option value="NI"' + (value === 'NI' ? ' selected' : '') + '>NI</option>';
+      html += '<option value="EP"' + (value === 'EP' ? ' selected' : '') + '>EP</option>';
+      html += '<option value="C"' + (value === 'C' ? ' selected' : '') + '>C</option>';
+      html += '</select>';
+      return html;
+    }
+
+    function updateObjEval(objId, trimester, selectEl) {
+      var found = findObjInAreas(objId);
+      if (!found) return;
+      var key = 'eval' + trimester;
+      if (found.obj[key] === selectEl.value) return;
+      pushUndo({ coalesce: true });
+      found.obj[key] = selectEl.value;
+      selectEl.className = 'eval-select obj-eval-select';
+      if (selectEl.value === 'NI') selectEl.className += ' eval-ni';
+      else if (selectEl.value === 'EP') selectEl.className += ' eval-ep';
+      else if (selectEl.value === 'C') selectEl.className += ' eval-c';
+      markDirty();
     }
 
     function renderEvalSelect(objId, itemId, trimester, value) {
@@ -1869,7 +1953,7 @@
     function refreshObjProgress(obj) {
       var card = document.getElementById('obj_' + obj.id);
       if (!card) return;
-      var prog = card.querySelector('.obj-header .obj-progress');
+      var prog = card.querySelector('.obj-header .obj-eval-row');
       if (!prog) return;
       var tmp = document.createElement('div');
       tmp.innerHTML = renderObjProgress(obj);
@@ -2083,6 +2167,7 @@
       return {
         id: uid(),
         title: '',
+        eval1T: '', eval2T: '', eval3T: '',
         indicators: [{ id: uid(), text: '', observaciones: '' }],
         contents: [{ id: uid(), text: '' }],
         activities: [{ id: uid(), text: '' }]
@@ -2259,6 +2344,7 @@
             objectives: area.objectives.map(function(o) {
               return {
                 title: o.title,
+                eval1T: o.eval1T || '', eval2T: o.eval2T || '', eval3T: o.eval3T || '',
                 indicators: o.indicators.filter(function(i) { return i.text.trim(); }).map(function(i) {
                   return { text: i.text, eval1T: i.eval1T || '', eval2T: i.eval2T || '', eval3T: i.eval3T || '', observaciones: i.observaciones || '' };
                 }),
