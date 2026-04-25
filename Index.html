@@ -45,11 +45,15 @@
       --trans-fast: .12s ease;
       --trans: .15s ease;
       --focus-ring: 0 0 0 3px rgba(45,106,79,.18);
+      --header-offset: 188px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html { scrollbar-gutter: stable; }
+    html {
+      scrollbar-gutter: stable;
+      scroll-padding-top: var(--header-offset);
+    }
 
     body {
       font-family: 'Sofia Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
@@ -148,10 +152,10 @@
       grid-column: 1;
       width: 220px;
       position: sticky;
-      top: 180px;
+      top: var(--header-offset);
       background: var(--gris-0); border-radius: var(--radio-lg); border: 1px solid var(--gris-200);
       box-shadow: var(--sombra-xs); overflow: hidden;
-      max-height: calc(100vh - 200px); overflow-y: auto;
+      max-height: calc(100vh - var(--header-offset) - 24px); overflow-y: auto;
     }
     .side-nav-title {
       padding: 12px 16px 8px; font-size: 11px; font-weight: 800;
@@ -167,11 +171,18 @@
     .side-nav a.nav-area {
       font-weight: 700;
       color: var(--area-color, var(--verde-oscuro));
-      border-left: 3px solid var(--area-color, var(--verde-acento));
-      padding-left: 14px;
+      border-left: 4px solid var(--area-color, var(--verde-acento));
+      padding-left: 13px;
+    }
+    .side-nav a.nav-area::before {
+      content: ''; display: inline-block;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--area-color, var(--verde-acento));
+      margin-right: 8px; vertical-align: middle;
+      transform: translateY(-1px);
     }
     .side-nav a.nav-area:hover {
-      background: color-mix(in srgb, var(--area-color, var(--verde-medio)) 8%, transparent);
+      background: color-mix(in srgb, var(--area-color, var(--verde-medio)) 10%, transparent);
       color: var(--area-color, var(--verde-medio));
     }
     .side-nav a.nav-section { padding-left: 22px; font-size: 13px; color: var(--gris-500); font-weight: 500; }
@@ -1209,6 +1220,7 @@
           })
         };
       });
+      sortAreasCanonical();
       var inf = draft.informeFamilias || { indicadores: [], evaluaciones: [] };
       state.informeFamilias = {
         indicadores: (inf.indicadores || []).map(function(x) { return { id: uid(), text: x.text || '' }; }),
@@ -1530,6 +1542,7 @@
                 })
               };
             });
+            sortAreasCanonical();
             // Load informe familias
             var inf = data.informeFamilias || { indicadores: [], evaluaciones: [] };
             state.informeFamilias = {
@@ -1617,9 +1630,8 @@
       if (state.areas.length) {
         nav += '<div class="side-nav-title side-nav-title--sub">Ámbitos</div>';
         state.areas.forEach(function(area, i) {
-          var shortName = area.name.replace('Desarrollo ', '');
           var navColor = getAreaColor(area.name);
-          nav += '<a class="nav-area" style="--area-color:' + navColor.headerBg + '" onclick="scrollToId(\'area_' + i + '\')">' + escHtml(shortName) + '</a>';
+          nav += '<a class="nav-area" style="--area-color:' + navColor.headerBg + '" onclick="scrollToId(\'area_' + i + '\')">' + escHtml(shortAreaName(area.name)) + '</a>';
         });
       }
       nav += '<div class="side-nav-title side-nav-title--sub">Evaluación</div>';
@@ -1723,19 +1735,31 @@
       markDirty();
     }
 
-    // Muted, flat area colors — derived from the same brand DNA, used only as area-header accent
+    // Modern palette per ámbito (orden canónico arriba en AREAS)
     var AREA_COLORS = {
-      'Desarrollo Cognitivo':                   { headerBg: '#7c2d12' },
-      'Desarrollo Comunicativo y Lingüístico':  { headerBg: '#1e3a8a' },
-      'Desarrollo de la Autonomía Personal':    { headerBg: '#14532d' },
-      'Desarrollo Social y Emocional':          { headerBg: '#831843' },
-      'Desarrollo Psicomotor':                  { headerBg: '#9a3412' },
-      'Desarrollo Motor':                       { headerBg: '#78350f' }
+      'Desarrollo Cognitivo':                   { headerBg: '#dc2626' }, // rojo
+      'Desarrollo Comunicativo y Lingüístico':  { headerBg: '#2563eb' }, // azul
+      'Desarrollo de la Autonomía Personal':    { headerBg: '#059669' }, // verde
+      'Desarrollo Social y Emocional':          { headerBg: '#db2777' }, // rosa
+      'Desarrollo Psicomotor':                  { headerBg: '#ea580c' }, // naranja
+      'Desarrollo Motor':                       { headerBg: '#92400e' }  // marrón
     };
     var AREA_COLOR_DEFAULT = { headerBg: '#1b4332' };
 
     function getAreaColor(areaName) {
       return AREA_COLORS[areaName] || AREA_COLOR_DEFAULT;
+    }
+
+    // Nombre corto para navegación (sin "Desarrollo " ni preposición inicial)
+    function shortAreaName(areaName) {
+      return areaName.replace(/^Desarrollo\s+(de\s+las?\s+|del\s+)?/i, '');
+    }
+
+    // Ordena state.areas según el orden canónico de AREAS
+    function sortAreasCanonical() {
+      state.areas.sort(function(a, b) {
+        return AREAS.indexOf(a.name) - AREAS.indexOf(b.name);
+      });
     }
 
     function renderAreaSection(area, areaIdx) {
@@ -1987,6 +2011,7 @@
       } else {
         pushUndo();
         state.areas.push({ name: areaName, objectives: [createEmptyObjective()] });
+        sortAreasCanonical();
       }
       markDirty();
       renderFormView();
