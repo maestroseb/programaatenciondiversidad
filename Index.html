@@ -156,11 +156,12 @@
     /* ─── Content ─── */
     .content { max-width: 880px; margin: 0 auto; padding: 24px 20px 48px; }
     .content-with-nav {
+      max-width: 1280px;
       margin: 0 auto;
       padding: 24px 20px 48px;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 880px) minmax(0, 1fr);
-      column-gap: 20px;
+      grid-template-columns: 220px minmax(0, 1fr);
+      column-gap: 24px;
       align-items: start;
     }
     .content-main { grid-column: 2; min-width: 0; }
@@ -168,13 +169,12 @@
     /* ─── Side Nav ─── */
     .side-nav {
       grid-column: 1;
-      justify-self: end;
       width: 220px;
       position: sticky;
-      top: var(--header-offset);
+      top: calc(var(--header-offset) + 24px);
       background: var(--gris-0); border-radius: var(--radio-lg); border: 1px solid var(--gris-200);
       box-shadow: var(--sombra-xs); overflow: hidden;
-      max-height: calc(100vh - var(--header-offset) - 24px); overflow-y: auto;
+      max-height: calc(100vh - var(--header-offset) - 48px); overflow-y: auto;
     }
     .side-nav-title {
       padding: 12px 16px 8px; font-size: 11px; font-weight: 800;
@@ -205,8 +205,8 @@
       color: var(--area-color, var(--verde-medio));
     }
     .side-nav a.nav-section { padding-left: 22px; font-size: 13px; color: var(--gris-500); font-weight: 500; }
-    @media (max-width: 1340px) {
-      .content-with-nav { grid-template-columns: minmax(0, 880px); justify-content: center; }
+    @media (max-width: 900px) {
+      .content-with-nav { grid-template-columns: minmax(0, 1fr); }
       .side-nav { display: none; }
     }
 
@@ -968,12 +968,12 @@
           <div class="subtitle">Gestión de programas individualizados</div>
         </div>
         <div class="header-tools">
+          <button class="btn-back" id="btnBack" style="display:none" onclick="goBack()"><span class="icon" id="iconBack"></span> Alumnos</button>
           <button class="btn-settings" id="btnSettings" onclick="openSettings()" title="Ajustes del centro" aria-label="Ajustes del centro"><span class="icon" id="iconSettings"></span></button>
         </div>
       </div>
       <div class="header-toolbar" id="formToolbar" style="display:none">
         <div class="toolbar-left">
-          <button class="btn-back" id="btnBack" onclick="goBack()"><span class="icon" id="iconBack"></span> Alumnos</button>
           <div class="student-badge" id="studentBadge">
             <span class="icon icon-18" id="iconBadge"></span>
             <span class="name" id="badgeName"></span>
@@ -1381,6 +1381,7 @@
        RENDER: Student List
     ═══════════════════════════════════════════ */
     function renderListView(loadingHtml) {
+      document.getElementById('btnBack').style.display = 'none';
       document.getElementById('formToolbar').style.display = 'none';
       document.getElementById('content').className = 'content';
 
@@ -1551,6 +1552,7 @@
       state.dirty = false;
 
       document.getElementById('content').innerHTML = '<div class="loading"><div class="loading-icon">' + ICONS.loader + '</div>Cargando datos de ' + escHtml(name) + '...</div>';
+      document.getElementById('btnBack').style.display = '';
       document.getElementById('formToolbar').style.display = 'flex';
 
       google.script.run
@@ -1650,6 +1652,7 @@
        RENDER: Form View
     ═══════════════════════════════════════════ */
     function renderFormView() {
+      document.getElementById('btnBack').style.display = '';
       document.getElementById('formToolbar').style.display = 'flex';
       var contentEl = document.getElementById('content');
       contentEl.className = 'content-with-nav';
