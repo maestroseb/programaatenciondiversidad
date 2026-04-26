@@ -45,7 +45,7 @@
       --trans-fast: .12s ease;
       --trans: .15s ease;
       --focus-ring: 0 0 0 3px rgba(45,106,79,.18);
-      --header-offset: 130px;
+      --header-offset: 140px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -87,10 +87,11 @@
     .header {
       background: var(--verde-oscuro);
       border-bottom: 1px solid var(--verde-oscuro-dark);
-      padding: 14px 20px; position: sticky; top: 0; z-index: 50;
+      padding: 12px 20px; position: sticky; top: 0; z-index: 50;
       box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     }
-    .header-inner { max-width: 880px; margin: 0 auto; }
+    .header-inner { max-width: 1280px; margin: 0 auto; }
+    .header-brand { min-width: 0; }
     .header h1 {
       color: #fff; font-size: 20px; font-weight: 700; letter-spacing: -0.01em;
       line-height: 1.2;
@@ -101,25 +102,41 @@
       letter-spacing: 0.02em;
     }
     .header-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .header-tools { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .header-toolbar {
+      display: flex; align-items: center; gap: 12px;
+      margin-top: 10px; padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      flex-wrap: wrap;
+    }
+    .toolbar-left {
+      display: flex; align-items: center; gap: 10px;
+      min-width: 0; flex: 1 1 auto; flex-wrap: wrap;
+    }
+    .toolbar-right {
+      display: flex; align-items: center; gap: 6px;
+      flex-shrink: 0; flex-wrap: wrap;
+      margin-left: auto;
+    }
     .btn-back {
       background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
       border-radius: var(--radio); color: #fff; padding: 7px 12px; cursor: pointer;
-      font-size: 14px; font-weight: 600; font-family: inherit;
-      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 600; font-family: inherit;
+      display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
       transition: background var(--trans), border-color var(--trans);
     }
     .btn-back:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.3); }
     .student-badge {
-      margin-top: 10px; padding: 7px 12px;
+      padding: 6px 10px 6px 12px;
       background: rgba(255,255,255,0.06);
       border: 1px solid rgba(255,255,255,0.1);
       border-radius: var(--radio);
       display: inline-flex; align-items: center; gap: 10px;
-      max-width: 100%;
+      max-width: 100%; min-width: 0;
     }
     .student-badge .icon { color: rgba(255,255,255,0.7); flex-shrink: 0; }
     .student-badge .name {
-      color: #fff; font-weight: 700; font-size: 15px;
+      color: #fff; font-weight: 700; font-size: 14px;
       letter-spacing: 0.01em;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       min-width: 0;
@@ -137,10 +154,10 @@
     }
 
     /* ─── Content ─── */
-    .content { max-width: 880px; margin: 0 auto; padding: 24px 20px 110px; }
+    .content { max-width: 880px; margin: 0 auto; padding: 24px 20px 48px; }
     .content-with-nav {
       margin: 0 auto;
-      padding: 24px 20px 110px;
+      padding: 24px 20px 48px;
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 880px) minmax(0, 1fr);
       column-gap: 20px;
@@ -719,80 +736,70 @@
     @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
     @keyframes popIn { from { opacity:0; transform: scale(.96) } to { opacity:1; transform: scale(1) } }
 
-    /* ─── Buttons (generic pill) ─── */
+    /* ─── Buttons (generic pill, designed for dark header bg) ─── */
     .btn {
-      padding: 10px 18px; border-radius: var(--radio-pill);
-      font-size: 14px; font-weight: 600; cursor: pointer;
+      padding: 8px 14px; border-radius: var(--radio-pill);
+      font-size: 13px; font-weight: 600; cursor: pointer;
       font-family: inherit;
       display: inline-flex; align-items: center; gap: 6px;
       transition: all var(--trans-fast);
     }
-    .btn svg { width: 15px; height: 15px; flex-shrink: 0; }
-    .btn:disabled { cursor: not-allowed; opacity: 0.5; transform: none !important; box-shadow: none !important; }
+    .btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .btn:disabled { cursor: not-allowed; opacity: 0.4; transform: none !important; box-shadow: none !important; }
 
-    .btn-secondary {
-      border: 1px solid var(--gris-300); background: var(--gris-0); color: var(--gris-600);
-      box-shadow: var(--sombra-xs);
-    }
-    .btn-secondary:hover:not(:disabled) { background: var(--gris-100); transform: translateY(-1px); box-shadow: var(--sombra-sm); }
-    .btn-undo {
-      border: 1px solid var(--gris-300); background: var(--gris-0); color: var(--gris-700);
-      box-shadow: var(--sombra-xs);
-    }
-    .btn-undo:hover:not(:disabled) { background: var(--ambar-light); border-color: var(--ambar); color: var(--ambar-dark); transform: translateY(-1px); }
-    .btn-redo {
-      border: 1px solid var(--gris-300); background: var(--gris-0); color: var(--gris-700);
-      box-shadow: var(--sombra-xs);
-    }
-    .btn-redo:hover:not(:disabled) { background: var(--azul-light); border-color: var(--azul); color: var(--azul-dark); transform: translateY(-1px); }
+    .btn-secondary,
+    .btn-undo,
+    .btn-redo,
     .btn-print {
-      border: 1px solid var(--gris-300); background: var(--gris-0); color: var(--verde-medio);
-      box-shadow: var(--sombra-xs);
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.92);
     }
-    .btn-print:hover:not(:disabled) { background: var(--verde-tint); border-color: var(--verde-acento); color: var(--verde-oscuro); transform: translateY(-1px); }
+    .btn-secondary:hover:not(:disabled),
+    .btn-undo:hover:not(:disabled),
+    .btn-redo:hover:not(:disabled),
+    .btn-print:hover:not(:disabled) {
+      background: rgba(255,255,255,0.16);
+      border-color: rgba(255,255,255,0.32);
+      color: #fff;
+      transform: translateY(-1px);
+    }
     .btn-primary {
-      border: none; background: var(--verde-medio);
-      color: #fff; font-weight: 700; padding: 11px 24px;
-      font-size: 15px;
-      box-shadow: var(--sombra-sm);
-    }
-    .btn-primary:hover:not(:disabled) { background: var(--verde-oscuro); transform: translateY(-1px); box-shadow: var(--sombra-md); }
-    .btn-primary:disabled { background: var(--gris-400); box-shadow: none; }
-
-    /* ─── Bottom Bar ─── */
-    .bottom-bar {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      background: rgba(255,255,255,0.96); backdrop-filter: blur(12px);
-      border-top: 1px solid var(--gris-200); padding: 10px 20px;
-      display: flex; align-items: center; gap: 16px; z-index: 50;
-      box-shadow: 0 -2px 12px rgba(15,23,42,.04);
-    }
-    .bb-status {
-      display: flex; gap: 8px; align-items: center;
-      min-width: 0; flex-wrap: wrap;
-    }
-    .bb-status:empty { display: none; }
-    .bb-actions {
-      display: flex; gap: 8px; align-items: center;
-      margin-left: auto; flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-    .badge-draft {
-      background: var(--verde-tint);
+      border: none;
+      background: var(--verde-claro);
       color: var(--verde-oscuro);
-      border: 1px solid var(--verde-tint-dark);
-      padding: 5px 12px; border-radius: var(--radio-pill);
+      font-weight: 700; padding: 9px 18px;
+      font-size: 14px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: #6ed5a4;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.22);
+    }
+    .btn-primary:disabled {
+      background: rgba(255,255,255,0.14);
+      color: rgba(255,255,255,0.5);
+      box-shadow: none;
+    }
+
+    /* ─── Status badges (in header toolbar, dark bg) ─── */
+    .badge-draft {
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.85);
+      border: 1px solid rgba(255,255,255,0.14);
+      padding: 5px 11px; border-radius: var(--radio-pill);
       font-size: 12px; font-weight: 600;
       letter-spacing: 0.02em;
       white-space: nowrap;
       display: inline-flex; align-items: center; gap: 6px;
     }
-    .badge-draft .icon { color: var(--verde-medio); }
+    .badge-draft .icon { color: rgba(255,255,255,0.7); }
     .badge-draft .icon svg { width: 13px; height: 13px; }
     .badge-dirty {
       background: var(--ambar-light); color: var(--ambar-dark);
-      border: 1px solid rgba(217,119,6,.25);
-      padding: 5px 12px; border-radius: var(--radio-pill);
+      border: 1px solid rgba(217,119,6,.4);
+      padding: 4px 11px; border-radius: var(--radio-pill);
       font-size: 11px; font-weight: 700;
       letter-spacing: 0.06em; text-transform: uppercase;
       white-space: nowrap;
@@ -942,7 +949,7 @@
     @media print {
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
       body { background: #fff !important; }
-      .header, .bottom-bar, .print-toolbar, .content, .content-with-nav { display: none !important; }
+      .header, .print-toolbar, .content, .content-with-nav { display: none !important; }
       .print-overlay { position: static; background: none; padding: 0; backdrop-filter: none; }
       .print-container { max-height: none; box-shadow: none; border-radius: 0; }
       .print-content { padding: 20px; }
@@ -956,19 +963,32 @@
   <div class="header">
     <div class="header-inner">
       <div class="header-row">
-        <div>
+        <div class="header-brand">
           <h1>Programas de Atención a la Diversidad</h1>
           <div class="subtitle">Gestión de programas individualizados</div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center">
+        <div class="header-tools">
           <button class="btn-settings" id="btnSettings" onclick="openSettings()" title="Ajustes del centro" aria-label="Ajustes del centro"><span class="icon" id="iconSettings"></span></button>
-          <button class="btn-back" id="btnBack" style="display:none" onclick="goBack()"><span class="icon" id="iconBack"></span> Alumnos</button>
         </div>
       </div>
-      <div class="student-badge" id="studentBadge" style="display:none">
-        <span class="icon icon-18" id="iconBadge"></span>
-        <span class="name" id="badgeName"></span>
-        <span class="badge-course" id="badgeCourse"></span>
+      <div class="header-toolbar" id="formToolbar" style="display:none">
+        <div class="toolbar-left">
+          <button class="btn-back" id="btnBack" onclick="goBack()"><span class="icon" id="iconBack"></span> Alumnos</button>
+          <div class="student-badge" id="studentBadge">
+            <span class="icon icon-18" id="iconBadge"></span>
+            <span class="name" id="badgeName"></span>
+            <span class="badge-course" id="badgeCourse"></span>
+          </div>
+          <span class="badge-draft" id="badgeDraft" style="display:none" title="Guardado localmente en este navegador"></span>
+          <span class="badge-dirty" id="badgeDirty" style="display:none">Sin guardar</span>
+        </div>
+        <div class="toolbar-right">
+          <button class="btn btn-undo" id="btnUndo" onclick="undo()" title="Deshacer (Ctrl+Z)" disabled><span class="icon" id="iconUndo"></span> Deshacer</button>
+          <button class="btn btn-redo" id="btnRedo" onclick="redo()" title="Rehacer (Ctrl+Shift+Z)" disabled><span class="icon" id="iconRedo"></span> Rehacer</button>
+          <button class="btn btn-secondary" onclick="clearForm()">Limpiar</button>
+          <button class="btn btn-print" onclick="showPrintView()"><span class="icon" id="iconPrint"></span> Imprimir</button>
+          <button class="btn btn-primary" id="btnSave" onclick="saveData()"><span class="icon" id="iconSave"></span> Guardar</button>
+        </div>
       </div>
     </div>
   </div>
@@ -976,21 +996,6 @@
   <!-- ═══════ CONTENT ═══════ -->
   <div class="content" id="content">
     <!-- Filled by JS -->
-  </div>
-
-  <!-- ═══════ BOTTOM BAR ═══════ -->
-  <div class="bottom-bar" id="bottomBar" style="display:none">
-    <div class="bb-status">
-      <span class="badge-draft" id="badgeDraft" style="display:none" title="Guardado localmente en este navegador"></span>
-      <span class="badge-dirty" id="badgeDirty" style="display:none">Sin guardar</span>
-    </div>
-    <div class="bb-actions">
-      <button class="btn btn-undo" id="btnUndo" onclick="undo()" title="Deshacer (Ctrl+Z)" disabled><span class="icon" id="iconUndo"></span> Deshacer</button>
-      <button class="btn btn-redo" id="btnRedo" onclick="redo()" title="Rehacer (Ctrl+Shift+Z)" disabled><span class="icon" id="iconRedo"></span> Rehacer</button>
-      <button class="btn btn-secondary" onclick="clearForm()">Limpiar</button>
-      <button class="btn btn-print" onclick="showPrintView()"><span class="icon" id="iconPrint"></span> Imprimir</button>
-      <button class="btn btn-primary" id="btnSave" onclick="saveData()"><span class="icon" id="iconSave"></span> Guardar</button>
-    </div>
   </div>
 
   <!-- ═══════ TOAST ═══════ -->
@@ -1376,9 +1381,7 @@
        RENDER: Student List
     ═══════════════════════════════════════════ */
     function renderListView(loadingHtml) {
-      document.getElementById('btnBack').style.display = 'none';
-      document.getElementById('studentBadge').style.display = 'none';
-      document.getElementById('bottomBar').style.display = 'none';
+      document.getElementById('formToolbar').style.display = 'none';
       document.getElementById('content').className = 'content';
 
       if (loadingHtml) {
@@ -1548,8 +1551,7 @@
       state.dirty = false;
 
       document.getElementById('content').innerHTML = '<div class="loading"><div class="loading-icon">' + ICONS.loader + '</div>Cargando datos de ' + escHtml(name) + '...</div>';
-      document.getElementById('btnBack').style.display = '';
-      document.getElementById('bottomBar').style.display = 'none';
+      document.getElementById('formToolbar').style.display = 'flex';
 
       google.script.run
         .withSuccessHandler(async function(data) {
@@ -1648,8 +1650,7 @@
        RENDER: Form View
     ═══════════════════════════════════════════ */
     function renderFormView() {
-      document.getElementById('btnBack').style.display = '';
-      document.getElementById('bottomBar').style.display = '';
+      document.getElementById('formToolbar').style.display = 'flex';
       var contentEl = document.getElementById('content');
       contentEl.className = 'content-with-nav';
       updateBadge();
