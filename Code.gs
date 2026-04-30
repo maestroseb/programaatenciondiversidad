@@ -169,7 +169,7 @@ function getStudentData(studentName) {
       currentObj = {
         title: texto,
         indicators: [],
-        contents: '',
+        contents: [],
         activities: ''
       };
       currentArea.objectives.push(currentObj);
@@ -189,10 +189,7 @@ function getStudentData(studentName) {
       if (tipo === 'INDICADOR') {
         currentObj.indicators.push(item);
       } else if (tipo === 'CONTENIDO') {
-        // HTML stored as a single row; legacy data may have multiple rows — concatenate
-        currentObj.contents = currentObj.contents
-          ? (currentObj.contents + (texto ? '<br>' + texto : ''))
-          : texto;
+        if (texto) currentObj.contents.push({ text: texto });
       } else if (tipo === 'ACTIVIDAD') {
         currentObj.activities = currentObj.activities
           ? (currentObj.activities + (texto ? '<br>' + texto : ''))
@@ -253,12 +250,14 @@ function saveStudentData(payload) {
         }
       });
 
-      const contentsHtml = typeof obj.contents === 'string'
+      const contentsArr = Array.isArray(obj.contents)
         ? obj.contents
-        : (Array.isArray(obj.contents) ? obj.contents.map(function(c) { return c && c.text ? c.text : ''; }).filter(function(t) { return t; }).join('<br>') : '');
-      if (contentsHtml && contentsHtml.trim()) {
-        sheet.appendRow([objLabel, 'CONTENIDO', contentsHtml, '', '', '']);
-      }
+        : (typeof obj.contents === 'string' && obj.contents.trim() ? [{ text: obj.contents }] : []);
+      contentsArr.forEach(function(cnt) {
+        if (cnt && cnt.text && String(cnt.text).trim()) {
+          sheet.appendRow([objLabel, 'CONTENIDO', cnt.text, '', '', '']);
+        }
+      });
 
       const activitiesHtml = typeof obj.activities === 'string'
         ? obj.activities

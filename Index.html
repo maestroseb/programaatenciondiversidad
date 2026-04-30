@@ -641,6 +641,13 @@
       content: attr(data-placeholder);
       color: var(--gris-400); font-style: italic;
     }
+    .contents-list { display: flex; flex-direction: column; gap: 8px; }
+    .content-item {
+      display: flex; gap: 8px; align-items: flex-start;
+    }
+    .content-num { margin-top: 8px; }
+    .content-editor-wrap { flex: 1; min-width: 0; }
+    .content-item .btn-remove-item, .content-item .list-move-group { margin-top: 4px; }
 
     /* ─── Indicator observations ─── */
     .ind-obs-textarea {
@@ -1282,7 +1289,7 @@
               title: o.title || '',
               eval1T: o.eval1T || '', eval2T: o.eval2T || '', eval3T: o.eval3T || '',
               indicators: (o.indicators || []).map(function(x) { return { id: uid(), text: x.text || '', eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '', observaciones: x.observaciones || '' }; }),
-              contents: normalizeRichField(o.contents),
+              contents: normalizeContentsField(o.contents),
               activities: normalizeRichField(o.activities)
             };
           })
@@ -1603,7 +1610,7 @@
                     title: o.title,
                     eval1T: o.eval1T || '', eval2T: o.eval2T || '', eval3T: o.eval3T || '',
                     indicators: (o.indicators || []).map(function(x) { return { id: uid(), text: x.text, eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '', observaciones: x.observaciones || '' }; }),
-                    contents: normalizeRichField(o.contents),
+                    contents: normalizeContentsField(o.contents),
                     activities: normalizeRichField(o.activities)
                   };
                 })
@@ -1893,13 +1900,13 @@
       html += renderDynamicList(obj.id, 'indicators', obj.indicators, 'Ej: Mantiene la atención durante 10-15 min...');
       html += '</div>';
 
-      // Contents (rich text)
+      // Contents (list of rich-text blocks)
       html += '<div class="section section-contents">';
       html += '<div class="section-label">Contenidos</div>';
-      html += renderObjRichField(obj.id, 'contents', obj.contents, 'Ej: Resolución de problemas, numeración...');
+      html += renderContentsList(obj.id, obj.contents);
       html += '</div>';
 
-      // Activities (rich text)
+      // Activities (single rich-text)
       html += '<div class="section section-activities">';
       html += '<div class="section-label">Actividades</div>';
       html += renderObjRichField(obj.id, 'activities', obj.activities, 'Ej: Subrayado guiado de datos relevantes...');
@@ -1959,6 +1966,104 @@
       }
       html += '</div>';
       return html;
+    }
+
+    function renderContentsList(objId, items) {
+      var html = '<div class="contents-list" id="contents_' + objId + '">';
+      items.forEach(function(item, idx) {
+        html += renderContentItem(objId, item, idx, items.length);
+      });
+      html += '</div>';
+      html += '<button class="btn-add-item" onclick="addContentItem(\'' + objId + '\')">' + ICONS.plus + ' Añadir contenido</button>';
+      return html;
+    }
+
+    function renderContentItem(objId, item, idx, total) {
+      var editorId = 'rich_' + objId + '_contents_' + item.id;
+      var canRemove = total > 1;
+      var isFirst = idx === 0;
+      var isLast = idx === total - 1;
+      var html = '<div class="content-item" data-item-id="' + item.id + '">';
+      html += '<span class="list-num content-num">' + (idx + 1) + '</span>';
+      html += '<div class="richtext-wrap richtext-wrap-inline content-editor-wrap">';
+      html += '<div class="richtext-toolbar">';
+      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'bold\')" title="Negrita"><b>N</b></button>';
+      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'italic\')" title="Cursiva"><i>K</i></button>';
+      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'insertUnorderedList\')" title="Viñetas">• Lista</button>';
+      html += '</div>';
+      html += '<div id="' + editorId + '" class="richtext-editor richtext-editor-inline" contenteditable="true"'
+           + ' data-obj-id="' + objId + '" data-content-item-id="' + item.id + '"'
+           + ' data-placeholder="Ej: Resolución de problemas, numeración..."'
+           + ' oninput="updateContentItem(\'' + objId + '\',\'' + item.id + '\',this)"'
+           + ' onblur="updateContentItem(\'' + objId + '\',\'' + item.id + '\',this)">'
+           + sanitizeRich(item.text || '') + '</div>';
+      html += '</div>';
+      html += '<div class="list-move-group">';
+      html += '<button class="btn-move-item" title="Subir" aria-label="Subir" onclick="moveContentItem(\'' + objId + '\',\'' + item.id + '\',-1)"' + (isFirst ? ' disabled' : '') + '>' + ICONS.arrowUp + '</button>';
+      html += '<button class="btn-move-item" title="Bajar" aria-label="Bajar" onclick="moveContentItem(\'' + objId + '\',\'' + item.id + '\',1)"' + (isLast ? ' disabled' : '') + '>' + ICONS.arrowDown + '</button>';
+      html += '</div>';
+      html += '<button class="btn-remove-item" title="Eliminar" aria-label="Eliminar"' + (canRemove ? '' : ' disabled style="visibility:hidden"') + ' onclick="removeContentItem(\'' + objId + '\',\'' + item.id + '\')">' + ICONS.x + '</button>';
+      html += '</div>';
+      return html;
+    }
+
+    function rerenderContentsList(objId) {
+      var found = findObjInAreas(objId);
+      if (!found) return;
+      var list = document.getElementById('contents_' + objId);
+      if (!list) { renderFormView(); return; }
+      list.innerHTML = '';
+      found.obj.contents.forEach(function(item, i) {
+        list.insertAdjacentHTML('beforeend', renderContentItem(objId, item, i, found.obj.contents.length));
+      });
+    }
+
+    function updateContentItem(objId, itemId, el) {
+      var found = findObjInAreas(objId);
+      if (!found) return;
+      var item = found.obj.contents.find(function(c) { return c.id === itemId; });
+      if (!item) return;
+      var html = el.innerHTML;
+      if (item.text === html) return;
+      pushUndo({ coalesce: true });
+      item.text = html;
+      markDirty();
+    }
+
+    function addContentItem(objId) {
+      var found = findObjInAreas(objId);
+      if (!found) return;
+      pushUndo();
+      var newItem = { id: uid(), text: '' };
+      found.obj.contents.push(newItem);
+      markDirty();
+      rerenderContentsList(objId);
+      var ed = document.getElementById('rich_' + objId + '_contents_' + newItem.id);
+      if (ed) ed.focus();
+    }
+
+    function removeContentItem(objId, itemId) {
+      var found = findObjInAreas(objId);
+      if (!found || found.obj.contents.length <= 1) return;
+      pushUndo();
+      found.obj.contents = found.obj.contents.filter(function(c) { return c.id !== itemId; });
+      markDirty();
+      rerenderContentsList(objId);
+      showToast('Contenido eliminado', 'info', { action: 'Deshacer', onAction: undo, duration: 6000 });
+    }
+
+    function moveContentItem(objId, itemId, direction) {
+      var found = findObjInAreas(objId);
+      if (!found) return;
+      var arr = found.obj.contents;
+      var idx = arr.findIndex(function(c) { return c.id === itemId; });
+      if (idx < 0) return;
+      var newIdx = idx + direction;
+      if (newIdx < 0 || newIdx >= arr.length) return;
+      pushUndo();
+      var tmp = arr[idx]; arr[idx] = arr[newIdx]; arr[newIdx] = tmp;
+      markDirty();
+      rerenderContentsList(objId);
     }
 
     function renderObjRichField(objId, fieldKey, value, placeholder) {
@@ -2339,12 +2444,25 @@
         title: '',
         eval1T: '', eval2T: '', eval3T: '',
         indicators: [{ id: uid(), text: '', observaciones: '' }],
-        contents: '',
+        contents: [{ id: uid(), text: '' }],
         activities: ''
       };
     }
 
-    // Convert legacy array form ([{text}, ...]) into HTML, or pass through string
+    // Normalize a list-of-blocks field: accepts array [{text}], legacy string, or empty.
+    function normalizeContentsField(value) {
+      if (Array.isArray(value)) {
+        var arr = value.map(function(x) { return { id: uid(), text: (x && x.text) ? String(x.text) : '' }; });
+        if (arr.length === 0) arr.push({ id: uid(), text: '' });
+        return arr;
+      }
+      if (typeof value === 'string' && value.trim()) {
+        return [{ id: uid(), text: value }];
+      }
+      return [{ id: uid(), text: '' }];
+    }
+
+    // Normalize a single rich-text field: accepts string, legacy array, or empty.
     function normalizeRichField(value) {
       if (value == null) return '';
       if (typeof value === 'string') return value;
@@ -2352,8 +2470,8 @@
         var items = value.map(function(x) { return (x && x.text) ? String(x.text).trim() : ''; })
                          .filter(function(t) { return t; });
         if (items.length === 0) return '';
-        if (items.length === 1) return escHtml(items[0]);
-        return '<ul>' + items.map(function(t) { return '<li>' + escHtml(t) + '</li>'; }).join('') + '</ul>';
+        if (items.length === 1) return items[0];
+        return items.join('<br>');
       }
       return '';
     }
@@ -2515,6 +2633,14 @@
           var found = findObjInAreas(objId);
           if (found) found.obj[objField] = el.innerHTML;
         }
+        var citemId = el.getAttribute('data-content-item-id');
+        if (objId && citemId) {
+          var f2 = findObjInAreas(objId);
+          if (f2) {
+            var ci = f2.obj.contents.find(function(c) { return c.id === citemId; });
+            if (ci) ci.text = el.innerHTML;
+          }
+        }
       });
 
       var payload = JSON.stringify({
@@ -2538,7 +2664,7 @@
                 indicators: o.indicators.filter(function(i) { return i.text.trim(); }).map(function(i) {
                   return { text: i.text, eval1T: i.eval1T || '', eval2T: i.eval2T || '', eval3T: i.eval3T || '', observaciones: i.observaciones || '' };
                 }),
-                contents: sanitizeRich(o.contents || ''),
+                contents: (o.contents || []).map(function(c) { return { text: sanitizeRich(c.text || '') }; }).filter(function(c) { return richHasText(c.text); }),
                 activities: sanitizeRich(o.activities || '')
               };
             })
@@ -2602,6 +2728,14 @@
         if (objId && objField) {
           var found = findObjInAreas(objId);
           if (found) found.obj[objField] = el.innerHTML;
+        }
+        var citemId = el.getAttribute('data-content-item-id');
+        if (objId && citemId) {
+          var f2 = findObjInAreas(objId);
+          if (f2) {
+            var ci = f2.obj.contents.find(function(c) { return c.id === citemId; });
+            if (ci) ci.text = el.innerHTML;
+          }
         }
       });
 
@@ -2669,22 +2803,20 @@
         html += '</table>';
 
         // Contenidos & Actividades for this area
-        function richHasText(html) {
-          if (!html) return false;
-          var tmp = document.createElement('div');
-          tmp.innerHTML = html;
-          return (tmp.textContent || '').trim().length > 0;
-        }
-        var hasContents = area.objectives.some(function(obj) { return richHasText(obj.contents); });
+        var hasContents = area.objectives.some(function(obj) {
+          return (obj.contents || []).some(function(c) { return richHasText(c.text); });
+        });
         var hasActivities = area.objectives.some(function(obj) { return richHasText(obj.activities); });
 
         if (hasContents) {
           html += '<table class="print-table" style="margin-top:16px">';
           html += '<tr><th colspan="4" class="type-content">CONTENIDOS</th></tr>';
           area.objectives.forEach(function(obj) {
-            if (richHasText(obj.contents)) {
-              html += '<tr><td colspan="4" class="rich-cell">' + sanitizeRich(obj.contents) + '</td></tr>';
-            }
+            (obj.contents || []).forEach(function(c) {
+              if (richHasText(c.text)) {
+                html += '<tr><td colspan="4" class="rich-cell">' + sanitizeRich(c.text) + '</td></tr>';
+              }
+            });
           });
           html += '</table>';
         }
@@ -2854,6 +2986,12 @@
     function escHtml(str) {
       if (!str) return '';
       return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+    function richHasText(html) {
+      if (!html) return false;
+      var tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      return (tmp.textContent || '').trim().length > 0;
     }
     function escAttr(str) { return escHtml(str); }
 
