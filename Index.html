@@ -965,7 +965,21 @@
       display: flex; justify-content: space-between; align-items: center;
       position: sticky; top: 0; background: var(--gris-0);
       border-radius: var(--radio-lg) var(--radio-lg) 0 0; z-index: 2;
+      gap: 12px; flex-wrap: wrap;
     }
+    .print-floating-close {
+      position: fixed; top: 18px; right: 22px; z-index: 110;
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--gris-0); border: 1px solid var(--gris-300);
+      color: var(--gris-700); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      box-shadow: var(--sombra-md);
+      transition: all var(--trans-fast);
+    }
+    .print-floating-close:hover {
+      background: var(--rojo-light); color: var(--rojo-dark); border-color: var(--rojo);
+    }
+    .print-floating-close svg { width: 20px; height: 20px; }
     .print-content { padding: 32px; }
     .print-content h2 { font-size: 19px; text-align: center; margin-bottom: 4px; color: var(--verde-oscuro); }
     .print-content .print-subtitle { text-align: center; color: var(--gris-500); font-size: 14px; margin-bottom: 24px; }
@@ -986,7 +1000,7 @@
     @media print {
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
       body { background: #fff !important; }
-      .header, .print-toolbar, .content, .content-with-nav { display: none !important; }
+      .header, .print-toolbar, .print-floating-close, .content, .content-with-nav { display: none !important; }
       .print-overlay { position: static; background: none; padding: 0; backdrop-filter: none; }
       .print-container { max-height: none; box-shadow: none; border-radius: 0; }
       .print-content { padding: 20px; }
@@ -2740,15 +2754,15 @@
       });
 
       var html = '<div class="print-overlay" id="printOverlay" onclick="if(event.target===this)closePrint()">';
+      html += '<button class="print-floating-close" onclick="closePrint()" title="Volver" aria-label="Volver">' + ICONS.x + '</button>';
       html += '<div class="print-container">';
 
       // Toolbar
       html += '<div class="print-toolbar">';
+      html += '<button class="btn btn-secondary" onclick="closePrint()" style="font-size:13px;padding:8px 16px">' + ICONS.x + ' Volver</button>';
       html += '<span style="font-weight:800;font-size:15px;color:#1b4332">Vista previa para imprimir</span>';
-      html += '<div style="display:flex;gap:8px">';
-      html += '<button class="btn btn-primary" onclick="window.print()" style="font-size:12px;padding:8px 16px">' + svgIcon('printer') + ' Imprimir</button>';
-      html += '<button class="btn btn-secondary" onclick="closePrint()" style="font-size:12px;padding:8px 16px">Cerrar</button>';
-      html += '</div></div>';
+      html += '<button class="btn btn-primary" onclick="window.print()" style="font-size:13px;padding:8px 16px">' + svgIcon('printer') + ' Imprimir</button>';
+      html += '</div>';
 
       // Content
       html += '<div class="print-content">';
