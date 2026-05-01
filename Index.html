@@ -2991,7 +2991,7 @@
               html += evalCell(ind.eval3T);
               html += '</tr>';
               if (ind.observaciones && ind.observaciones.trim()) {
-                html += '<tr><td colspan="4" style="font-size:11px;color:#78350f;font-style:italic;padding-left:24px;background:#fffbeb">Obs: ' + escHtml(ind.observaciones) + '</td></tr>';
+                html += '<tr><td colspan="4" style="font-size:11px;color:#78350f;font-style:italic;padding-left:24px;background:#fffbeb;white-space:pre-wrap">Obs: ' + escHtml(ind.observaciones) + '</td></tr>';
               }
             }
           });
