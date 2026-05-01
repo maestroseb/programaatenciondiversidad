@@ -922,10 +922,14 @@
       animation: fadeIn 0.15s ease;
     }
     .settings-panel {
-      background: var(--gris-0); border-radius: var(--radio-lg); max-width: 480px; width: 100%;
+      background: var(--gris-0); border-radius: var(--radio-lg); max-width: 720px; width: 100%;
+      max-height: calc(100vh - 40px);
       box-shadow: var(--sombra-xl); overflow: hidden;
+      display: flex; flex-direction: column;
       animation: popIn 0.2s ease;
     }
+    .settings-header { flex-shrink: 0; }
+    .settings-footer { flex-shrink: 0; }
     .settings-header {
       padding: 18px 22px;
       background: var(--verde-oscuro);
@@ -944,7 +948,9 @@
     }
     .settings-close:hover { color: #fff; background: rgba(255,255,255,0.12); transform: rotate(90deg); }
     .settings-close svg { width: 14px; height: 14px; }
-    .settings-body { padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+    .settings-body { padding: 22px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; flex: 1 1 auto; }
+    .settings-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+    @media (max-width: 600px) { .settings-grid-2 { grid-template-columns: 1fr; } }
     .settings-footer { padding: 14px 22px; border-top: 1px solid var(--gris-200); display: flex; justify-content: flex-end; gap: 8px; background: var(--gris-50); }
     .settings-section-title {
       font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
@@ -3399,15 +3405,18 @@
       html += '<div class="list-hint">Al duplicar se crea una copia del curso con la misma estructura (alumnos, ámbitos, objetivos, indicadores, contenidos y actividades) pero con observaciones, evaluaciones y seguimientos en blanco.</div>';
 
       html += '<div class="settings-section-title">Datos del centro</div>';
+      html += '<div class="settings-grid-2">';
       html += '<div><label class="field-label">Centro educativo</label>';
       html += '<input class="field-input" id="cfgCentro" value="' + escAttr(c.centro || '') + '" placeholder="Ej: CEIP Carlos III"></div>';
       html += '<div><label class="field-label">Localidad</label>';
       html += '<input class="field-input" id="cfgLocalidad" value="' + escAttr(c.localidad || '') + '" placeholder="Ej: La Carlota"></div>';
+      html += '</div>';
 
       html += '<div class="settings-section-title">Curso académico activo</div>';
       html += '<div><label class="field-label">Curso escolar</label>';
       html += '<input class="field-input" id="cfgCurso" value="' + escAttr(c.cursoEscolar || '') + '" placeholder="Ej: 2025/2026 (vacío = automático)"></div>';
 
+      html += '<div class="settings-grid-2">';
       html += '<div><label class="field-label">Cursos del año (1º A, 1º B, …)</label>';
       html += '<div class="list-editor" id="coursesEditor"></div>';
       html += '<button type="button" class="btn-add-list" onclick="addCfgListItem(\'coursesEditor\', \'\')">+ Añadir curso</button></div>';
@@ -3416,6 +3425,7 @@
       html += '<div class="list-editor" id="docentesEditor"></div>';
       html += '<button type="button" class="btn-add-list" onclick="addCfgListItem(\'docentesEditor\', \'\')">+ Añadir docente</button>';
       html += '<div class="list-hint">Sugerencia: incluye el rol entre paréntesis. Ej: <i>Ana López (PT)</i></div></div>';
+      html += '</div>';
 
       html += '</div>';
       html += '<div class="settings-footer">';
