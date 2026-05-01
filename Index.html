@@ -2966,14 +2966,15 @@
         if (areaIdx > 0) html += '<div style="page-break-before:always;margin-top:30px"></div>';
 
         var areaColor = getAreaColor(area.name).headerBg;
+        var areaTint = areaColor + '1f'; // ~12% alpha tint of the area color
         html += '<div class="print-area-header" style="background:' + areaColor + ';margin-bottom:14px">PE: ' + escHtml(area.name) + '</div>';
 
         // Table: Objetivos / Indicadores
         html += '<table class="print-table">';
-        html += '<tr><th style="width:auto;background:' + areaColor + ';color:#fff;border-color:' + areaColor + '">Objetivos / Indicadores</th>'
-          + '<th class="eval-col" style="background:' + areaColor + ';color:#fff;border-color:' + areaColor + '">1T</th>'
-          + '<th class="eval-col" style="background:' + areaColor + ';color:#fff;border-color:' + areaColor + '">2T</th>'
-          + '<th class="eval-col" style="background:' + areaColor + ';color:#fff;border-color:' + areaColor + '">3T</th></tr>';
+        html += '<tr><th style="width:auto;background:' + areaTint + ';color:' + areaColor + ';text-transform:uppercase;letter-spacing:.3px">Objetivos / Indicadores</th>'
+          + '<th class="eval-col" style="background:' + areaTint + ';color:' + areaColor + '">1T</th>'
+          + '<th class="eval-col" style="background:' + areaTint + ';color:' + areaColor + '">2T</th>'
+          + '<th class="eval-col" style="background:' + areaTint + ';color:' + areaColor + '">3T</th></tr>';
 
         area.objectives.forEach(function(obj, i) {
           var objNum = i + 1;
