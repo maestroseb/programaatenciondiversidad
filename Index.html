@@ -1192,7 +1192,8 @@
       redoStack.push(buildStateSnapshot());
       if (redoStack.length > MAX_UNDO) redoStack.shift();
       applyStateSnapshot(undoStack.pop());
-      state.dirty = true;
+      recomputeDirty();
+      updateBadge();
       lastCoalescedPushAt = 0;
       updateUndoRedoButtons();
       renderFormView();
@@ -1204,7 +1205,8 @@
       undoStack.push(buildStateSnapshot());
       if (undoStack.length > MAX_UNDO) undoStack.shift();
       applyStateSnapshot(redoStack.pop());
-      state.dirty = true;
+      recomputeDirty();
+      updateBadge();
       lastCoalescedPushAt = 0;
       updateUndoRedoButtons();
       renderFormView();
@@ -1667,8 +1669,11 @@
             state.informeFamilias = { indicadores: [], evaluaciones: [] };
           }
           state.view = 'form';
+          setBaselineFromCurrent();
           var recovered = await offerDraftRecovery(name);
+          if (!recovered) setBaselineFromCurrent();
           renderFormView();
+          updateBadge();
           if (recovered) {
             showToast('Borrador local recuperado · recuerda guardar en Google Sheets', 'info');
           } else {
@@ -1702,8 +1707,11 @@
       state.seguimiento3T = '';
       state.informeFamilias = { indicadores: [], evaluaciones: [] };
       state.view = 'form';
+      setBaselineFromCurrent();
       var recovered = await offerDraftRecovery('');
+      if (!recovered) setBaselineFromCurrent();
       renderFormView();
+      updateBadge();
       if (recovered) {
         showToast('Borrador local recuperado · recuerda guardar en Google Sheets', 'info');
       } else {
@@ -1836,6 +1844,7 @@
     function updateFollowupRich(key, el) {
       var html = el.innerHTML;
       if (state[key] === html) return;
+      if (normalizeRichHtml(state[key] || '') === normalizeRichHtml(html)) return;
       pushUndo({ coalesce: true });
       state[key] = html;
       markDirty();
@@ -2057,6 +2066,7 @@
       if (!item) return;
       var html = el.innerHTML;
       if (item.text === html) return;
+      if (normalizeRichHtml(item.text || '') === normalizeRichHtml(html)) return;
       pushUndo({ coalesce: true });
       item.text = html;
       markDirty();
@@ -2127,6 +2137,7 @@
       if (!found) return;
       var html = el.innerHTML;
       if (found.obj[fieldKey] === html) return;
+      if (normalizeRichHtml(found.obj[fieldKey] || '') === normalizeRichHtml(html)) return;
       pushUndo({ coalesce: true });
       found.obj[fieldKey] = html;
       markDirty();
@@ -2263,8 +2274,53 @@
       renderFormView();
     }
 
+    function currentSnapshotKey() {
+      // Same shape as buildDraftSnapshot but excluding savedAt; used to compare against baseline.
+      try {
+        return JSON.stringify({
+          studentName: state.studentName || '',
+          course: state.course || '',
+          areas: (state.areas || []).map(function(a) {
+            return {
+              name: a.name,
+              objectives: (a.objectives || []).map(function(o) {
+                return {
+                  title: o.title || '',
+                  eval1T: o.eval1T || '', eval2T: o.eval2T || '', eval3T: o.eval3T || '',
+                  indicators: (o.indicators || []).map(function(i) { return { text: i.text || '', eval1T: i.eval1T || '', eval2T: i.eval2T || '', eval3T: i.eval3T || '', observaciones: i.observaciones || '' }; }),
+                  contents: (function() {
+                    var arr = Array.isArray(o.contents) ? o.contents : [];
+                    return arr.map(function(c) { return { text: (c && c.text) || '' }; });
+                  })(),
+                  activities: typeof o.activities === 'string' ? o.activities : ''
+                };
+              })
+            };
+          }),
+          valoracionInicial: state.valoracionInicial || '',
+          seguimiento1T: state.seguimiento1T || '',
+          seguimiento2T: state.seguimiento2T || '',
+          seguimiento3T: state.seguimiento3T || '',
+          informeFamilias: {
+            indicadores: (state.informeFamilias && state.informeFamilias.indicadores || []).map(function(x) { return { text: x.text || '' }; }),
+            evaluaciones: (state.informeFamilias && state.informeFamilias.evaluaciones || []).map(function(x) { return { eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '' }; })
+          }
+        });
+      } catch (e) { return ''; }
+    }
+
+    function setBaselineFromCurrent() {
+      state.baseline = currentSnapshotKey();
+      state.dirty = false;
+    }
+
+    function recomputeDirty() {
+      if (typeof state.baseline !== 'string') { state.dirty = true; return; }
+      state.dirty = (currentSnapshotKey() !== state.baseline);
+    }
+
     function markDirty() {
-      state.dirty = true;
+      recomputeDirty();
       updateBadge();
       scheduleDraftSave();
     }
@@ -2708,9 +2764,9 @@
         .withSuccessHandler(function(result) {
           clearTimeout(slowSaveTimer);
           state.saving = false;
-          state.dirty = false;
           state.selectedStudent = state.studentName;
           state.isNew = false;
+          setBaselineFromCurrent();
           clearDraft(state.studentName);
 
           // Update local students list
@@ -3019,6 +3075,20 @@
       if (!str) return '';
       return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     }
+    function normalizeRichHtml(html) {
+      if (html == null) return '';
+      var s = String(html);
+      // Browser-introduced no-op markup that appears on focus/blur of contenteditable
+      s = s.replace(/&nbsp;/gi, ' ');
+      s = s.replace(/<br\s*\/?>/gi, '<br>');
+      s = s.replace(/<div>\s*<br>\s*<\/div>/gi, '<br>');
+      s = s.replace(/<div>([\s\S]*?)<\/div>/gi, '$1<br>');
+      s = s.replace(/<p>([\s\S]*?)<\/p>/gi, '$1<br>');
+      s = s.replace(/(<br>\s*)+$/g, '');
+      s = s.replace(/\s+/g, ' ');
+      return s.trim();
+    }
+
     function richHasText(html) {
       if (!html) return false;
       var tmp = document.createElement('div');
