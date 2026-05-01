@@ -944,6 +944,19 @@
     .btn-settings:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.3); }
     .btn-settings svg { width: 18px; height: 18px; }
 
+    .year-select {
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
+      color: #fff; padding: 7px 10px; border-radius: var(--radio); font-family: inherit;
+      font-size: 13px; font-weight: 600; cursor: pointer; max-width: 220px;
+    }
+    .year-select option { color: #111; }
+    .year-archived-toggle {
+      display: inline-flex; align-items: center; gap: 4px;
+      color: rgba(255,255,255,0.85); font-size: 11px; font-weight: 600;
+      cursor: pointer; user-select: none;
+    }
+    .year-archived-toggle input { accent-color: #fff; cursor: pointer; }
+
     /* ─── Loading ─── */
     .loading { text-align: center; padding: 48px 20px; color: var(--gris-500); font-size: 15px; }
     .loading .loading-icon {
@@ -1045,6 +1058,10 @@
           <div class="subtitle">Gestión de programas individualizados</div>
         </div>
         <div class="header-tools">
+          <select class="year-select" id="yearSelect" onchange="onYearChange()" title="Curso académico activo" style="display:none"></select>
+          <label class="year-archived-toggle" id="yearArchivedToggle" style="display:none" title="Mostrar también cursos archivados">
+            <input type="checkbox" id="yearShowArchived" onchange="renderYearSelect()"> archivados
+          </label>
           <button class="btn-back" id="btnBack" style="display:none" onclick="goBack()"><span class="icon" id="iconBack"></span> Alumnos</button>
           <button class="btn-settings" id="btnSettings" onclick="openSettings()" title="Ajustes del centro" aria-label="Ajustes del centro"><span class="icon" id="iconSettings"></span></button>
         </div>
@@ -1130,6 +1147,9 @@
       seguimiento3T: '',
       // Config
       config: { centro: '', localidad: '', cursoEscolar: '' },
+      activeYearId: '',
+      years: [],
+      showArchivedYears: false,
       courseFilter: 'Todos',
       // Informe a las familias
       informeFamilias: { indicadores: [], evaluaciones: [] }
@@ -1420,14 +1440,71 @@
     function loadConfig(callback) {
       google.script.run
         .withSuccessHandler(function(cfg) {
-          if (cfg) state.config = cfg;
+          if (cfg) {
+            state.config = { centro: cfg.centro || '', localidad: cfg.localidad || '', cursoEscolar: cfg.cursoEscolar || '' };
+            state.years = cfg.years || [];
+            state.activeYearId = cfg.activeYearId || '';
+          }
           updateHeaderSubtitle();
+          renderYearSelect();
           if (callback) callback();
         })
-        .withFailureHandler(function() {
+        .withFailureHandler(function(err) {
+          showToast('Error al cargar configuración: ' + (err && err.message ? err.message : err), 'error');
           if (callback) callback();
         })
         .getConfig();
+    }
+
+    function renderYearSelect() {
+      var sel = document.getElementById('yearSelect');
+      var toggle = document.getElementById('yearArchivedToggle');
+      if (!sel) return;
+      if (!state.years || state.years.length === 0) {
+        sel.style.display = 'none';
+        if (toggle) toggle.style.display = 'none';
+        return;
+      }
+      sel.style.display = '';
+      if (toggle) toggle.style.display = 'inline-flex';
+      var showArchived = !!(document.getElementById('yearShowArchived') && document.getElementById('yearShowArchived').checked);
+      var visible = state.years.filter(function(y) { return showArchived || !y.archived; });
+      // Si el activo está archivado y no mostramos archivados, lo incluimos igualmente
+      if (state.activeYearId && !visible.some(function(y) { return y.id === state.activeYearId; })) {
+        var act = state.years.find(function(y) { return y.id === state.activeYearId; });
+        if (act) visible.unshift(act);
+      }
+      // Más reciente primero
+      visible.sort(function(a, b) {
+        var ta = new Date(a.createdAt).getTime() || 0;
+        var tb = new Date(b.createdAt).getTime() || 0;
+        return tb - ta;
+      });
+      var html = '';
+      visible.forEach(function(y) {
+        var label = y.label + (y.archived ? ' (archivado)' : '');
+        html += '<option value="' + escAttr(y.id) + '"' + (y.id === state.activeYearId ? ' selected' : '') + '>' + escHtml(label) + '</option>';
+      });
+      sel.innerHTML = html;
+    }
+
+    async function onYearChange() {
+      var sel = document.getElementById('yearSelect');
+      if (!sel) return;
+      var newId = sel.value;
+      if (newId === state.activeYearId) return;
+      if (state.dirty) {
+        var ok = await confirmDialog('Tienes cambios sin guardar. Si cambias de curso académico, se perderán.', { title: 'Cambios sin guardar', confirmText: 'Descartar y cambiar', cancelText: 'Seguir editando', danger: true });
+        if (!ok) {
+          sel.value = state.activeYearId;
+          return;
+        }
+        state.dirty = false;
+      }
+      state.activeYearId = newId;
+      state.selectedStudent = null;
+      // Recargar config (cursoEscolar del año) y lista de alumnos del nuevo año
+      loadConfig(function() { loadStudentList(); });
     }
 
     function updateHeaderSubtitle() {
@@ -1453,7 +1530,7 @@
           state.students = [];
           renderListView();
         })
-        .getStudentList();
+        .getStudentList(state.activeYearId);
     }
 
     /* ═══════════════════════════════════════════
@@ -1566,10 +1643,10 @@
               showToast('Alumno duplicado como "' + newName + '"', 'success');
             })
             .withFailureHandler(function(err) { showToast('Error al guardar: ' + err.message, 'error'); })
-            .saveStudentData(JSON.stringify(data));
+            .saveStudentData(JSON.stringify(Object.assign({}, data, { yearId: state.activeYearId })));
         })
         .withFailureHandler(function(err) { showToast('Error al leer: ' + err.message, 'error'); })
-        .getStudentData(oldName);
+        .getStudentData(oldName, state.activeYearId);
     }
 
     async function confirmDeleteStudent(name) {
@@ -1588,7 +1665,7 @@
           showToast('Alumno eliminado', 'success');
         })
         .withFailureHandler(function(err) { showToast('Error al eliminar: ' + err.message, 'error'); })
-        .deleteStudent(name);
+        .deleteStudent(name, state.activeYearId);
     }
 
     function getFilteredStudents() {
@@ -1692,7 +1769,7 @@
           showToast('Error al cargar: ' + err.message, 'error');
           renderListView();
         })
-        .getStudentData(name);
+        .getStudentData(name, state.activeYearId);
     }
 
     async function newStudent() {
@@ -2740,6 +2817,7 @@
       });
 
       var payload = JSON.stringify({
+        yearId: state.activeYearId,
         studentName: state.studentName,
         course: state.course,
         valoracionInicial: state.valoracionInicial,
@@ -3150,6 +3228,7 @@
 
     function saveConfigFromUI() {
       var payload = {
+        yearId: state.activeYearId,
         centro: document.getElementById('cfgCentro').value.trim(),
         localidad: document.getElementById('cfgLocalidad').value.trim(),
         cursoEscolar: document.getElementById('cfgCurso').value.trim()
