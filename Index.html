@@ -244,15 +244,20 @@
     .field-input:read-only { background: var(--gris-100); color: var(--gris-500); }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
-    .grid-student-info { display: grid; grid-template-columns: 2fr 1fr 1.5fr; gap: 16px; align-items: start; }
-    @media (max-width: 880px) { .grid-student-info { grid-template-columns: 1fr 1fr; } }
-    @media (max-width: 560px) { .grid-student-info { grid-template-columns: 1fr; } }
+    .grid-student-info { display: grid; grid-template-columns: minmax(180px, 1.4fr) minmax(120px, 0.7fr) minmax(280px, 2.4fr); gap: 12px; align-items: start; }
+    @media (max-width: 880px) { .grid-student-info { grid-template-columns: 1.4fr 1fr; } .grid-student-info > div:nth-child(3) { grid-column: 1 / -1; } }
+    @media (max-width: 560px) { .grid-student-info { grid-template-columns: 1fr; } .grid-student-info > div:nth-child(3) { grid-column: auto; } }
 
     .docentes-chips {
       display: flex; flex-wrap: wrap; gap: 6px;
-      padding: 7px 10px; min-height: 42px;
+      padding: 5px 8px; min-height: 42px;
       border: 1px solid var(--gris-200); border-radius: var(--radio);
       background: var(--gris-0); align-items: center;
+    }
+    .docentes-chips .docentes-add-inline {
+      flex: 1; min-width: 140px; border: none; background: transparent;
+      padding: 4px 6px; font-family: inherit; font-size: 13px; color: var(--gris-600);
+      outline: none; cursor: pointer;
     }
     .docentes-empty { color: var(--gris-400); font-size: 13px; font-style: italic; }
     .docente-chip {
@@ -1547,7 +1552,13 @@
       google.script.run
         .withSuccessHandler(function(cfg) {
           if (cfg) {
-            state.config = { centro: cfg.centro || '', localidad: cfg.localidad || '', cursoEscolar: cfg.cursoEscolar || '' };
+            state.config = {
+              centro: cfg.centro || '',
+              localidad: cfg.localidad || '',
+              cursoEscolar: cfg.cursoEscolar || '',
+              courses: cfg.courses || [],
+              docentes: cfg.docentes || []
+            };
             state.years = cfg.years || [];
             state.activeYearId = cfg.activeYearId || '';
           }
@@ -2075,7 +2086,7 @@
       html += '<div class="card-title"><span class="card-icon">' + ICONS.user + '</span> Datos del alumno/a</div>';
       html += '<div class="grid-student-info">';
       html += '<div><label class="field-label">Nombre del alumno/a *</label>';
-      html += '<input class="field-input" id="fName" value="' + escAttr(state.studentName) + '" placeholder="Nombre y apellidos" oninput="onFieldChange()" ' + (state.selectedStudent && !state.isNew ? 'readonly' : '') + '></div>';
+      html += '<input class="field-input" id="fName" value="' + escAttr(state.studentName) + '" placeholder="Nombre y apellidos" oninput="onFieldChange()"></div>';
       html += '<div><label class="field-label">Curso *</label>';
       html += '<select class="field-select" id="fCourse" onchange="onFieldChange()"><option value="">Selecciona curso</option>';
       var courseOptions = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES;
@@ -2150,27 +2161,22 @@
       var notSelected = available.filter(function(d) { return selected.indexOf(d) === -1; });
 
       var html = '<div class="docentes-chips" id="docentesChips">';
-      if (selected.length === 0) {
-        html += '<span class="docentes-empty">— Sin asignar —</span>';
-      } else {
-        selected.forEach(function(d) {
-          html += '<span class="docente-chip">' + escHtml(d)
-            + '<button type="button" class="docente-chip-x" title="Quitar" onclick="removeDocente(\'' + escAttr(d) + '\')">×</button>'
-            + '</span>';
-        });
-      }
-      html += '</div>';
-
+      selected.forEach(function(d) {
+        html += '<span class="docente-chip">' + escHtml(d)
+          + '<button type="button" class="docente-chip-x" title="Quitar" onclick="removeDocente(\'' + escAttr(d) + '\')">×</button>'
+          + '</span>';
+      });
       if (notSelected.length > 0) {
-        html += '<select class="field-select docentes-add" id="docentesAddSelect" onchange="addDocenteFromSelect(this)">';
-        html += '<option value="">+ Añadir docente</option>';
+        html += '<select class="docentes-add-inline" id="docentesAddSelect" onchange="addDocenteFromSelect(this)">';
+        html += '<option value="">' + (selected.length === 0 ? 'Selecciona docente(s)' : '+ Añadir') + '</option>';
         notSelected.forEach(function(d) {
           html += '<option value="' + escAttr(d) + '">' + escHtml(d) + '</option>';
         });
         html += '</select>';
-      } else if (available.length === 0) {
-        html += '<div class="docentes-hint">Añade docentes en Ajustes para poder asignarlos.</div>';
+      } else if (selected.length === 0 && available.length === 0) {
+        html += '<span class="docentes-empty">Añade docentes en Ajustes</span>';
       }
+      html += '</div>';
 
       wrap.innerHTML = html;
     }
@@ -3102,9 +3108,13 @@
         }
       });
 
+      // Detección de renombrado: enviamos el nombre original tal y como lo
+      // teníamos antes de editar para que el backend pueda renombrar la pestaña.
+      var originalStudentName = (!state.isNew && state.selectedStudent) ? state.selectedStudent : '';
       var payload = JSON.stringify({
         yearId: state.activeYearId,
         studentName: state.studentName,
+        originalStudentName: originalStudentName,
         course: state.course,
         docentes: (state.docentes || []).slice(),
         expectedUpdatedAt: state.expectedUpdatedAt || '',
@@ -3138,16 +3148,23 @@
         .withSuccessHandler(function(result) {
           clearTimeout(slowSaveTimer);
           state.saving = false;
+          var prevSelected = state.selectedStudent;
+          var renamed = !!(originalStudentName && originalStudentName !== state.studentName);
           state.selectedStudent = state.studentName;
           state.isNew = false;
           if (result && result.updatedAt) state.expectedUpdatedAt = result.updatedAt;
           setBaselineFromCurrent();
           clearDraft(state.studentName);
+          if (renamed) clearDraft(originalStudentName);
 
           // Update local students list
           var areaStr = state.areas.map(function(a) { return a.name; }).join(', ');
-          var existing = state.students.find(function(s) { return s.name === state.studentName; });
           var docentesArr = (state.docentes || []).slice();
+          if (renamed) {
+            // Quitar la entrada con el nombre antiguo
+            state.students = state.students.filter(function(s) { return s.name !== originalStudentName; });
+          }
+          var existing = state.students.find(function(s) { return s.name === state.studentName; });
           if (!existing) {
             state.students.push({ name: state.studentName, course: state.course, program: 'PE', area: areaStr, docentes: docentesArr });
           } else {
@@ -3160,9 +3177,12 @@
           btn.disabled = false;
           btn.innerHTML = svgIcon('save') + ' Guardar';
           updateBadge();
-          // Si era nuevo alumno, registrar presencia ahora que ya existe la pestaña
-          if (!presenceCurrent.tabName) startPresence(state.studentName);
-          showToast('Datos guardados en Google Sheets', 'success');
+          // Reiniciar la presencia al nuevo nombre si hubo renombrado, o registrarla si era nuevo
+          if (renamed || !presenceCurrent.tabName) {
+            stopPresence();
+            startPresence(state.studentName);
+          }
+          showToast(renamed ? ('Alumno renombrado a "' + state.studentName + '" y guardado') : 'Datos guardados en Google Sheets', 'success');
         })
         .withFailureHandler(function(err) {
           clearTimeout(slowSaveTimer);

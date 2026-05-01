@@ -486,12 +486,34 @@ function saveStudentData(payload) {
   const data = JSON.parse(payload);
   const yearId = data.yearId || getActiveYearId_();
   const ss = getYearSS_(yearId);
-  const tabName = data.studentName.trim();
+  const tabName = String(data.studentName || '').trim();
+  if (!tabName) throw new Error('El nombre del alumno no puede estar vacío.');
+  const originalName = String(data.originalStudentName || '').trim();
 
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) throw new Error('Otro usuario está guardando. Reintenta.');
   try {
-    let sheet = ss.getSheetByName(tabName);
+    // Renombrado: si originalName es distinto y existe pestaña, renombrarla
+    let sheet;
+    if (originalName && originalName !== tabName) {
+      const oldSheet = ss.getSheetByName(originalName);
+      const newCollision = ss.getSheetByName(tabName);
+      if (newCollision) throw new Error('Ya existe un alumno con el nombre "' + tabName + '".');
+      if (oldSheet) {
+        oldSheet.setName(tabName);
+        sheet = oldSheet;
+        // Actualizar el Índice: borrar fila con el nombre antiguo
+        const indice = getOrCreateIndiceIn_(ss);
+        const indData = indice.getDataRange().getValues();
+        for (let i = indData.length - 1; i >= 1; i--) {
+          if (String(indData[i][0]).trim() === originalName) {
+            indice.deleteRow(i + 1);
+            break;
+          }
+        }
+      }
+    }
+    if (!sheet) sheet = ss.getSheetByName(tabName);
     // Comprobación de versión optimista: si la pestaña ya existe y el cliente
     // envía expectedUpdatedAt, debe coincidir con el actual de la hoja.
     if (sheet && data.expectedUpdatedAt !== undefined && data.expectedUpdatedAt !== null) {
