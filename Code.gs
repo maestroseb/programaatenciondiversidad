@@ -216,36 +216,37 @@ function saveStudentData(payload) {
     sheet = ss.insertSheet(tabName);
   }
 
-  // Row 1: metadata
+  const NUM_COLS = 7;
+  const pad = function(row) {
+    while (row.length < NUM_COLS) row.push('');
+    return row;
+  };
+
   const areaNames = (data.areas || []).map(function(a) { return a.name; }).join(', ');
-  sheet.appendRow([
-    'ALUMNO/A', data.studentName,
-    'CURSO', data.course,
-    'PROGRAMA', 'PE',
-    'ÁMBITOS', areaNames
-  ]);
+  const rows = [];
+
+  // Row 1: metadata (8 cols, but pad to NUM_COLS for setValues width)
+  rows.push(['ALUMNO/A', data.studentName, 'CURSO', data.course, 'PROGRAMA', 'PE', 'ÁMBITOS']);
+  // The 8th metadata cell (areaNames) will be written separately — keep the data range at 7 cols.
 
   // Row 2: headers
-  sheet.appendRow(['', 'TIPO', 'TEXTO', '1T', '2T', '3T', 'OBSERVACIONES']);
+  rows.push(['', 'TIPO', 'TEXTO', '1T', '2T', '3T', 'OBSERVACIONES']);
 
-  // Data rows grouped by area
   const areas = data.areas || [];
   for (let a = 0; a < areas.length; a++) {
     const area = areas[a];
-
-    // Area header row
-    sheet.appendRow(['', 'ÁREA', area.name, '', '', '']);
+    rows.push(pad(['', 'ÁREA', area.name]));
 
     const objectives = area.objectives || [];
     for (let i = 0; i < objectives.length; i++) {
       const obj = objectives[i];
       const objLabel = 'Obj. ' + (i + 1);
 
-      sheet.appendRow([objLabel, 'OBJETIVO', obj.title || '', '', '', '']);
+      rows.push(pad([objLabel, 'OBJETIVO', obj.title || '']));
 
       (obj.indicators || []).forEach(function(ind) {
         if (ind.text && ind.text.trim()) {
-          sheet.appendRow([objLabel, 'INDICADOR', ind.text.trim(),
+          rows.push([objLabel, 'INDICADOR', ind.text.trim(),
             ind.eval1T || '', ind.eval2T || '', ind.eval3T || '', ind.observaciones || '']);
         }
       });
@@ -255,7 +256,7 @@ function saveStudentData(payload) {
         : (typeof obj.contents === 'string' && obj.contents.trim() ? [{ text: obj.contents }] : []);
       contentsArr.forEach(function(cnt) {
         if (cnt && cnt.text && String(cnt.text).trim()) {
-          sheet.appendRow([objLabel, 'CONTENIDO', cnt.text, '', '', '']);
+          rows.push(pad([objLabel, 'CONTENIDO', cnt.text]));
         }
       });
 
@@ -263,47 +264,45 @@ function saveStudentData(payload) {
         ? obj.activities
         : (Array.isArray(obj.activities) ? obj.activities.map(function(a) { return a && a.text ? a.text : ''; }).filter(function(t) { return t; }).join('<br>') : '');
       if (activitiesHtml && activitiesHtml.trim()) {
-        sheet.appendRow([objLabel, 'ACTIVIDAD', activitiesHtml, '', '', '']);
+        rows.push(pad([objLabel, 'ACTIVIDAD', activitiesHtml]));
       }
     }
 
-    // Empty row between areas
     if (a < areas.length - 1) {
-      sheet.appendRow(['']);
+      rows.push(pad(['']));
     }
   }
 
   // Follow-up fields
-  sheet.appendRow(['']);
-  if (data.valoracionInicial) {
-    sheet.appendRow(['', 'VALORACIÓN INICIAL', data.valoracionInicial, '', '', '']);
-  }
-  if (data.seguimiento1T) {
-    sheet.appendRow(['', 'SEGUIMIENTO 1T', data.seguimiento1T, '', '', '']);
-  }
-  if (data.seguimiento2T) {
-    sheet.appendRow(['', 'SEGUIMIENTO 2T', data.seguimiento2T, '', '', '']);
-  }
-  if (data.seguimiento3T) {
-    sheet.appendRow(['', 'SEGUIMIENTO 3T', data.seguimiento3T, '', '', '']);
-  }
+  rows.push(pad(['']));
+  if (data.valoracionInicial) rows.push(pad(['', 'VALORACIÓN INICIAL', data.valoracionInicial]));
+  if (data.seguimiento1T) rows.push(pad(['', 'SEGUIMIENTO 1T', data.seguimiento1T]));
+  if (data.seguimiento2T) rows.push(pad(['', 'SEGUIMIENTO 2T', data.seguimiento2T]));
+  if (data.seguimiento3T) rows.push(pad(['', 'SEGUIMIENTO 3T', data.seguimiento3T]));
 
   // Informe a las familias
   var informe = data.informeFamilias;
   if (informe && informe.indicadores && informe.indicadores.length > 0) {
-    sheet.appendRow(['']);
+    rows.push(pad(['']));
     for (var fi = 0; fi < informe.indicadores.length; fi++) {
       var indText = informe.indicadores[fi].text || '';
       var ev = (informe.evaluaciones && informe.evaluaciones[fi]) || {};
       if (indText.trim()) {
-        sheet.appendRow(['', 'INFORME_INDICADOR', indText.trim(),
-          ev.eval1T || '', ev.eval2T || '', ev.eval3T || '']);
+        rows.push(['', 'INFORME_INDICADOR', indText.trim(),
+          ev.eval1T || '', ev.eval2T || '', ev.eval3T || '', '']);
       }
     }
   }
 
-  // Format the sheet
-  formatStudentSheet_(sheet);
+  // Single batched write
+  if (rows.length > 0) {
+    sheet.getRange(1, 1, rows.length, NUM_COLS).setValues(rows);
+    // Write the 8th metadata cell (ÁMBITOS value) separately
+    sheet.getRange(1, 8).setValue(areaNames);
+  }
+
+  // Format the sheet (also batched)
+  formatStudentSheet_(sheet, rows);
 
   // Update Índice
   updateIndice_(data.studentName, data.course, 'PE', areaNames);
@@ -335,59 +334,86 @@ function deleteStudent(studentName) {
 
 /* ───────── Helpers: format & index ───────── */
 
-function formatStudentSheet_(sheet) {
-  // Header row 1 (metadata)
-  const metaRange = sheet.getRange(1, 1, 1, 8);
-  metaRange.setFontWeight('bold');
-  [2, 4, 6, 8].forEach(function(c) { sheet.getRange(1, c).setFontWeight('normal'); });
-
-  // Headers row 2
-  const headerRange = sheet.getRange(2, 1, 1, 7);
-  headerRange.setFontWeight('bold');
-  headerRange.setBackground('#2d6a4f');
-  headerRange.setFontColor('#ffffff');
+function formatStudentSheet_(sheet, rowsData) {
+  const NUM_COLS = 7;
 
   // Column widths
-  sheet.setColumnWidth(1, 80);   // Nº OBJ
-  sheet.setColumnWidth(2, 150);  // TIPO
-  sheet.setColumnWidth(3, 450);  // TEXTO
-  sheet.setColumnWidth(4, 50);   // 1T
-  sheet.setColumnWidth(5, 50);   // 2T
-  sheet.setColumnWidth(6, 50);   // 3T
-  sheet.setColumnWidth(7, 300);  // OBSERVACIONES
+  sheet.setColumnWidth(1, 80);
+  sheet.setColumnWidth(2, 150);
+  sheet.setColumnWidth(3, 450);
+  sheet.setColumnWidth(4, 50);
+  sheet.setColumnWidth(5, 50);
+  sheet.setColumnWidth(6, 50);
+  sheet.setColumnWidth(7, 300);
 
   // Freeze header rows
   sheet.setFrozenRows(2);
 
-  // Color-code rows by type
-  const lastRow = sheet.getLastRow();
-  if (lastRow > 2) {
-    const dataRange = sheet.getRange(3, 1, lastRow - 2, 7);
-    const values = dataRange.getValues();
+  const totalRows = rowsData ? rowsData.length : sheet.getLastRow();
+  if (totalRows < 1) return;
 
-    for (let i = 0; i < values.length; i++) {
-      const tipo = String(values[i][1]).trim().toUpperCase();
-      const row = i + 3;
-      const range = sheet.getRange(row, 1, 1, 7);
+  // Build full formatting matrices for the entire data range (rows 1..totalRows, cols 1..7)
+  const backgrounds = [];
+  const fontColors = [];
+  const fontWeights = [];
+  const wraps = [];
 
+  // Helpers
+  const fillRow = function(bg, color, weight, wrap) {
+    const bgRow = [], fcRow = [], fwRow = [], wrRow = [];
+    for (let c = 0; c < NUM_COLS; c++) {
+      bgRow.push(bg);
+      fcRow.push(color);
+      fwRow.push(weight);
+      wrRow.push(wrap);
+    }
+    return { bg: bgRow, fc: fcRow, fw: fwRow, wr: wrRow };
+  };
+
+  const source = rowsData || sheet.getRange(1, 1, totalRows, NUM_COLS).getValues();
+
+  for (let i = 0; i < totalRows; i++) {
+    let bg = null, fc = null, fw = 'normal', wrap = false;
+    if (i === 0) {
+      // Metadata row: bold labels at cols 1,3,5,7 (handled below as bold whole row, then unbold values)
+      bg = null; fc = null; fw = 'bold';
+    } else if (i === 1) {
+      // Headers
+      bg = '#2d6a4f'; fc = '#ffffff'; fw = 'bold';
+    } else {
+      const tipo = String((source[i] && source[i][1]) || '').trim().toUpperCase();
       if (tipo === 'ÁREA' || tipo === 'AREA') {
-        range.setBackground('#1b4332').setFontColor('#ffffff').setFontWeight('bold');
+        bg = '#1b4332'; fc = '#ffffff'; fw = 'bold';
       } else if (tipo === 'OBJETIVO') {
-        range.setBackground('#d1fae5').setFontWeight('bold');
+        bg = '#d1fae5'; fw = 'bold';
       } else if (tipo === 'INDICADOR') {
-        range.setBackground('#fef3c7');
+        bg = '#fef3c7';
       } else if (tipo === 'CONTENIDO') {
-        range.setBackground('#ede9fe');
+        bg = '#ede9fe';
       } else if (tipo === 'ACTIVIDAD') {
-        range.setBackground('#dbeafe');
-      } else if (tipo.startsWith('VALORACIÓN') || tipo.startsWith('SEGUIMIENTO')) {
-        range.setBackground('#f3f4f6').setFontWeight('bold');
-        sheet.getRange(row, 3).setWrap(true);
+        bg = '#dbeafe';
+      } else if (tipo.indexOf('VALORACIÓN') === 0 || tipo.indexOf('SEGUIMIENTO') === 0) {
+        bg = '#f3f4f6'; fw = 'bold'; wrap = true;
       } else if (tipo === 'INFORME_INDICADOR') {
-        range.setBackground('#fce7f3');
+        bg = '#fce7f3';
       }
     }
+    const f = fillRow(bg, fc, fw, wrap);
+    backgrounds.push(f.bg);
+    fontColors.push(f.fc);
+    fontWeights.push(f.fw);
+    wraps.push(f.wr);
   }
+
+  const fullRange = sheet.getRange(1, 1, totalRows, NUM_COLS);
+  fullRange.setBackgrounds(backgrounds);
+  fullRange.setFontColors(fontColors);
+  fullRange.setFontWeights(fontWeights);
+  fullRange.setWraps(wraps);
+
+  // Metadata row: also format col 8 + unbold value cells
+  const metaWeights = [['bold', 'normal', 'bold', 'normal', 'bold', 'normal', 'bold', 'normal']];
+  sheet.getRange(1, 1, 1, 8).setFontWeights(metaWeights);
 }
 
 function updateIndice_(name, course, program, area) {
