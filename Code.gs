@@ -679,6 +679,157 @@ function formatStudentSheet_(sheet, rowsData) {
   sheet.getRange(1, 1, 1, 10).setFontWeights(metaWeights);
 }
 
+/* ───────── Gestión de cursos académicos ───────── */
+
+function cloneSchoolYear(payload) {
+  migrateMasterIfNeeded_();
+  const data = JSON.parse(payload);
+  const sourceId = data.sourceYearId || getActiveYearId_();
+  const newLabel = String(data.newLabel || '').trim();
+  if (!sourceId) throw new Error('No hay curso académico de origen.');
+  if (!newLabel) throw new Error('Indica el nombre del nuevo curso académico.');
+
+  // Validar que no existe ya un año con esa etiqueta
+  const existing = readCursosRows_();
+  if (existing.some(function(y) { return y.label.toLowerCase() === newLabel.toLowerCase(); })) {
+    throw new Error('Ya existe un curso académico con ese nombre.');
+  }
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(60000)) throw new Error('Otra operación en curso. Reintenta.');
+  try {
+    const safeLabel = newLabel.replace(/\//g, '-');
+    const fileName = 'Programa Atención a la Diversidad — ' + safeLabel;
+
+    const sourceFile = DriveApp.getFileById(sourceId);
+    const parentFolder = getMasterParentFolder_();
+    const newFile = sourceFile.makeCopy(fileName, parentFolder);
+    const newId = newFile.getId();
+    const newUrl = newFile.getUrl();
+
+    const newSS = SpreadsheetApp.openById(newId);
+
+    // Actualizar cursoEscolar en la Config del nuevo año (mantiene courses/docentes heredados)
+    let newCfg = newSS.getSheetByName(CONFIG_TAB);
+    if (!newCfg) {
+      newCfg = newSS.insertSheet(CONFIG_TAB);
+      newCfg.appendRow(['CLAVE', 'VALOR']);
+      newCfg.getRange(1, 1, 1, 2).setFontWeight('bold');
+      newCfg.setFrozenRows(1);
+    }
+    upsertKV_(newCfg, 'cursoEscolar', newLabel);
+
+    // Limpiar evaluaciones, observaciones, valoración, seguimientos e informes
+    cleanYearSpreadsheet_(newSS);
+
+    // Registrar en Cursos del maestro
+    const cursos = getOrCreateCursos_();
+    cursos.appendRow([newLabel, newId, newUrl, new Date().toISOString(), 'FALSE']);
+
+    return { id: newId, url: newUrl, label: newLabel };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function cleanYearSpreadsheet_(ss) {
+  const sheets = ss.getSheets();
+  sheets.forEach(function(sh) {
+    const name = sh.getName();
+    if (name === CONFIG_TAB || name === INDICE_TAB) return;
+    cleanStudentSheet_(sh);
+  });
+}
+
+function cleanStudentSheet_(sh) {
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return;
+  const range = sh.getRange(1, 1, lastRow, 7);
+  const values = range.getValues();
+  let headerIdx = -1;
+  for (let h = 1; h < values.length; h++) {
+    if (String(values[h][1] || '').trim().toUpperCase() === 'TIPO') {
+      headerIdx = h;
+      break;
+    }
+  }
+  if (headerIdx < 0) return;
+  for (let i = headerIdx + 1; i < values.length; i++) {
+    const tipo = String(values[i][1] || '').trim().toUpperCase();
+    if (tipo === 'INDICADOR' || tipo === 'INFORME_INDICADOR') {
+      values[i][3] = '';
+      values[i][4] = '';
+      values[i][5] = '';
+      values[i][6] = '';
+    } else if (tipo === 'VALORACIÓN INICIAL' || tipo.indexOf('SEGUIMIENTO') === 0) {
+      values[i][2] = '';
+    }
+  }
+  range.setValues(values);
+}
+
+function archiveYear(yearId, archived) {
+  migrateMasterIfNeeded_();
+  if (!yearId) throw new Error('Falta el id del curso académico.');
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) throw new Error('Otro usuario está guardando. Reintenta.');
+  try {
+    const sheet = getOrCreateCursos_();
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][1]).trim() === String(yearId).trim()) {
+        sheet.getRange(i + 1, 5).setValue(archived ? 'TRUE' : 'FALSE');
+        return { success: true };
+      }
+    }
+    throw new Error('No se ha encontrado el curso académico.');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function deleteYear(yearId, confirmLabel) {
+  migrateMasterIfNeeded_();
+  if (!yearId) throw new Error('Falta el id del curso académico.');
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) throw new Error('Otro usuario está guardando. Reintenta.');
+  try {
+    const sheet = getOrCreateCursos_();
+    const data = sheet.getDataRange().getValues();
+    let foundRow = -1;
+    let label = '';
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][1]).trim() === String(yearId).trim()) {
+        foundRow = i + 1;
+        label = String(data[i][0]).trim();
+        break;
+      }
+    }
+    if (foundRow < 0) throw new Error('No se ha encontrado el curso académico.');
+    if (String(confirmLabel || '').trim() !== label) {
+      throw new Error('El nombre escrito no coincide con el del curso académico.');
+    }
+    // Validar que no es el único año
+    let total = 0;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][1]).trim()) total++;
+    }
+    if (total <= 1) {
+      throw new Error('No puedes borrar el único curso académico. Crea otro antes.');
+    }
+    // Mover a papelera de Drive (recuperable durante 30 días)
+    try {
+      DriveApp.getFileById(yearId).setTrashed(true);
+    } catch (e) {
+      // El archivo ya pudo ser borrado manualmente — seguimos para limpiar el registro
+    }
+    sheet.deleteRow(foundRow);
+    return { success: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function updateIndiceIn_(ss, name, course, program, area, docentesStr) {
   const sheet = getOrCreateIndiceIn_(ss);
   const data = sheet.getDataRange().getValues();
