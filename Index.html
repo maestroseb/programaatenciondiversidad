@@ -1055,7 +1055,7 @@
           <button class="btn btn-undo" id="btnUndo" onclick="undo()" title="Deshacer (Ctrl+Z)" disabled><span class="icon" id="iconUndo"></span> Deshacer</button>
           <button class="btn btn-redo" id="btnRedo" onclick="redo()" title="Rehacer (Ctrl+Shift+Z)" disabled><span class="icon" id="iconRedo"></span> Rehacer</button>
           <button class="btn btn-secondary" onclick="clearForm()">Limpiar</button>
-          <button class="btn btn-print" onclick="showPrintView()"><span class="icon" id="iconPrint"></span> Imprimir</button>
+          <button class="btn btn-print" onclick="openPrintOptions()"><span class="icon" id="iconPrint"></span> Imprimir</button>
           <button class="btn btn-primary" id="btnSave" onclick="saveData()"><span class="icon" id="iconSave"></span> Guardar</button>
         </div>
       </div>
@@ -2803,7 +2803,94 @@
     /* ═══════════════════════════════════════════
        PRINT VIEW
     ═══════════════════════════════════════════ */
-    function showPrintView() {
+    var PRINT_OPTS_KEY = 'printOptions.v1';
+    var PRINT_OPTS_DEFAULT = {
+      valoracionInicial: true,
+      seguimiento1T: true,
+      seguimiento2T: true,
+      seguimiento3T: true,
+      contenidos: false,
+      actividades: false
+    };
+
+    function loadPrintOptions() {
+      try {
+        var raw = localStorage.getItem(PRINT_OPTS_KEY);
+        if (!raw) return Object.assign({}, PRINT_OPTS_DEFAULT);
+        var parsed = JSON.parse(raw);
+        return Object.assign({}, PRINT_OPTS_DEFAULT, parsed);
+      } catch (e) {
+        return Object.assign({}, PRINT_OPTS_DEFAULT);
+      }
+    }
+
+    function savePrintOptions(opts) {
+      try { localStorage.setItem(PRINT_OPTS_KEY, JSON.stringify(opts)); } catch (e) {}
+    }
+
+    function openPrintOptions() {
+      var opts = loadPrintOptions();
+      var existing = document.getElementById('printOptsWrapper');
+      if (existing) existing.remove();
+
+      function chk(id, label, checked) {
+        return '<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--gris-200);border-radius:8px;cursor:pointer;font-size:14px">'
+          + '<input type="checkbox" id="' + id + '"' + (checked ? ' checked' : '') + ' style="width:18px;height:18px;cursor:pointer">'
+          + '<span>' + label + '</span></label>';
+      }
+
+      var html = '<div class="settings-overlay" id="printOptsOverlay" onclick="if(event.target===this)closePrintOptions()">';
+      html += '<div class="settings-panel" style="max-width:520px">';
+      html += '<div class="settings-header"><span class="settings-title">' + svgIcon('printer') + ' Opciones de impresión</span>';
+      html += '<button class="settings-close" onclick="closePrintOptions()" title="Cerrar" aria-label="Cerrar">' + ICONS.x + '</button></div>';
+      html += '<div class="settings-body">';
+      html += '<div style="font-size:13px;color:var(--gris-600);background:var(--gris-100);border-radius:8px;padding:10px 12px">'
+        + 'Se incluyen siempre los <b>objetivos, indicadores y observaciones</b>. Selecciona qué más quieres incluir:</div>';
+      html += '<div><div style="font-weight:700;font-size:13px;color:var(--verde-oscuro);margin-bottom:8px">Seguimiento de evaluación</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:6px">';
+      html += chk('optValoracionInicial', 'Valoración inicial', opts.valoracionInicial);
+      html += chk('optSeguimiento1T', 'Seguimiento 1.<sup>er</sup> trimestre', opts.seguimiento1T);
+      html += chk('optSeguimiento2T', 'Seguimiento 2.<sup>o</sup> trimestre', opts.seguimiento2T);
+      html += chk('optSeguimiento3T', 'Seguimiento 3.<sup>er</sup> trimestre', opts.seguimiento3T);
+      html += '</div></div>';
+      html += '<div><div style="font-weight:700;font-size:13px;color:var(--verde-oscuro);margin-bottom:8px">Secciones adicionales</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:6px">';
+      html += chk('optContenidos', 'Contenidos', opts.contenidos);
+      html += chk('optActividades', 'Actividades', opts.actividades);
+      html += '</div></div>';
+      html += '</div>';
+      html += '<div class="settings-footer">';
+      html += '<button class="btn btn-secondary" onclick="closePrintOptions()">Cancelar</button>';
+      html += '<button class="btn btn-primary" onclick="confirmPrintOptions()">Generar vista</button>';
+      html += '</div></div></div>';
+
+      var wrapper = document.createElement('div');
+      wrapper.id = 'printOptsWrapper';
+      wrapper.innerHTML = html;
+      document.body.appendChild(wrapper);
+    }
+
+    function closePrintOptions() {
+      var w = document.getElementById('printOptsWrapper');
+      if (w) w.remove();
+    }
+
+    function confirmPrintOptions() {
+      var opts = {
+        valoracionInicial: document.getElementById('optValoracionInicial').checked,
+        seguimiento1T: document.getElementById('optSeguimiento1T').checked,
+        seguimiento2T: document.getElementById('optSeguimiento2T').checked,
+        seguimiento3T: document.getElementById('optSeguimiento3T').checked,
+        contenidos: document.getElementById('optContenidos').checked,
+        actividades: document.getElementById('optActividades').checked
+      };
+      savePrintOptions(opts);
+      closePrintOptions();
+      showPrintView(opts);
+    }
+
+    function showPrintView(opts) {
+      if (!opts) opts = loadPrintOptions();
       // Read latest values
       state.studentName = document.getElementById('fName').value.trim();
       state.course = document.getElementById('fCourse').value;
@@ -2896,7 +2983,7 @@
         });
         var hasActivities = area.objectives.some(function(obj) { return richHasText(obj.activities); });
 
-        if (hasContents) {
+        if (opts.contenidos && hasContents) {
           html += '<table class="print-table" style="margin-top:16px">';
           html += '<tr><th colspan="4" class="type-content">CONTENIDOS</th></tr>';
           area.objectives.forEach(function(obj) {
@@ -2909,7 +2996,7 @@
           html += '</table>';
         }
 
-        if (hasActivities) {
+        if (opts.actividades && hasActivities) {
           html += '<table class="print-table">';
           html += '<tr><th colspan="4" class="type-activity">ACTIVIDADES</th></tr>';
           area.objectives.forEach(function(obj) {
@@ -2921,35 +3008,38 @@
         }
       }); // end areas loop
 
-      // Follow-up sections
+      // Follow-up sections (filtered by print options)
       var printFollowups = [
-        { label: 'Valoración inicial', text: state.valoracionInicial },
-        { label: 'Seguimiento 1er Trimestre', text: state.seguimiento1T },
-        { label: 'Seguimiento 2º Trimestre', text: state.seguimiento2T },
-        { label: 'Seguimiento 3er Trimestre', text: state.seguimiento3T }
-      ];
-      html += '<div style="page-break-before:always;margin-top:30px"></div>';
+        { key: 'valoracionInicial', label: 'Valoración inicial', text: state.valoracionInicial },
+        { key: 'seguimiento1T', label: 'Seguimiento 1er Trimestre', text: state.seguimiento1T },
+        { key: 'seguimiento2T', label: 'Seguimiento 2º Trimestre', text: state.seguimiento2T },
+        { key: 'seguimiento3T', label: 'Seguimiento 3er Trimestre', text: state.seguimiento3T }
+      ].filter(function(f) { return opts[f.key]; });
 
-      // Header for follow-up page
-      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">';
-      html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-weight:800;font-size:14px">';
-      html += 'PE: Valoración y seguimiento</div>';
-      html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-size:13px;text-align:right">';
-      html += '<div><span style="font-weight:800">ALUMNO/A:</span> ' + escHtml(state.studentName) + '</div>';
-      html += '<div><span style="font-weight:800">CURSO:</span> ' + escHtml(state.course) + '</div>';
-      html += '</div></div>';
+      if (printFollowups.length > 0) {
+        html += '<div style="page-break-before:always;margin-top:30px"></div>';
 
-      printFollowups.forEach(function(f) {
-        html += '<div style="margin-bottom:20px;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">';
-        html += '<div style="padding:8px 14px;background:#e5e7eb;font-weight:800;font-size:13px">' + escHtml(f.label) + '</div>';
-        var hasContent = f.text && f.text.trim() && f.text.trim() !== '<br>';
-        if (hasContent) {
-          html += '<div style="padding:12px 14px;font-size:13px;line-height:1.6">' + sanitizeRich(f.text) + '</div>';
-        } else {
-          html += '<div style="padding:12px 14px;min-height:80px;color:#9ca3af;font-size:12px;font-style:italic">Sin completar</div>';
-        }
-        html += '</div>';
-      });
+        // Header for follow-up page
+        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">';
+        html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-weight:800;font-size:14px">';
+        html += 'PE: Valoración y seguimiento</div>';
+        html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-size:13px;text-align:right">';
+        html += '<div><span style="font-weight:800">ALUMNO/A:</span> ' + escHtml(state.studentName) + '</div>';
+        html += '<div><span style="font-weight:800">CURSO:</span> ' + escHtml(state.course) + '</div>';
+        html += '</div></div>';
+
+        printFollowups.forEach(function(f) {
+          html += '<div style="margin-bottom:20px;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">';
+          html += '<div style="padding:8px 14px;background:#e5e7eb;font-weight:800;font-size:13px">' + escHtml(f.label) + '</div>';
+          var hasContent = f.text && f.text.trim() && f.text.trim() !== '<br>';
+          if (hasContent) {
+            html += '<div style="padding:12px 14px;font-size:13px;line-height:1.6">' + sanitizeRich(f.text) + '</div>';
+          } else {
+            html += '<div style="padding:12px 14px;min-height:80px;color:#9ca3af;font-size:12px;font-style:italic">Sin completar</div>';
+          }
+          html += '</div>';
+        });
+      }
 
       // Informe a las familias (print)
       var inf = state.informeFamilias;
