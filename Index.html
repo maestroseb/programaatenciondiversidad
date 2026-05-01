@@ -1008,6 +1008,14 @@
     .print-table th { background: var(--gris-200); padding: 8px 10px; border: 1px solid var(--gris-400); font-weight: 700; text-align: left; color: var(--verde-oscuro); }
     .print-table td { padding: 7px 10px; border: 1px solid var(--gris-400); vertical-align: top; }
     .print-table .eval-col { width: 44px; text-align: center; }
+    .print-table .eval-cell { font-weight: 800; }
+    .print-table .eval-cell.eval-ni { background: #fee2e2; color: #991b1b; }
+    .print-table .eval-cell.eval-ep { background: #fef3c7; color: #92400e; }
+    .print-table .eval-cell.eval-c  { background: #c8e6d5; color: #1b4332; }
+    .print-area-header { border-radius: 6px; padding: 10px 16px; font-weight: 800; font-size: 15px; color: #fff; letter-spacing: .3px; }
+    .print-doc-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid var(--gris-300); }
+    .print-doc-header .student-box { border: 2px solid var(--verde-oscuro); border-radius: 6px; padding: 8px 14px; font-size: 13px; text-align: right; }
+    .print-doc-header .center-box { font-size: 12px; color: var(--gris-600); line-height: 1.5; }
     .print-table .obj-row td { background: var(--gris-200); font-weight: 800; color: var(--verde-oscuro); }
     .print-table .type-content { background: var(--verde-tint); font-weight: 700; color: var(--verde-oscuro); }
     .print-table .type-activity { background: var(--azul-light); font-weight: 700; color: var(--azul-dark); }
@@ -1055,7 +1063,7 @@
           <button class="btn btn-undo" id="btnUndo" onclick="undo()" title="Deshacer (Ctrl+Z)" disabled><span class="icon" id="iconUndo"></span> Deshacer</button>
           <button class="btn btn-redo" id="btnRedo" onclick="redo()" title="Rehacer (Ctrl+Shift+Z)" disabled><span class="icon" id="iconRedo"></span> Rehacer</button>
           <button class="btn btn-secondary" onclick="clearForm()">Limpiar</button>
-          <button class="btn btn-print" onclick="showPrintView()"><span class="icon" id="iconPrint"></span> Imprimir</button>
+          <button class="btn btn-print" onclick="openPrintOptions()"><span class="icon" id="iconPrint"></span> Imprimir</button>
           <button class="btn btn-primary" id="btnSave" onclick="saveData()"><span class="icon" id="iconSave"></span> Guardar</button>
         </div>
       </div>
@@ -2803,7 +2811,94 @@
     /* ═══════════════════════════════════════════
        PRINT VIEW
     ═══════════════════════════════════════════ */
-    function showPrintView() {
+    var PRINT_OPTS_KEY = 'printOptions.v1';
+    var PRINT_OPTS_DEFAULT = {
+      valoracionInicial: true,
+      seguimiento1T: true,
+      seguimiento2T: true,
+      seguimiento3T: true,
+      contenidos: false,
+      actividades: false
+    };
+
+    function loadPrintOptions() {
+      try {
+        var raw = localStorage.getItem(PRINT_OPTS_KEY);
+        if (!raw) return Object.assign({}, PRINT_OPTS_DEFAULT);
+        var parsed = JSON.parse(raw);
+        return Object.assign({}, PRINT_OPTS_DEFAULT, parsed);
+      } catch (e) {
+        return Object.assign({}, PRINT_OPTS_DEFAULT);
+      }
+    }
+
+    function savePrintOptions(opts) {
+      try { localStorage.setItem(PRINT_OPTS_KEY, JSON.stringify(opts)); } catch (e) {}
+    }
+
+    function openPrintOptions() {
+      var opts = loadPrintOptions();
+      var existing = document.getElementById('printOptsWrapper');
+      if (existing) existing.remove();
+
+      function chk(id, label, checked) {
+        return '<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--gris-200);border-radius:8px;cursor:pointer;font-size:14px">'
+          + '<input type="checkbox" id="' + id + '"' + (checked ? ' checked' : '') + ' style="width:18px;height:18px;cursor:pointer">'
+          + '<span>' + label + '</span></label>';
+      }
+
+      var html = '<div class="settings-overlay" id="printOptsOverlay" onclick="if(event.target===this)closePrintOptions()">';
+      html += '<div class="settings-panel" style="max-width:520px">';
+      html += '<div class="settings-header"><span class="settings-title">' + svgIcon('printer') + ' Opciones de impresión</span>';
+      html += '<button class="settings-close" onclick="closePrintOptions()" title="Cerrar" aria-label="Cerrar">' + ICONS.x + '</button></div>';
+      html += '<div class="settings-body">';
+      html += '<div style="font-size:13px;color:var(--gris-600);background:var(--gris-100);border-radius:8px;padding:10px 12px">'
+        + 'Se incluyen siempre los <b>objetivos, indicadores y observaciones</b>. Selecciona qué más quieres incluir:</div>';
+      html += '<div><div style="font-weight:700;font-size:13px;color:var(--verde-oscuro);margin-bottom:8px">Seguimiento de evaluación</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:6px">';
+      html += chk('optValoracionInicial', 'Valoración inicial', opts.valoracionInicial);
+      html += chk('optSeguimiento1T', 'Seguimiento 1.<sup>er</sup> trimestre', opts.seguimiento1T);
+      html += chk('optSeguimiento2T', 'Seguimiento 2.<sup>o</sup> trimestre', opts.seguimiento2T);
+      html += chk('optSeguimiento3T', 'Seguimiento 3.<sup>er</sup> trimestre', opts.seguimiento3T);
+      html += '</div></div>';
+      html += '<div><div style="font-weight:700;font-size:13px;color:var(--verde-oscuro);margin-bottom:8px">Secciones adicionales</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:6px">';
+      html += chk('optContenidos', 'Contenidos', opts.contenidos);
+      html += chk('optActividades', 'Actividades', opts.actividades);
+      html += '</div></div>';
+      html += '</div>';
+      html += '<div class="settings-footer">';
+      html += '<button class="btn btn-secondary" onclick="closePrintOptions()">Cancelar</button>';
+      html += '<button class="btn btn-primary" onclick="confirmPrintOptions()">Generar vista</button>';
+      html += '</div></div></div>';
+
+      var wrapper = document.createElement('div');
+      wrapper.id = 'printOptsWrapper';
+      wrapper.innerHTML = html;
+      document.body.appendChild(wrapper);
+    }
+
+    function closePrintOptions() {
+      var w = document.getElementById('printOptsWrapper');
+      if (w) w.remove();
+    }
+
+    function confirmPrintOptions() {
+      var opts = {
+        valoracionInicial: document.getElementById('optValoracionInicial').checked,
+        seguimiento1T: document.getElementById('optSeguimiento1T').checked,
+        seguimiento2T: document.getElementById('optSeguimiento2T').checked,
+        seguimiento3T: document.getElementById('optSeguimiento3T').checked,
+        contenidos: document.getElementById('optContenidos').checked,
+        actividades: document.getElementById('optActividades').checked
+      };
+      savePrintOptions(opts);
+      closePrintOptions();
+      showPrintView(opts);
+    }
+
+    function showPrintView(opts) {
+      if (!opts) opts = loadPrintOptions();
       // Read latest values
       state.studentName = document.getElementById('fName').value.trim();
       state.course = document.getElementById('fCourse').value;
@@ -2844,8 +2939,25 @@
       var centroLabel = state.config.centro || 'Centro educativo';
       var localidadLabel = state.config.localidad || '';
       var cursoEscolarLabel = state.config.cursoEscolar || getCurrentSchoolYear();
-      var footerParts = [centroLabel];
-      if (localidadLabel) footerParts.push(localidadLabel);
+      var centroLine = centroLabel + (localidadLabel ? ' — ' + localidadLabel : '');
+
+      function evalCell(v) {
+        var val = (v || '').trim();
+        var cls = 'eval-col eval-cell';
+        if (val === 'NI') cls += ' eval-ni';
+        else if (val === 'EP') cls += ' eval-ep';
+        else if (val === 'C') cls += ' eval-c';
+        return '<td class="' + cls + '">' + escHtml(val) + '</td>';
+      }
+
+      // Top document header (once)
+      html += '<div class="print-doc-header">';
+      html += '<div class="center-box"><div style="font-weight:800;color:var(--verde-oscuro);font-size:13px">' + escHtml(centroLine) + '</div>';
+      html += '<div>Curso escolar ' + escHtml(cursoEscolarLabel) + '</div></div>';
+      html += '<div class="student-box">';
+      html += '<div><span style="font-weight:800">ALUMNO/A:</span> ' + escHtml(state.studentName) + '</div>';
+      html += '<div><span style="font-weight:800">CURSO:</span> ' + escHtml(state.course) + '</div>';
+      html += '</div></div>';
 
       // One page/section per area
       state.areas.forEach(function(area, areaIdx) {
@@ -2853,24 +2965,24 @@
         // Page break between areas (not before first)
         if (areaIdx > 0) html += '<div style="page-break-before:always;margin-top:30px"></div>';
 
-        // Header: PE: Area on the left, student info on the right
-        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">';
-        html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-weight:800;font-size:14px">';
-        html += 'PE: ' + escHtml(area.name) + '</div>';
-        html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-size:13px;text-align:right">';
-        html += '<div><span style="font-weight:800">ALUMNO/A:</span> ' + escHtml(state.studentName) + '</div>';
-        html += '<div><span style="font-weight:800">CURSO:</span> ' + escHtml(state.course) + '</div>';
-        html += '</div></div>';
-
-        html += '<div style="text-align:center;font-size:10px;color:#6b7280;margin-bottom:16px">' + escHtml(footerParts.join(' — ')) + ' · Curso ' + escHtml(cursoEscolarLabel) + '</div>';
+        var areaColor = getAreaColor(area.name).headerBg;
+        var areaTint = areaColor + '1f'; // ~12% alpha tint of the area color
+        html += '<div class="print-area-header" style="background:' + areaColor + ';margin-bottom:14px">PE: ' + escHtml(area.name) + '</div>';
 
         // Table: Objetivos / Indicadores
         html += '<table class="print-table">';
-        html += '<tr><th style="width:auto">Objetivos / Indicadores</th><th class="eval-col">1T</th><th class="eval-col">2T</th><th class="eval-col">3T</th></tr>';
+        html += '<tr><th style="width:auto;background:' + areaTint + ';color:' + areaColor + ';text-transform:uppercase;letter-spacing:.3px">Objetivos / Indicadores</th>'
+          + '<th class="eval-col" style="background:' + areaTint + ';color:' + areaColor + '">1T</th>'
+          + '<th class="eval-col" style="background:' + areaTint + ';color:' + areaColor + '">2T</th>'
+          + '<th class="eval-col" style="background:' + areaTint + ';color:' + areaColor + '">3T</th></tr>';
 
         area.objectives.forEach(function(obj, i) {
           var objNum = i + 1;
-          html += '<tr class="obj-row"><td colspan="4">' + objNum + '.- ' + escHtml(obj.title || '—') + '</td></tr>';
+          html += '<tr class="obj-row"><td>' + objNum + '.- ' + escHtml(obj.title || '—') + '</td>';
+          html += evalCell(obj.eval1T);
+          html += evalCell(obj.eval2T);
+          html += evalCell(obj.eval3T);
+          html += '</tr>';
 
           var indCount = 0;
           obj.indicators.forEach(function(ind) {
@@ -2878,12 +2990,12 @@
               indCount++;
               html += '<tr>';
               html += '<td>' + objNum + '.' + indCount + '.- ' + escHtml(ind.text) + '</td>';
-              html += '<td class="eval-col">' + escHtml(ind.eval1T || '') + '</td>';
-              html += '<td class="eval-col">' + escHtml(ind.eval2T || '') + '</td>';
-              html += '<td class="eval-col">' + escHtml(ind.eval3T || '') + '</td>';
+              html += evalCell(ind.eval1T);
+              html += evalCell(ind.eval2T);
+              html += evalCell(ind.eval3T);
               html += '</tr>';
               if (ind.observaciones && ind.observaciones.trim()) {
-                html += '<tr><td colspan="4" style="font-size:11px;color:#78350f;font-style:italic;padding-left:24px;background:#fffbeb">Obs: ' + escHtml(ind.observaciones) + '</td></tr>';
+                html += '<tr><td colspan="4" style="font-size:11px;color:#78350f;font-style:italic;padding-left:24px;background:#fffbeb;white-space:pre-wrap">Obs: ' + escHtml(ind.observaciones) + '</td></tr>';
               }
             }
           });
@@ -2896,7 +3008,7 @@
         });
         var hasActivities = area.objectives.some(function(obj) { return richHasText(obj.activities); });
 
-        if (hasContents) {
+        if (opts.contenidos && hasContents) {
           html += '<table class="print-table" style="margin-top:16px">';
           html += '<tr><th colspan="4" class="type-content">CONTENIDOS</th></tr>';
           area.objectives.forEach(function(obj) {
@@ -2909,7 +3021,7 @@
           html += '</table>';
         }
 
-        if (hasActivities) {
+        if (opts.actividades && hasActivities) {
           html += '<table class="print-table">';
           html += '<tr><th colspan="4" class="type-activity">ACTIVIDADES</th></tr>';
           area.objectives.forEach(function(obj) {
@@ -2921,35 +3033,30 @@
         }
       }); // end areas loop
 
-      // Follow-up sections
+      // Follow-up sections (filtered by print options)
       var printFollowups = [
-        { label: 'Valoración inicial', text: state.valoracionInicial },
-        { label: 'Seguimiento 1er Trimestre', text: state.seguimiento1T },
-        { label: 'Seguimiento 2º Trimestre', text: state.seguimiento2T },
-        { label: 'Seguimiento 3er Trimestre', text: state.seguimiento3T }
-      ];
-      html += '<div style="page-break-before:always;margin-top:30px"></div>';
+        { key: 'valoracionInicial', label: 'Valoración inicial', text: state.valoracionInicial },
+        { key: 'seguimiento1T', label: 'Seguimiento 1er Trimestre', text: state.seguimiento1T },
+        { key: 'seguimiento2T', label: 'Seguimiento 2º Trimestre', text: state.seguimiento2T },
+        { key: 'seguimiento3T', label: 'Seguimiento 3er Trimestre', text: state.seguimiento3T }
+      ].filter(function(f) { return opts[f.key]; });
 
-      // Header for follow-up page
-      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">';
-      html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-weight:800;font-size:14px">';
-      html += 'PE: Valoración y seguimiento</div>';
-      html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-size:13px;text-align:right">';
-      html += '<div><span style="font-weight:800">ALUMNO/A:</span> ' + escHtml(state.studentName) + '</div>';
-      html += '<div><span style="font-weight:800">CURSO:</span> ' + escHtml(state.course) + '</div>';
-      html += '</div></div>';
+      if (printFollowups.length > 0) {
+        html += '<div style="page-break-before:always;margin-top:30px"></div>';
+        html += '<div class="print-area-header" style="background:#1b4332;margin-bottom:14px">PE: Valoración y seguimiento</div>';
 
-      printFollowups.forEach(function(f) {
-        html += '<div style="margin-bottom:20px;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">';
-        html += '<div style="padding:8px 14px;background:#e5e7eb;font-weight:800;font-size:13px">' + escHtml(f.label) + '</div>';
-        var hasContent = f.text && f.text.trim() && f.text.trim() !== '<br>';
-        if (hasContent) {
-          html += '<div style="padding:12px 14px;font-size:13px;line-height:1.6">' + sanitizeRich(f.text) + '</div>';
-        } else {
-          html += '<div style="padding:12px 14px;min-height:80px;color:#9ca3af;font-size:12px;font-style:italic">Sin completar</div>';
-        }
-        html += '</div>';
-      });
+        printFollowups.forEach(function(f) {
+          html += '<div style="margin-bottom:20px;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">';
+          html += '<div style="padding:8px 14px;background:#e5e7eb;font-weight:800;font-size:13px">' + escHtml(f.label) + '</div>';
+          var hasContent = f.text && f.text.trim() && f.text.trim() !== '<br>';
+          if (hasContent) {
+            html += '<div style="padding:12px 14px;font-size:13px;line-height:1.6">' + sanitizeRich(f.text) + '</div>';
+          } else {
+            html += '<div style="padding:12px 14px;min-height:80px;color:#9ca3af;font-size:12px;font-style:italic">Sin completar</div>';
+          }
+          html += '</div>';
+        });
+      }
 
       // Informe a las familias (print)
       var inf = state.informeFamilias;
