@@ -922,6 +922,31 @@
     .settings-close svg { width: 14px; height: 14px; }
     .settings-body { padding: 22px; display: flex; flex-direction: column; gap: 16px; }
     .settings-footer { padding: 14px 22px; border-top: 1px solid var(--gris-200); display: flex; justify-content: flex-end; gap: 8px; background: var(--gris-50); }
+    .settings-section-title {
+      font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
+      color: var(--gris-500); padding-top: 6px; border-top: 1px solid var(--gris-200);
+      margin-top: 4px;
+    }
+    .settings-section-title:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+    .list-editor { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+    .list-row { display: flex; align-items: center; gap: 6px; }
+    .list-row .list-input { flex: 1; }
+    .list-btn-move, .list-btn-remove {
+      background: var(--gris-50); border: 1px solid var(--gris-200); border-radius: 8px;
+      width: 32px; height: 36px; display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--gris-600); flex-shrink: 0;
+    }
+    .list-btn-move:hover { background: var(--gris-100); }
+    .list-btn-remove { color: var(--rojo); }
+    .list-btn-remove:hover { background: #fee2e2; border-color: #fecaca; }
+    .list-btn-move svg, .list-btn-remove svg { width: 16px; height: 16px; }
+    .btn-add-list {
+      background: transparent; border: 1px dashed var(--gris-300); border-radius: 8px;
+      color: var(--gris-600); padding: 8px 14px; cursor: pointer; font-family: inherit;
+      font-size: 13px; font-weight: 600;
+    }
+    .btn-add-list:hover { background: var(--gris-50); border-color: var(--verde-medio); color: var(--verde-medio); }
+    .list-hint { font-size: 12px; color: var(--gris-500); margin-top: 6px; }
 
     /* ─── Course Filter ─── */
     .course-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -1852,7 +1877,12 @@
       html += '<input class="field-input" id="fName" value="' + escAttr(state.studentName) + '" placeholder="Nombre y apellidos" oninput="onFieldChange()" ' + (state.selectedStudent && !state.isNew ? 'readonly' : '') + '></div>';
       html += '<div><label class="field-label">Curso *</label>';
       html += '<select class="field-select" id="fCourse" onchange="onFieldChange()"><option value="">Selecciona curso</option>';
-      COURSES.forEach(function(c) { html += '<option value="' + c + '"' + (state.course === c ? ' selected' : '') + '>' + c + '</option>'; });
+      var courseOptions = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES;
+      // Si el alumno tiene un curso que ya no está en la lista, lo añadimos para no perder el dato
+      if (state.course && courseOptions.indexOf(state.course) === -1) {
+        html += '<option value="' + escAttr(state.course) + '" selected>' + escHtml(state.course) + ' (no en lista)</option>';
+      }
+      courseOptions.forEach(function(c) { html += '<option value="' + escAttr(c) + '"' + (state.course === c ? ' selected' : '') + '>' + escHtml(c) + '</option>'; });
       html += '</select></div>';
       html += '</div>';
 
@@ -3201,14 +3231,28 @@
       var c = state.config;
       var html = '<div class="settings-overlay" id="settingsOverlay" onclick="if(event.target===this)closeSettings()">';
       html += '<div class="settings-panel">';
-      html += '<div class="settings-header"><span class="settings-title">' + ICONS.settings + ' Ajustes del centro</span><button class="settings-close" onclick="closeSettings()" title="Cerrar" aria-label="Cerrar">' + ICONS.x + '</button></div>';
+      html += '<div class="settings-header"><span class="settings-title">' + ICONS.settings + ' Ajustes</span><button class="settings-close" onclick="closeSettings()" title="Cerrar" aria-label="Cerrar">' + ICONS.x + '</button></div>';
       html += '<div class="settings-body">';
+
+      html += '<div class="settings-section-title">Datos del centro</div>';
       html += '<div><label class="field-label">Centro educativo</label>';
       html += '<input class="field-input" id="cfgCentro" value="' + escAttr(c.centro || '') + '" placeholder="Ej: CEIP Carlos III"></div>';
       html += '<div><label class="field-label">Localidad</label>';
       html += '<input class="field-input" id="cfgLocalidad" value="' + escAttr(c.localidad || '') + '" placeholder="Ej: La Carlota"></div>';
+
+      html += '<div class="settings-section-title">Curso académico activo</div>';
       html += '<div><label class="field-label">Curso escolar</label>';
       html += '<input class="field-input" id="cfgCurso" value="' + escAttr(c.cursoEscolar || '') + '" placeholder="Ej: 2025/2026 (vacío = automático)"></div>';
+
+      html += '<div><label class="field-label">Cursos del año (1º A, 1º B, …)</label>';
+      html += '<div class="list-editor" id="coursesEditor"></div>';
+      html += '<button type="button" class="btn-add-list" onclick="addCfgListItem(\'coursesEditor\', \'\')">+ Añadir curso</button></div>';
+
+      html += '<div><label class="field-label">Docentes especialistas</label>';
+      html += '<div class="list-editor" id="docentesEditor"></div>';
+      html += '<button type="button" class="btn-add-list" onclick="addCfgListItem(\'docentesEditor\', \'\')">+ Añadir docente</button>';
+      html += '<div class="list-hint">Sugerencia: incluye el rol entre paréntesis. Ej: <i>Ana López (PT)</i></div></div>';
+
       html += '</div>';
       html += '<div class="settings-footer">';
       html += '<button class="btn btn-secondary" onclick="closeSettings()">Cancelar</button>';
@@ -3219,6 +3263,42 @@
       wrapper.id = 'settingsWrapper';
       wrapper.innerHTML = html;
       document.body.appendChild(wrapper);
+
+      // Rellenar listas
+      var coursesList = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES.slice();
+      coursesList.forEach(function(v) { addCfgListItem('coursesEditor', v); });
+      (state.config.docentes || []).forEach(function(v) { addCfgListItem('docentesEditor', v); });
+    }
+
+    function addCfgListItem(containerId, value) {
+      var c = document.getElementById(containerId);
+      if (!c) return;
+      var row = document.createElement('div');
+      row.className = 'list-row';
+      row.innerHTML =
+        '<button type="button" class="list-btn-move" title="Subir" onclick="moveCfgListItem(this, -1)">' + ICONS.arrowUp + '</button>' +
+        '<button type="button" class="list-btn-move" title="Bajar" onclick="moveCfgListItem(this, 1)">' + ICONS.arrowDown + '</button>' +
+        '<input class="field-input list-input" type="text" value="' + escAttr(value || '') + '">' +
+        '<button type="button" class="list-btn-remove" title="Eliminar" onclick="this.parentNode.remove()">' + ICONS.trash + '</button>';
+      c.appendChild(row);
+    }
+
+    function moveCfgListItem(btn, dir) {
+      var row = btn.parentNode;
+      var parent = row.parentNode;
+      if (dir < 0 && row.previousElementSibling) parent.insertBefore(row, row.previousElementSibling);
+      else if (dir > 0 && row.nextElementSibling) parent.insertBefore(row.nextElementSibling, row);
+    }
+
+    function readCfgListEditor(containerId) {
+      var c = document.getElementById(containerId);
+      if (!c) return [];
+      var out = [];
+      c.querySelectorAll('.list-input').forEach(function(inp) {
+        var v = inp.value.trim();
+        if (v) out.push(v);
+      });
+      return out;
     }
 
     function closeSettings() {
@@ -3233,24 +3313,38 @@
         localidad: document.getElementById('cfgLocalidad').value.trim(),
         cursoEscolar: document.getElementById('cfgCurso').value.trim()
       };
+      var listsPayload = {
+        yearId: state.activeYearId,
+        courses: readCfgListEditor('coursesEditor'),
+        docentes: readCfgListEditor('docentesEditor')
+      };
       var btn = document.getElementById('btnSaveConfig');
       btn.disabled = true;
       btn.textContent = 'Guardando...';
 
+      var onError = function(err) {
+        btn.disabled = false;
+        btn.textContent = 'Guardar';
+        showToast('Error al guardar ajustes: ' + (err && err.message ? err.message : err), 'error');
+      };
+
       google.script.run
         .withSuccessHandler(function() {
-          state.config.centro = payload.centro;
-          state.config.localidad = payload.localidad;
-          if (payload.cursoEscolar) state.config.cursoEscolar = payload.cursoEscolar;
-          updateHeaderSubtitle();
-          closeSettings();
-          showToast('Ajustes del centro guardados', 'success');
+          google.script.run
+            .withSuccessHandler(function() {
+              state.config.centro = payload.centro;
+              state.config.localidad = payload.localidad;
+              if (payload.cursoEscolar) state.config.cursoEscolar = payload.cursoEscolar;
+              state.config.courses = listsPayload.courses;
+              state.config.docentes = listsPayload.docentes;
+              updateHeaderSubtitle();
+              closeSettings();
+              showToast('Ajustes guardados', 'success');
+            })
+            .withFailureHandler(onError)
+            .saveYearLists(JSON.stringify(listsPayload));
         })
-        .withFailureHandler(function(err) {
-          btn.disabled = false;
-          btn.textContent = 'Guardar';
-          showToast('Error al guardar ajustes: ' + err.message, 'error');
-        })
+        .withFailureHandler(onError)
         .saveConfig(JSON.stringify(payload));
     }
 

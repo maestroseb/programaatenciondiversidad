@@ -285,6 +285,45 @@ function upsertKV_(sheet, key, value) {
   sheet.appendRow([key, value]);
 }
 
+function setMultiKV_(sheet, key, values) {
+  // Elimina todas las filas con esa clave y reescribe una fila por valor.
+  const data = sheet.getDataRange().getValues();
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][0]).trim() === key) {
+      sheet.deleteRow(i + 1);
+    }
+  }
+  (values || []).forEach(function(v) {
+    var s = String(v == null ? '' : v).trim();
+    if (s) sheet.appendRow([key, s]);
+  });
+}
+
+function saveYearLists(payload) {
+  migrateMasterIfNeeded_();
+  const data = JSON.parse(payload);
+  const yearId = data.yearId || getActiveYearId_();
+  if (!yearId) throw new Error('No hay curso académico activo.');
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) throw new Error('Otro usuario está guardando. Reintenta.');
+  try {
+    const yearSS = SpreadsheetApp.openById(yearId);
+    let cfg = yearSS.getSheetByName(CONFIG_TAB);
+    if (!cfg) {
+      cfg = yearSS.insertSheet(CONFIG_TAB);
+      cfg.appendRow(['CLAVE', 'VALOR']);
+      cfg.getRange(1, 1, 1, 2).setFontWeight('bold');
+      cfg.setFrozenRows(1);
+    }
+    if (Array.isArray(data.courses)) setMultiKV_(cfg, 'course', data.courses);
+    if (Array.isArray(data.docentes)) setMultiKV_(cfg, 'docente', data.docentes);
+  } finally {
+    lock.releaseLock();
+  }
+  return { success: true };
+}
+
 /* ───────── Índice y READ: lista de alumnos ───────── */
 
 function getOrCreateIndiceIn_(ss) {
