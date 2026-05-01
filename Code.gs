@@ -330,9 +330,15 @@ function getOrCreateIndiceIn_(ss) {
   let sheet = ss.getSheetByName(INDICE_TAB);
   if (!sheet) {
     sheet = ss.insertSheet(INDICE_TAB, 0);
-    sheet.appendRow(['ALUMNO/A', 'CURSO', 'PROGRAMA', 'ÁREA/ÁMBITO']);
-    sheet.getRange(1, 1, 1, 4).setFontWeight('bold');
+    sheet.appendRow(['ALUMNO/A', 'CURSO', 'PROGRAMA', 'ÁREA/ÁMBITO', 'DOCENTES']);
+    sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
     sheet.setFrozenRows(1);
+    return sheet;
+  }
+  // Migración: si la cabecera no tiene DOCENTES, añadirla
+  const lastCol = sheet.getLastColumn();
+  if (lastCol < 5) {
+    sheet.getRange(1, 5).setValue('DOCENTES').setFontWeight('bold');
   }
   return sheet;
 }
@@ -348,13 +354,24 @@ function getStudentList(yearId) {
     if (row[0] && String(row[0]).trim()) {
       students.push({
         name: String(row[0]).trim(),
-        course: String(row[1]).trim(),
-        program: String(row[2]).trim(),
-        area: String(row[3]).trim()
+        course: String(row[1] || '').trim(),
+        program: String(row[2] || '').trim(),
+        area: String(row[3] || '').trim(),
+        docentes: parseDocentesString_(String(row[4] || ''))
       });
     }
   }
   return students;
+}
+
+function parseDocentesString_(s) {
+  if (!s) return [];
+  return s.split('|').map(function(x) { return x.trim(); }).filter(function(x) { return x; });
+}
+
+function serializeDocentes_(arr) {
+  if (!arr || !arr.length) return '';
+  return arr.map(function(x) { return String(x || '').trim(); }).filter(function(x) { return x; }).join('|');
 }
 
 /* ───────── READ: datos de un alumno ───────── */
@@ -370,9 +387,15 @@ function getStudentData(studentName, yearId) {
 
   // Row 1: metadata
   const meta = data[0];
+  // Docentes pueden estar en col 9 (label) + col 10 (valor) si la pestaña ya se guardó con la versión nueva
+  let docentesStr = '';
+  if (String(meta[8] || '').trim().toUpperCase() === 'DOCENTES') {
+    docentesStr = String(meta[9] || '').trim();
+  }
   const result = {
     studentName: String(meta[1] || '').trim(),
     course: String(meta[3] || '').trim(),
+    docentes: parseDocentesString_(docentesStr),
     valoracionInicial: '',
     seguimiento1T: '',
     seguimiento2T: '',
@@ -536,13 +559,16 @@ function saveStudentData(payload) {
       }
     }
 
+    const docentesStr = serializeDocentes_(data.docentes || []);
     if (rows.length > 0) {
       sheet.getRange(1, 1, rows.length, NUM_COLS).setValues(rows);
       sheet.getRange(1, 8).setValue(areaNames);
+      sheet.getRange(1, 9).setValue('DOCENTES');
+      sheet.getRange(1, 10).setValue(docentesStr);
     }
 
     formatStudentSheet_(sheet, rows);
-    updateIndiceIn_(ss, data.studentName, data.course, 'PE', areaNames);
+    updateIndiceIn_(ss, data.studentName, data.course, 'PE', areaNames, docentesStr);
   } finally {
     lock.releaseLock();
   }
@@ -649,18 +675,19 @@ function formatStudentSheet_(sheet, rowsData) {
   fullRange.setFontWeights(fontWeights);
   fullRange.setWraps(wraps);
 
-  const metaWeights = [['bold', 'normal', 'bold', 'normal', 'bold', 'normal', 'bold', 'normal']];
-  sheet.getRange(1, 1, 1, 8).setFontWeights(metaWeights);
+  const metaWeights = [['bold', 'normal', 'bold', 'normal', 'bold', 'normal', 'bold', 'normal', 'bold', 'normal']];
+  sheet.getRange(1, 1, 1, 10).setFontWeights(metaWeights);
 }
 
-function updateIndiceIn_(ss, name, course, program, area) {
+function updateIndiceIn_(ss, name, course, program, area, docentesStr) {
   const sheet = getOrCreateIndiceIn_(ss);
   const data = sheet.getDataRange().getValues();
+  const dStr = docentesStr || '';
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]).trim() === name.trim()) {
-      sheet.getRange(i + 1, 1, 1, 4).setValues([[name, course, program, area]]);
+      sheet.getRange(i + 1, 1, 1, 5).setValues([[name, course, program, area, dStr]]);
       return;
     }
   }
-  sheet.appendRow([name, course, program, area]);
+  sheet.appendRow([name, course, program, area, dStr]);
 }
