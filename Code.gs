@@ -170,7 +170,7 @@ function getStudentData(studentName) {
         title: texto,
         indicators: [],
         contents: [],
-        activities: []
+        activities: ''
       };
       currentArea.objectives.push(currentObj);
     } else if (tipo === 'VALORACIÓN INICIAL') {
@@ -189,9 +189,11 @@ function getStudentData(studentName) {
       if (tipo === 'INDICADOR') {
         currentObj.indicators.push(item);
       } else if (tipo === 'CONTENIDO') {
-        currentObj.contents.push(item);
+        if (texto) currentObj.contents.push({ text: texto });
       } else if (tipo === 'ACTIVIDAD') {
-        currentObj.activities.push(item);
+        currentObj.activities = currentObj.activities
+          ? (currentObj.activities + (texto ? '<br>' + texto : ''))
+          : texto;
       }
     }
   }
@@ -248,17 +250,21 @@ function saveStudentData(payload) {
         }
       });
 
-      (obj.contents || []).forEach(function(cnt) {
-        if (cnt.text && cnt.text.trim()) {
-          sheet.appendRow([objLabel, 'CONTENIDO', cnt.text.trim(), '', '', '']);
+      const contentsArr = Array.isArray(obj.contents)
+        ? obj.contents
+        : (typeof obj.contents === 'string' && obj.contents.trim() ? [{ text: obj.contents }] : []);
+      contentsArr.forEach(function(cnt) {
+        if (cnt && cnt.text && String(cnt.text).trim()) {
+          sheet.appendRow([objLabel, 'CONTENIDO', cnt.text, '', '', '']);
         }
       });
 
-      (obj.activities || []).forEach(function(act) {
-        if (act.text && act.text.trim()) {
-          sheet.appendRow([objLabel, 'ACTIVIDAD', act.text.trim(), '', '', '']);
-        }
-      });
+      const activitiesHtml = typeof obj.activities === 'string'
+        ? obj.activities
+        : (Array.isArray(obj.activities) ? obj.activities.map(function(a) { return a && a.text ? a.text : ''; }).filter(function(t) { return t; }).join('<br>') : '');
+      if (activitiesHtml && activitiesHtml.trim()) {
+        sheet.appendRow([objLabel, 'ACTIVIDAD', activitiesHtml, '', '', '']);
+      }
     }
 
     // Empty row between areas

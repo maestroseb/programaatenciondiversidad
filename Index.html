@@ -394,8 +394,9 @@
     }
     .obj-title-text {
       color: var(--verde-oscuro); font-weight: 700; font-size: 15px;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       letter-spacing: 0.01em;
+      white-space: normal; word-break: break-word; overflow-wrap: anywhere;
+      line-height: 1.35;
     }
     .obj-title-text[contenteditable="true"] {
       outline: none; cursor: text; border-radius: 6px;
@@ -405,7 +406,6 @@
     .obj-title-text[contenteditable="true"]:hover { background: var(--gris-100); }
     .obj-title-text[contenteditable="true"]:focus {
       background: var(--gris-0); box-shadow: var(--focus-ring);
-      white-space: normal; overflow: visible; text-overflow: clip;
     }
     .obj-title-text[contenteditable="true"]:empty::before {
       content: attr(data-placeholder);
@@ -442,14 +442,15 @@
     .obj-actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
 
     .btn-remove-obj {
-      background: transparent; border: 1px solid var(--gris-300); border-radius: var(--radio);
-      color: var(--gris-600); padding: 6px 11px; cursor: pointer; font-size: 13px;
-      font-family: inherit; font-weight: 600;
-      display: inline-flex; align-items: center; gap: 5px;
+      background: transparent; border: 1px solid var(--rojo);
+      border-radius: 6px;
+      color: var(--rojo); width: 28px; height: 28px; cursor: pointer; padding: 0;
+      font-family: inherit;
+      display: inline-flex; align-items: center; justify-content: center;
       transition: all var(--trans-fast);
     }
-    .btn-remove-obj:hover { background: var(--rojo-light); border-color: var(--rojo); color: var(--rojo-dark); }
-    .btn-remove-obj svg { width: 13px; height: 13px; }
+    .btn-remove-obj:hover { background: var(--rojo-light); border-color: var(--rojo-dark); color: var(--rojo-dark); }
+    .btn-remove-obj svg { width: 14px; height: 14px; }
     .btn-move-obj {
       background: transparent; border: 1px solid var(--gris-300); border-radius: 6px;
       color: var(--gris-600); width: 28px; height: 28px; cursor: pointer;
@@ -512,8 +513,8 @@
     }
     .list-textarea {
       flex: 1; padding: 9px 12px; border-radius: var(--radio); border: 1px solid var(--gris-300);
-      font-size: 15px; resize: vertical; font-family: inherit;
-      line-height: 1.5; min-height: 42px;
+      font-size: 15px; resize: none; overflow: hidden; font-family: inherit;
+      line-height: 1.5; min-height: 38px;
       background: var(--gris-0);
       color: var(--verde-oscuro);
       transition: border-color var(--trans-fast), box-shadow var(--trans-fast);
@@ -539,6 +540,18 @@
     }
     .btn-remove-item:hover { background: var(--rojo-light); color: var(--rojo); border-color: var(--rojo); }
     .btn-remove-item svg { width: 13px; height: 13px; }
+    .list-move-group {
+      display: flex; flex-direction: column; gap: 2px; margin-top: 4px; flex-shrink: 0;
+    }
+    .btn-move-item {
+      width: 24px; height: 18px; border-radius: 4px; border: 1px solid var(--gris-300);
+      background: var(--gris-0); color: var(--gris-600); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; padding: 0;
+      transition: all var(--trans-fast);
+    }
+    .btn-move-item svg { width: 11px; height: 11px; }
+    .btn-move-item:hover:not(:disabled) { background: var(--verde-tint); border-color: var(--verde-acento); color: var(--verde-medio); }
+    .btn-move-item:disabled { opacity: 0.35; cursor: not-allowed; }
     .btn-add-item {
       align-self: flex-start; padding: 7px 15px; border-radius: var(--radio-pill);
       border: 1px dashed var(--gris-400); background: transparent;
@@ -596,15 +609,20 @@
     /* ─── Rich text editor (flat, integrated into followup card) ─── */
     .richtext-wrap { display: flex; flex-direction: column; }
     .richtext-toolbar {
-      display: flex; gap: 4px; padding: 8px 18px; background: var(--gris-50);
+      display: flex; gap: 4px; padding: 0 18px; background: var(--gris-50);
+      border-bottom: 0;
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.18s ease, padding 0.18s ease, border-color 0.18s ease;
+    }
+    .richtext-wrap:focus-within .richtext-toolbar {
+      max-height: 44px; padding: 6px 18px;
       border-bottom: 1px solid var(--gris-200);
     }
-    .followup-card .richtext-toolbar { padding: 8px 18px; }
     .richtext-toolbar button {
-      background: var(--gris-0); border: 1px solid var(--gris-300); border-radius: 6px; padding: 5px 11px;
-      cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; color: var(--gris-700);
+      background: var(--gris-0); border: 1px solid var(--gris-300); border-radius: 6px; padding: 3px 9px;
+      cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--gris-700);
       transition: all var(--trans-fast);
-      min-width: 30px;
+      min-width: 26px; line-height: 1.2;
     }
     .richtext-toolbar button:hover { background: var(--verde-tint); border-color: var(--verde-acento); color: var(--verde-medio); }
     .richtext-editor {
@@ -614,15 +632,49 @@
     }
     .richtext-editor:focus { background: var(--gris-0); box-shadow: inset 0 0 0 2px rgba(45,106,79,.15); }
     .richtext-editor ul, .richtext-editor ol { margin-left: 20px; }
+    .richtext-wrap-inline {
+      border: 1px solid var(--gris-300); border-radius: var(--radio); overflow: hidden;
+      background: var(--gris-0);
+    }
+    .richtext-wrap-inline .richtext-toolbar {
+      padding: 0 8px;
+    }
+    .richtext-wrap-inline:focus-within .richtext-toolbar {
+      max-height: 40px; padding: 4px 8px;
+    }
+    .richtext-wrap-inline .richtext-toolbar button {
+      padding: 3px 8px; min-width: 24px; font-size: 12px;
+    }
+    .richtext-editor-inline {
+      min-height: 42px; padding: 9px 12px; font-size: 15px;
+    }
+    .richtext-editor-inline:empty::before {
+      content: attr(data-placeholder);
+      color: var(--gris-400); font-style: italic;
+    }
+    .contents-list { display: flex; flex-direction: column; gap: 8px; }
+    .content-item {
+      display: flex; gap: 8px; align-items: flex-start;
+    }
+    .content-num { margin-top: 8px; }
+    .content-editor-wrap { flex: 1; min-width: 0; }
+    .content-item .btn-remove-item, .content-item .list-move-group { margin-top: 4px; }
 
     /* ─── Indicator observations ─── */
     .ind-obs-textarea {
-      width: 100%; padding: 8px 12px; border-radius: var(--radio); border: 1px solid var(--gris-300);
-      font-size: 14px; font-family: inherit; line-height: 1.5;
-      resize: none; overflow: hidden; min-height: 34px; margin-top: 6px;
-      background: var(--gris-0); color: var(--verde-oscuro);
+      width: 100%; padding: 6px 12px;
+      border-radius: var(--radio);
+      border: 1px dashed var(--gris-300);
+      font-size: 13px; font-family: inherit; line-height: 1.45;
+      font-style: italic;
+      resize: none; overflow: hidden; min-height: 28px; margin-top: 6px;
+      background: var(--gris-100); color: var(--gris-700);
     }
     .ind-obs-textarea::placeholder { color: var(--gris-400); font-style: italic; }
+    .ind-obs-textarea:focus {
+      background: var(--gris-0);
+      border-style: solid;
+    }
 
     /* ─── Informe familias ─── */
     .informe-table {
@@ -931,7 +983,21 @@
       display: flex; justify-content: space-between; align-items: center;
       position: sticky; top: 0; background: var(--gris-0);
       border-radius: var(--radio-lg) var(--radio-lg) 0 0; z-index: 2;
+      gap: 12px; flex-wrap: wrap;
     }
+    .print-floating-close {
+      position: fixed; top: 18px; right: 22px; z-index: 110;
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--gris-0); border: 1px solid var(--gris-300);
+      color: var(--gris-700); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      box-shadow: var(--sombra-md);
+      transition: all var(--trans-fast);
+    }
+    .print-floating-close:hover {
+      background: var(--rojo-light); color: var(--rojo-dark); border-color: var(--rojo);
+    }
+    .print-floating-close svg { width: 20px; height: 20px; }
     .print-content { padding: 32px; }
     .print-content h2 { font-size: 19px; text-align: center; margin-bottom: 4px; color: var(--verde-oscuro); }
     .print-content .print-subtitle { text-align: center; color: var(--gris-500); font-size: 14px; margin-bottom: 24px; }
@@ -945,11 +1011,14 @@
     .print-table .obj-row td { background: var(--gris-200); font-weight: 800; color: var(--verde-oscuro); }
     .print-table .type-content { background: var(--verde-tint); font-weight: 700; color: var(--verde-oscuro); }
     .print-table .type-activity { background: var(--azul-light); font-weight: 700; color: var(--azul-dark); }
+    .print-table .rich-cell ul, .print-table .rich-cell ol { margin: 0 0 0 18px; padding: 0; }
+    .print-table .rich-cell p { margin: 0 0 4px; }
+    .print-table .rich-cell p:last-child { margin-bottom: 0; }
 
     @media print {
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
       body { background: #fff !important; }
-      .header, .print-toolbar, .content, .content-with-nav { display: none !important; }
+      .header, .print-toolbar, .print-floating-close, .content, .content-with-nav { display: none !important; }
       .print-overlay { position: static; background: none; padding: 0; backdrop-filter: none; }
       .print-container { max-height: none; box-shadow: none; border-radius: 0; }
       .print-content { padding: 20px; }
@@ -1252,8 +1321,8 @@
               title: o.title || '',
               eval1T: o.eval1T || '', eval2T: o.eval2T || '', eval3T: o.eval3T || '',
               indicators: (o.indicators || []).map(function(x) { return { id: uid(), text: x.text || '', eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '', observaciones: x.observaciones || '' }; }),
-              contents: (o.contents || []).map(function(x) { return { id: uid(), text: x.text || '' }; }),
-              activities: (o.activities || []).map(function(x) { return { id: uid(), text: x.text || '' }; })
+              contents: normalizeContentsField(o.contents),
+              activities: normalizeRichField(o.activities)
             };
           })
         };
@@ -1572,9 +1641,9 @@
                     id: uid(),
                     title: o.title,
                     eval1T: o.eval1T || '', eval2T: o.eval2T || '', eval3T: o.eval3T || '',
-                    indicators: o.indicators.map(function(x) { return { id: uid(), text: x.text, eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '', observaciones: x.observaciones || '' }; }),
-                    contents: o.contents.map(function(x) { return { id: uid(), text: x.text }; }),
-                    activities: o.activities.map(function(x) { return { id: uid(), text: x.text }; })
+                    indicators: (o.indicators || []).map(function(x) { return { id: uid(), text: x.text, eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '', observaciones: x.observaciones || '' }; }),
+                    contents: normalizeContentsField(o.contents),
+                    activities: normalizeRichField(o.activities)
                   };
                 })
               };
@@ -1727,7 +1796,7 @@
         html += '<div class="richtext-toolbar">';
         html += '<button onmousedown="event.preventDefault();richExec(\'bold\')" title="Negrita"><b>N</b></button>';
         html += '<button onmousedown="event.preventDefault();richExec(\'italic\')" title="Cursiva"><i>K</i></button>';
-        html += '<button onmousedown="event.preventDefault();richExec(\'insertUnorderedList\')" title="Viñetas">• Lista</button>';
+        html += '<button onmousedown="event.preventDefault();richExec(\'insertUnorderedList\')" title="Viñetas">•</button>';
         html += '</div>';
         html += '<div class="richtext-editor" contenteditable="true" data-key="' + f.key + '" oninput="updateFollowupRich(\'' + f.key + '\',this)" onblur="updateFollowupRich(\'' + f.key + '\',this)">' + sanitizeRich(state[f.key] || '') + '</div>';
         html += '</div>';
@@ -1741,8 +1810,8 @@
 
       contentEl.innerHTML = html;
 
-      // Auto-resize observation textareas
-      document.querySelectorAll('.ind-obs-textarea').forEach(function(ta) { autoResize(ta); });
+      // Auto-resize observation and list textareas
+      document.querySelectorAll('.ind-obs-textarea, .list-textarea').forEach(function(ta) { autoResize(ta); });
     }
 
     function scrollToId(id) {
@@ -1825,9 +1894,9 @@
 
       // Header
       html += '<div class="obj-header" onclick="toggleObjective(\'' + obj.id + '\')">';
-      html += '<div style="display:flex;align-items:center;gap:10px;overflow:hidden;min-width:0;flex:1">';
-      html += '<span class="obj-num">' + (index + 1) + '</span>';
-      html += '<div style="display:flex;flex-direction:column;min-width:0;overflow:hidden;flex:1">';
+      html += '<div style="display:flex;align-items:flex-start;gap:10px;min-width:0;flex:1">';
+      html += '<span class="obj-num" style="margin-top:2px">' + (index + 1) + '</span>';
+      html += '<div style="display:flex;flex-direction:column;min-width:0;flex:1">';
       html += '<span class="obj-title-text" contenteditable="true" spellcheck="true"'
            + ' data-placeholder="Escribe el objetivo..."'
            + ' onclick="event.stopPropagation()"'
@@ -1844,7 +1913,7 @@
       html += '<button class="btn-move-obj" onclick="event.stopPropagation();moveObjective(' + areaIdx + ',\'' + obj.id + '\',-1)" title="Subir objetivo" aria-label="Subir objetivo"' + (isFirst ? ' disabled' : '') + '>' + ICONS.arrowUp + '</button>';
       html += '<button class="btn-move-obj" onclick="event.stopPropagation();moveObjective(' + areaIdx + ',\'' + obj.id + '\',1)" title="Bajar objetivo" aria-label="Bajar objetivo"' + (isLast ? ' disabled' : '') + '>' + ICONS.arrowDown + '</button>';
       if (canRemove) {
-        html += '<button class="btn-remove-obj" onclick="event.stopPropagation();removeObjective(' + areaIdx + ',\'' + obj.id + '\')">' + ICONS.trash + ' Eliminar</button>';
+        html += '<button class="btn-remove-obj" title="Eliminar objetivo" aria-label="Eliminar objetivo" onclick="event.stopPropagation();removeObjective(' + areaIdx + ',\'' + obj.id + '\')">' + ICONS.trash + '</button>';
       }
       html += '<span class="obj-toggle" id="toggle_' + obj.id + '">' + ICONS.chevronDown + '</span>';
       html += '</div></div>';
@@ -1863,16 +1932,16 @@
       html += renderDynamicList(obj.id, 'indicators', obj.indicators, 'Ej: Mantiene la atención durante 10-15 min...');
       html += '</div>';
 
-      // Contents
+      // Contents (list of rich-text blocks)
       html += '<div class="section section-contents">';
       html += '<div class="section-label">Contenidos</div>';
-      html += renderDynamicList(obj.id, 'contents', obj.contents, 'Ej: Resolución de problemas, numeración...');
+      html += renderContentsList(obj.id, obj.contents);
       html += '</div>';
 
-      // Activities
+      // Activities (single rich-text)
       html += '<div class="section section-activities">';
       html += '<div class="section-label">Actividades</div>';
-      html += renderDynamicList(obj.id, 'activities', obj.activities, 'Ej: Subrayado guiado de datos relevantes...');
+      html += renderObjRichField(obj.id, 'activities', obj.activities, 'Ej: Subrayado guiado de datos relevantes...');
       html += '</div>';
 
       html += '</div></div>';
@@ -1892,19 +1961,19 @@
       var soloClass = (items.length <= 1) ? ' has-one' : '';
       html += '<div class="dynamic-list' + soloClass + '" id="list_' + objId + '_' + listType + '">';
       items.forEach(function(item, idx) {
-        html += renderListItem(objId, listType, item, idx, placeholder);
+        html += renderListItem(objId, listType, item, idx, placeholder, items.length);
       });
       html += '</div>';
       html += '<button class="btn-add-item" onclick="addListItem(\'' + objId + '\',\'' + listType + '\')">' + ICONS.plus + ' Añadir</button>';
       return html;
     }
 
-    function renderListItem(objId, listType, item, idx, placeholder) {
+    function renderListItem(objId, listType, item, idx, placeholder, total) {
       var isIndicator = (listType === 'indicators');
       var html = '<div class="list-item-wrap" data-item-id="' + item.id + '">';
       html += '<div class="list-item">';
       html += '<span class="list-num">' + (idx + 1) + '</span>';
-      html += '<textarea class="list-textarea" rows="2" placeholder="' + escAttr(placeholder) + '" oninput="updateListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\',this.value)">' + escHtml(item.text) + '</textarea>';
+      html += '<textarea class="list-textarea" rows="1" placeholder="' + escAttr(placeholder) + '" oninput="autoResize(this);updateListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\',this.value)">' + escHtml(item.text) + '</textarea>';
       if (isIndicator) {
         html += '<div class="eval-group">';
         html += renderEvalSelect(objId, item.id, '1T', item.eval1T || '');
@@ -1912,15 +1981,155 @@
         html += renderEvalSelect(objId, item.id, '3T', item.eval3T || '');
         html += '</div>';
       }
+      if (isIndicator) {
+        var isFirst = idx === 0;
+        var isLast = (typeof total === 'number') ? (idx === total - 1) : false;
+        html += '<div class="list-move-group">';
+        html += '<button class="btn-move-item" title="Subir" aria-label="Subir" onclick="moveListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\',-1)"' + (isFirst ? ' disabled' : '') + '>' + ICONS.arrowUp + '</button>';
+        html += '<button class="btn-move-item" title="Bajar" aria-label="Bajar" onclick="moveListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\',1)"' + (isLast ? ' disabled' : '') + '>' + ICONS.arrowDown + '</button>';
+        html += '</div>';
+      }
       html += '<button class="btn-remove-item" title="Eliminar" aria-label="Eliminar" onclick="removeListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\')">' + ICONS.x + '</button>';
       html += '</div>';
       if (isIndicator) {
         html += '<div style="margin-left:28px;margin-bottom:8px">';
-        html += '<textarea class="ind-obs-textarea" placeholder="Observaciones del indicador..." oninput="autoResize(this);updateIndicatorObs(\'' + objId + '\',\'' + item.id + '\',this.value)">' + escHtml(item.observaciones || '') + '</textarea>';
+        html += '<textarea class="ind-obs-textarea" rows="1" placeholder="Observaciones del indicador..." oninput="autoResize(this);updateIndicatorObs(\'' + objId + '\',\'' + item.id + '\',this.value)">' + escHtml(item.observaciones || '') + '</textarea>';
         html += '</div>';
       }
       html += '</div>';
       return html;
+    }
+
+    function renderContentsList(objId, items) {
+      var html = '<div class="contents-list" id="contents_' + objId + '">';
+      items.forEach(function(item, idx) {
+        html += renderContentItem(objId, item, idx, items.length);
+      });
+      html += '</div>';
+      html += '<button class="btn-add-item" onclick="addContentItem(\'' + objId + '\')">' + ICONS.plus + ' Añadir contenido</button>';
+      return html;
+    }
+
+    function renderContentItem(objId, item, idx, total) {
+      var editorId = 'rich_' + objId + '_contents_' + item.id;
+      var canRemove = total > 1;
+      var isFirst = idx === 0;
+      var isLast = idx === total - 1;
+      var html = '<div class="content-item" data-item-id="' + item.id + '">';
+      html += '<span class="list-num content-num">' + (idx + 1) + '</span>';
+      html += '<div class="richtext-wrap richtext-wrap-inline content-editor-wrap">';
+      html += '<div class="richtext-toolbar">';
+      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'bold\')" title="Negrita"><b>N</b></button>';
+      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'italic\')" title="Cursiva"><i>K</i></button>';
+      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'insertUnorderedList\')" title="Viñetas">•</button>';
+      html += '</div>';
+      html += '<div id="' + editorId + '" class="richtext-editor richtext-editor-inline" contenteditable="true"'
+           + ' data-obj-id="' + objId + '" data-content-item-id="' + item.id + '"'
+           + ' data-placeholder="Ej: Resolución de problemas, numeración..."'
+           + ' oninput="updateContentItem(\'' + objId + '\',\'' + item.id + '\',this)"'
+           + ' onblur="updateContentItem(\'' + objId + '\',\'' + item.id + '\',this)">'
+           + sanitizeRich(item.text || '') + '</div>';
+      html += '</div>';
+      html += '<div class="list-move-group">';
+      html += '<button class="btn-move-item" title="Subir" aria-label="Subir" onclick="moveContentItem(\'' + objId + '\',\'' + item.id + '\',-1)"' + (isFirst ? ' disabled' : '') + '>' + ICONS.arrowUp + '</button>';
+      html += '<button class="btn-move-item" title="Bajar" aria-label="Bajar" onclick="moveContentItem(\'' + objId + '\',\'' + item.id + '\',1)"' + (isLast ? ' disabled' : '') + '>' + ICONS.arrowDown + '</button>';
+      html += '</div>';
+      html += '<button class="btn-remove-item" title="Eliminar" aria-label="Eliminar"' + (canRemove ? '' : ' disabled style="visibility:hidden"') + ' onclick="removeContentItem(\'' + objId + '\',\'' + item.id + '\')">' + ICONS.x + '</button>';
+      html += '</div>';
+      return html;
+    }
+
+    function rerenderContentsList(objId) {
+      var found = findObjInAreas(objId);
+      if (!found) return;
+      var list = document.getElementById('contents_' + objId);
+      if (!list) { renderFormView(); return; }
+      list.innerHTML = '';
+      found.obj.contents.forEach(function(item, i) {
+        list.insertAdjacentHTML('beforeend', renderContentItem(objId, item, i, found.obj.contents.length));
+      });
+    }
+
+    function updateContentItem(objId, itemId, el) {
+      var found = findObjInAreas(objId);
+      if (!found) return;
+      var item = found.obj.contents.find(function(c) { return c.id === itemId; });
+      if (!item) return;
+      var html = el.innerHTML;
+      if (item.text === html) return;
+      pushUndo({ coalesce: true });
+      item.text = html;
+      markDirty();
+    }
+
+    function addContentItem(objId) {
+      var found = findObjInAreas(objId);
+      if (!found) return;
+      pushUndo();
+      var newItem = { id: uid(), text: '' };
+      found.obj.contents.push(newItem);
+      markDirty();
+      rerenderContentsList(objId);
+      var ed = document.getElementById('rich_' + objId + '_contents_' + newItem.id);
+      if (ed) ed.focus();
+    }
+
+    function removeContentItem(objId, itemId) {
+      var found = findObjInAreas(objId);
+      if (!found || found.obj.contents.length <= 1) return;
+      pushUndo();
+      found.obj.contents = found.obj.contents.filter(function(c) { return c.id !== itemId; });
+      markDirty();
+      rerenderContentsList(objId);
+      showToast('Contenido eliminado', 'info', { action: 'Deshacer', onAction: undo, duration: 6000 });
+    }
+
+    function moveContentItem(objId, itemId, direction) {
+      var found = findObjInAreas(objId);
+      if (!found) return;
+      var arr = found.obj.contents;
+      var idx = arr.findIndex(function(c) { return c.id === itemId; });
+      if (idx < 0) return;
+      var newIdx = idx + direction;
+      if (newIdx < 0 || newIdx >= arr.length) return;
+      pushUndo();
+      var tmp = arr[idx]; arr[idx] = arr[newIdx]; arr[newIdx] = tmp;
+      markDirty();
+      rerenderContentsList(objId);
+    }
+
+    function renderObjRichField(objId, fieldKey, value, placeholder) {
+      var editorId = 'rich_' + objId + '_' + fieldKey;
+      var html = '<div class="richtext-wrap richtext-wrap-inline">';
+      html += '<div class="richtext-toolbar">';
+      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'bold\')" title="Negrita"><b>N</b></button>';
+      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'italic\')" title="Cursiva"><i>K</i></button>';
+      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'insertUnorderedList\')" title="Viñetas">•</button>';
+      html += '</div>';
+      html += '<div id="' + editorId + '" class="richtext-editor richtext-editor-inline" contenteditable="true"'
+           + ' data-obj-id="' + objId + '" data-obj-field="' + fieldKey + '"'
+           + ' data-placeholder="' + escAttr(placeholder) + '"'
+           + ' oninput="updateObjRich(\'' + objId + '\',\'' + fieldKey + '\',this)"'
+           + ' onblur="updateObjRich(\'' + objId + '\',\'' + fieldKey + '\',this)">'
+           + sanitizeRich(value || '') + '</div>';
+      html += '</div>';
+      return html;
+    }
+
+    function richExecOn(editorId, command) {
+      var el = document.getElementById(editorId);
+      if (el) el.focus();
+      document.execCommand(command, false, null);
+    }
+
+    function updateObjRich(objId, fieldKey, el) {
+      var found = findObjInAreas(objId);
+      if (!found) return;
+      var html = el.innerHTML;
+      if (found.obj[fieldKey] === html) return;
+      pushUndo({ coalesce: true });
+      found.obj[fieldKey] = html;
+      markDirty();
     }
 
     function getPlaceholder(listType) {
@@ -2184,15 +2393,41 @@
 
       var list = document.getElementById('list_' + objId + '_' + listType);
       if (!list) { renderFormView(); return; }
+      var arr = found.obj[listType];
       list.classList.remove('has-one');
-      var idx = found.obj[listType].length - 1;
-      var tmp = document.createElement('div');
-      tmp.innerHTML = renderListItem(objId, listType, newItem, idx, getPlaceholder(listType));
-      var newNode = tmp.firstElementChild;
-      list.appendChild(newNode);
+      list.innerHTML = '';
+      arr.forEach(function(item, i) {
+        list.insertAdjacentHTML('beforeend', renderListItem(objId, listType, item, i, getPlaceholder(listType), arr.length));
+      });
+      list.querySelectorAll('.list-textarea, .ind-obs-textarea').forEach(function(ta) { autoResize(ta); });
       if (listType === 'indicators') refreshObjProgress(found.obj);
-      var ta = newNode.querySelector('.list-textarea');
+      var lastWrap = list.lastElementChild;
+      var ta = lastWrap ? lastWrap.querySelector('.list-textarea') : null;
       if (ta) ta.focus();
+    }
+
+    function moveListItem(objId, listType, itemId, direction) {
+      var found = findObjInAreas(objId);
+      if (!found) return;
+      var arr = found.obj[listType];
+      var idx = arr.findIndex(function(i) { return i.id === itemId; });
+      if (idx < 0) return;
+      var newIdx = idx + direction;
+      if (newIdx < 0 || newIdx >= arr.length) return;
+      pushUndo();
+      var tmp = arr[idx];
+      arr[idx] = arr[newIdx];
+      arr[newIdx] = tmp;
+      markDirty();
+
+      var list = document.getElementById('list_' + objId + '_' + listType);
+      if (!list) { renderFormView(); return; }
+      list.innerHTML = '';
+      arr.forEach(function(item, i) {
+        list.insertAdjacentHTML('beforeend', renderListItem(objId, listType, item, i, getPlaceholder(listType), arr.length));
+      });
+      list.querySelectorAll('.list-textarea, .ind-obs-textarea').forEach(function(ta) { autoResize(ta); });
+      if (listType === 'indicators') refreshObjProgress(found.obj);
     }
 
     function removeListItem(objId, listType, itemId) {
@@ -2204,11 +2439,13 @@
 
       var list = document.getElementById('list_' + objId + '_' + listType);
       if (!list) { renderFormView(); return; }
-      var node = list.querySelector('[data-item-id="' + itemId + '"]');
-      if (node) node.remove();
-      var nums = list.querySelectorAll('.list-num');
-      nums.forEach(function(n, i) { n.textContent = i + 1; });
-      if (found.obj[listType].length <= 1) list.classList.add('has-one');
+      var arr = found.obj[listType];
+      list.innerHTML = '';
+      arr.forEach(function(item, i) {
+        list.insertAdjacentHTML('beforeend', renderListItem(objId, listType, item, i, getPlaceholder(listType), arr.length));
+      });
+      list.querySelectorAll('.list-textarea, .ind-obs-textarea').forEach(function(ta) { autoResize(ta); });
+      if (arr.length <= 1) list.classList.add('has-one');
       if (listType === 'indicators') refreshObjProgress(found.obj);
 
       var label = listType === 'indicators' ? 'Indicador' : listType === 'contents' ? 'Contenido' : 'Actividad';
@@ -2240,8 +2477,35 @@
         eval1T: '', eval2T: '', eval3T: '',
         indicators: [{ id: uid(), text: '', observaciones: '' }],
         contents: [{ id: uid(), text: '' }],
-        activities: [{ id: uid(), text: '' }]
+        activities: ''
       };
+    }
+
+    // Normalize a list-of-blocks field: accepts array [{text}], legacy string, or empty.
+    function normalizeContentsField(value) {
+      if (Array.isArray(value)) {
+        var arr = value.map(function(x) { return { id: uid(), text: (x && x.text) ? String(x.text) : '' }; });
+        if (arr.length === 0) arr.push({ id: uid(), text: '' });
+        return arr;
+      }
+      if (typeof value === 'string' && value.trim()) {
+        return [{ id: uid(), text: value }];
+      }
+      return [{ id: uid(), text: '' }];
+    }
+
+    // Normalize a single rich-text field: accepts string, legacy array, or empty.
+    function normalizeRichField(value) {
+      if (value == null) return '';
+      if (typeof value === 'string') return value;
+      if (Array.isArray(value)) {
+        var items = value.map(function(x) { return (x && x.text) ? String(x.text).trim() : ''; })
+                         .filter(function(t) { return t; });
+        if (items.length === 0) return '';
+        if (items.length === 1) return items[0];
+        return items.join('<br>');
+      }
+      return '';
     }
 
     /* ─── Informe a las familias ─── */
@@ -2264,7 +2528,7 @@
       inf.indicadores.forEach(function(ind, idx) {
         html += '<div class="list-item">';
         html += '<span class="list-num">' + (idx + 1) + '</span>';
-        html += '<textarea class="list-textarea" rows="2" placeholder="Describe el indicador..." oninput="updateInformeIndicador(' + idx + ',this.value)">' + escHtml(ind.text) + '</textarea>';
+        html += '<textarea class="list-textarea" rows="1" placeholder="Describe el indicador..." oninput="autoResize(this);updateInformeIndicador(' + idx + ',this.value)">' + escHtml(ind.text) + '</textarea>';
         if (inf.indicadores.length > 1) {
           html += '<button class="btn-remove-item" title="Eliminar" aria-label="Eliminar" onclick="removeInformeIndicador(' + idx + ')">' + ICONS.x + '</button>';
         }
@@ -2395,6 +2659,20 @@
       document.querySelectorAll('.richtext-editor').forEach(function(el) {
         var key = el.getAttribute('data-key');
         if (key) state[key] = el.innerHTML;
+        var objId = el.getAttribute('data-obj-id');
+        var objField = el.getAttribute('data-obj-field');
+        if (objId && objField) {
+          var found = findObjInAreas(objId);
+          if (found) found.obj[objField] = el.innerHTML;
+        }
+        var citemId = el.getAttribute('data-content-item-id');
+        if (objId && citemId) {
+          var f2 = findObjInAreas(objId);
+          if (f2) {
+            var ci = f2.obj.contents.find(function(c) { return c.id === citemId; });
+            if (ci) ci.text = el.innerHTML;
+          }
+        }
       });
 
       var payload = JSON.stringify({
@@ -2418,8 +2696,8 @@
                 indicators: o.indicators.filter(function(i) { return i.text.trim(); }).map(function(i) {
                   return { text: i.text, eval1T: i.eval1T || '', eval2T: i.eval2T || '', eval3T: i.eval3T || '', observaciones: i.observaciones || '' };
                 }),
-                contents: o.contents.filter(function(c) { return c.text.trim(); }),
-                activities: o.activities.filter(function(a) { return a.text.trim(); })
+                contents: (o.contents || []).map(function(c) { return { text: sanitizeRich(c.text || '') }; }).filter(function(c) { return richHasText(c.text); }),
+                activities: sanitizeRich(o.activities || '')
               };
             })
           };
@@ -2477,18 +2755,32 @@
       document.querySelectorAll('.richtext-editor').forEach(function(el) {
         var key = el.getAttribute('data-key');
         if (key) state[key] = el.innerHTML;
+        var objId = el.getAttribute('data-obj-id');
+        var objField = el.getAttribute('data-obj-field');
+        if (objId && objField) {
+          var found = findObjInAreas(objId);
+          if (found) found.obj[objField] = el.innerHTML;
+        }
+        var citemId = el.getAttribute('data-content-item-id');
+        if (objId && citemId) {
+          var f2 = findObjInAreas(objId);
+          if (f2) {
+            var ci = f2.obj.contents.find(function(c) { return c.id === citemId; });
+            if (ci) ci.text = el.innerHTML;
+          }
+        }
       });
 
       var html = '<div class="print-overlay" id="printOverlay" onclick="if(event.target===this)closePrint()">';
+      html += '<button class="print-floating-close" onclick="closePrint()" title="Volver" aria-label="Volver">' + ICONS.x + '</button>';
       html += '<div class="print-container">';
 
       // Toolbar
       html += '<div class="print-toolbar">';
+      html += '<button class="btn btn-secondary" onclick="closePrint()" style="font-size:13px;padding:8px 16px">' + ICONS.x + ' Volver</button>';
       html += '<span style="font-weight:800;font-size:15px;color:#1b4332">Vista previa para imprimir</span>';
-      html += '<div style="display:flex;gap:8px">';
-      html += '<button class="btn btn-primary" onclick="window.print()" style="font-size:12px;padding:8px 16px">' + svgIcon('printer') + ' Imprimir</button>';
-      html += '<button class="btn btn-secondary" onclick="closePrint()" style="font-size:12px;padding:8px 16px">Cerrar</button>';
-      html += '</div></div>';
+      html += '<button class="btn btn-primary" onclick="window.print()" style="font-size:13px;padding:8px 16px">' + svgIcon('printer') + ' Imprimir</button>';
+      html += '</div>';
 
       // Content
       html += '<div class="print-content">';
@@ -2544,19 +2836,17 @@
 
         // Contenidos & Actividades for this area
         var hasContents = area.objectives.some(function(obj) {
-          return obj.contents.some(function(c) { return c.text.trim(); });
+          return (obj.contents || []).some(function(c) { return richHasText(c.text); });
         });
-        var hasActivities = area.objectives.some(function(obj) {
-          return obj.activities.some(function(a) { return a.text.trim(); });
-        });
+        var hasActivities = area.objectives.some(function(obj) { return richHasText(obj.activities); });
 
         if (hasContents) {
           html += '<table class="print-table" style="margin-top:16px">';
           html += '<tr><th colspan="4" class="type-content">CONTENIDOS</th></tr>';
           area.objectives.forEach(function(obj) {
-            obj.contents.forEach(function(cnt) {
-              if (cnt.text.trim()) {
-                html += '<tr><td colspan="4">' + escHtml(cnt.text) + '</td></tr>';
+            (obj.contents || []).forEach(function(c) {
+              if (richHasText(c.text)) {
+                html += '<tr><td colspan="4" class="rich-cell">' + sanitizeRich(c.text) + '</td></tr>';
               }
             });
           });
@@ -2567,11 +2857,9 @@
           html += '<table class="print-table">';
           html += '<tr><th colspan="4" class="type-activity">ACTIVIDADES</th></tr>';
           area.objectives.forEach(function(obj) {
-            obj.activities.forEach(function(act) {
-              if (act.text.trim()) {
-                html += '<tr><td colspan="4">' + escHtml(act.text) + '</td></tr>';
-              }
-            });
+            if (richHasText(obj.activities)) {
+              html += '<tr><td colspan="4" class="rich-cell">' + sanitizeRich(obj.activities) + '</td></tr>';
+            }
           });
           html += '</table>';
         }
@@ -2730,6 +3018,12 @@
     function escHtml(str) {
       if (!str) return '';
       return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+    function richHasText(html) {
+      if (!html) return false;
+      var tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      return (tmp.textContent || '').trim().length > 0;
     }
     function escAttr(str) { return escHtml(str); }
 
