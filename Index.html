@@ -632,7 +632,19 @@
       background: var(--gris-0);
     }
     .richtext-wrap-inline .richtext-toolbar {
-      padding: 6px 10px;
+      padding: 0 8px;
+      max-height: 0;
+      border-bottom: 0;
+      overflow: hidden;
+      transition: max-height 0.18s ease, padding 0.18s ease, border-color 0.18s ease;
+    }
+    .richtext-wrap-inline:focus-within .richtext-toolbar {
+      max-height: 40px;
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--gris-200);
+    }
+    .richtext-wrap-inline .richtext-toolbar button {
+      padding: 3px 8px; min-width: 24px; font-size: 12px; line-height: 1.2;
     }
     .richtext-editor-inline {
       min-height: 42px; padding: 9px 12px; font-size: 15px;
@@ -2010,7 +2022,7 @@
       html += '<div class="richtext-toolbar">';
       html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'bold\')" title="Negrita"><b>N</b></button>';
       html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'italic\')" title="Cursiva"><i>K</i></button>';
-      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'insertUnorderedList\')" title="Viñetas">• Lista</button>';
+      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'insertUnorderedList\')" title="Viñetas">•</button>';
       html += '</div>';
       html += '<div id="' + editorId + '" class="richtext-editor richtext-editor-inline" contenteditable="true"'
            + ' data-obj-id="' + objId + '" data-content-item-id="' + item.id + '"'
@@ -2093,7 +2105,7 @@
       html += '<div class="richtext-toolbar">';
       html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'bold\')" title="Negrita"><b>N</b></button>';
       html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'italic\')" title="Cursiva"><i>K</i></button>';
-      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'insertUnorderedList\')" title="Viñetas">• Lista</button>';
+      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'insertUnorderedList\')" title="Viñetas">•</button>';
       html += '</div>';
       html += '<div id="' + editorId + '" class="richtext-editor richtext-editor-inline" contenteditable="true"'
            + ' data-obj-id="' + objId + '" data-obj-field="' + fieldKey + '"'
