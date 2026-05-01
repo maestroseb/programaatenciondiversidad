@@ -1008,6 +1008,14 @@
     .print-table th { background: var(--gris-200); padding: 8px 10px; border: 1px solid var(--gris-400); font-weight: 700; text-align: left; color: var(--verde-oscuro); }
     .print-table td { padding: 7px 10px; border: 1px solid var(--gris-400); vertical-align: top; }
     .print-table .eval-col { width: 44px; text-align: center; }
+    .print-table .eval-cell { font-weight: 800; }
+    .print-table .eval-cell.eval-ni { background: #fee2e2; color: #991b1b; }
+    .print-table .eval-cell.eval-ep { background: #fef3c7; color: #92400e; }
+    .print-table .eval-cell.eval-c  { background: #c8e6d5; color: #1b4332; }
+    .print-area-header { border-radius: 6px; padding: 10px 16px; font-weight: 800; font-size: 15px; color: #fff; letter-spacing: .3px; }
+    .print-doc-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid var(--gris-300); }
+    .print-doc-header .student-box { border: 2px solid var(--verde-oscuro); border-radius: 6px; padding: 8px 14px; font-size: 13px; text-align: right; }
+    .print-doc-header .center-box { font-size: 12px; color: var(--gris-600); line-height: 1.5; }
     .print-table .obj-row td { background: var(--gris-200); font-weight: 800; color: var(--verde-oscuro); }
     .print-table .type-content { background: var(--verde-tint); font-weight: 700; color: var(--verde-oscuro); }
     .print-table .type-activity { background: var(--azul-light); font-weight: 700; color: var(--azul-dark); }
@@ -2931,8 +2939,25 @@
       var centroLabel = state.config.centro || 'Centro educativo';
       var localidadLabel = state.config.localidad || '';
       var cursoEscolarLabel = state.config.cursoEscolar || getCurrentSchoolYear();
-      var footerParts = [centroLabel];
-      if (localidadLabel) footerParts.push(localidadLabel);
+      var centroLine = centroLabel + (localidadLabel ? ' — ' + localidadLabel : '');
+
+      function evalCell(v) {
+        var val = (v || '').trim();
+        var cls = 'eval-col eval-cell';
+        if (val === 'NI') cls += ' eval-ni';
+        else if (val === 'EP') cls += ' eval-ep';
+        else if (val === 'C') cls += ' eval-c';
+        return '<td class="' + cls + '">' + escHtml(val) + '</td>';
+      }
+
+      // Top document header (once)
+      html += '<div class="print-doc-header">';
+      html += '<div class="center-box"><div style="font-weight:800;color:var(--verde-oscuro);font-size:13px">' + escHtml(centroLine) + '</div>';
+      html += '<div>Curso escolar ' + escHtml(cursoEscolarLabel) + '</div></div>';
+      html += '<div class="student-box">';
+      html += '<div><span style="font-weight:800">ALUMNO/A:</span> ' + escHtml(state.studentName) + '</div>';
+      html += '<div><span style="font-weight:800">CURSO:</span> ' + escHtml(state.course) + '</div>';
+      html += '</div></div>';
 
       // One page/section per area
       state.areas.forEach(function(area, areaIdx) {
@@ -2940,20 +2965,15 @@
         // Page break between areas (not before first)
         if (areaIdx > 0) html += '<div style="page-break-before:always;margin-top:30px"></div>';
 
-        // Header: PE: Area on the left, student info on the right
-        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">';
-        html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-weight:800;font-size:14px">';
-        html += 'PE: ' + escHtml(area.name) + '</div>';
-        html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-size:13px;text-align:right">';
-        html += '<div><span style="font-weight:800">ALUMNO/A:</span> ' + escHtml(state.studentName) + '</div>';
-        html += '<div><span style="font-weight:800">CURSO:</span> ' + escHtml(state.course) + '</div>';
-        html += '</div></div>';
-
-        html += '<div style="text-align:center;font-size:10px;color:#6b7280;margin-bottom:16px">' + escHtml(footerParts.join(' — ')) + ' · Curso ' + escHtml(cursoEscolarLabel) + '</div>';
+        var areaColor = getAreaColor(area.name).headerBg;
+        html += '<div class="print-area-header" style="background:' + areaColor + ';margin-bottom:14px">PE: ' + escHtml(area.name) + '</div>';
 
         // Table: Objetivos / Indicadores
         html += '<table class="print-table">';
-        html += '<tr><th style="width:auto">Objetivos / Indicadores</th><th class="eval-col">1T</th><th class="eval-col">2T</th><th class="eval-col">3T</th></tr>';
+        html += '<tr><th style="width:auto;background:' + areaColor + ';color:#fff;border-color:' + areaColor + '">Objetivos / Indicadores</th>'
+          + '<th class="eval-col" style="background:' + areaColor + ';color:#fff;border-color:' + areaColor + '">1T</th>'
+          + '<th class="eval-col" style="background:' + areaColor + ';color:#fff;border-color:' + areaColor + '">2T</th>'
+          + '<th class="eval-col" style="background:' + areaColor + ';color:#fff;border-color:' + areaColor + '">3T</th></tr>';
 
         area.objectives.forEach(function(obj, i) {
           var objNum = i + 1;
@@ -2965,9 +2985,9 @@
               indCount++;
               html += '<tr>';
               html += '<td>' + objNum + '.' + indCount + '.- ' + escHtml(ind.text) + '</td>';
-              html += '<td class="eval-col">' + escHtml(ind.eval1T || '') + '</td>';
-              html += '<td class="eval-col">' + escHtml(ind.eval2T || '') + '</td>';
-              html += '<td class="eval-col">' + escHtml(ind.eval3T || '') + '</td>';
+              html += evalCell(ind.eval1T);
+              html += evalCell(ind.eval2T);
+              html += evalCell(ind.eval3T);
               html += '</tr>';
               if (ind.observaciones && ind.observaciones.trim()) {
                 html += '<tr><td colspan="4" style="font-size:11px;color:#78350f;font-style:italic;padding-left:24px;background:#fffbeb">Obs: ' + escHtml(ind.observaciones) + '</td></tr>';
@@ -3018,15 +3038,7 @@
 
       if (printFollowups.length > 0) {
         html += '<div style="page-break-before:always;margin-top:30px"></div>';
-
-        // Header for follow-up page
-        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">';
-        html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-weight:800;font-size:14px">';
-        html += 'PE: Valoración y seguimiento</div>';
-        html += '<div style="border:2px solid #000;border-radius:6px;padding:8px 14px;font-size:13px;text-align:right">';
-        html += '<div><span style="font-weight:800">ALUMNO/A:</span> ' + escHtml(state.studentName) + '</div>';
-        html += '<div><span style="font-weight:800">CURSO:</span> ' + escHtml(state.course) + '</div>';
-        html += '</div></div>';
+        html += '<div class="print-area-header" style="background:#1b4332;margin-bottom:14px">PE: Valoración y seguimiento</div>';
 
         printFollowups.forEach(function(f) {
           html += '<div style="margin-bottom:20px;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">';
