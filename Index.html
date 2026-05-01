@@ -609,15 +609,20 @@
     /* ─── Rich text editor (flat, integrated into followup card) ─── */
     .richtext-wrap { display: flex; flex-direction: column; }
     .richtext-toolbar {
-      display: flex; gap: 4px; padding: 8px 18px; background: var(--gris-50);
+      display: flex; gap: 4px; padding: 0 18px; background: var(--gris-50);
+      border-bottom: 0;
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.18s ease, padding 0.18s ease, border-color 0.18s ease;
+    }
+    .richtext-wrap:focus-within .richtext-toolbar {
+      max-height: 44px; padding: 6px 18px;
       border-bottom: 1px solid var(--gris-200);
     }
-    .followup-card .richtext-toolbar { padding: 8px 18px; }
     .richtext-toolbar button {
-      background: var(--gris-0); border: 1px solid var(--gris-300); border-radius: 6px; padding: 5px 11px;
-      cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; color: var(--gris-700);
+      background: var(--gris-0); border: 1px solid var(--gris-300); border-radius: 6px; padding: 3px 9px;
+      cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--gris-700);
       transition: all var(--trans-fast);
-      min-width: 30px;
+      min-width: 26px; line-height: 1.2;
     }
     .richtext-toolbar button:hover { background: var(--verde-tint); border-color: var(--verde-acento); color: var(--verde-medio); }
     .richtext-editor {
@@ -633,18 +638,12 @@
     }
     .richtext-wrap-inline .richtext-toolbar {
       padding: 0 8px;
-      max-height: 0;
-      border-bottom: 0;
-      overflow: hidden;
-      transition: max-height 0.18s ease, padding 0.18s ease, border-color 0.18s ease;
     }
     .richtext-wrap-inline:focus-within .richtext-toolbar {
-      max-height: 40px;
-      padding: 4px 8px;
-      border-bottom: 1px solid var(--gris-200);
+      max-height: 40px; padding: 4px 8px;
     }
     .richtext-wrap-inline .richtext-toolbar button {
-      padding: 3px 8px; min-width: 24px; font-size: 12px; line-height: 1.2;
+      padding: 3px 8px; min-width: 24px; font-size: 12px;
     }
     .richtext-editor-inline {
       min-height: 42px; padding: 9px 12px; font-size: 15px;
@@ -1797,7 +1796,7 @@
         html += '<div class="richtext-toolbar">';
         html += '<button onmousedown="event.preventDefault();richExec(\'bold\')" title="Negrita"><b>N</b></button>';
         html += '<button onmousedown="event.preventDefault();richExec(\'italic\')" title="Cursiva"><i>K</i></button>';
-        html += '<button onmousedown="event.preventDefault();richExec(\'insertUnorderedList\')" title="Viñetas">• Lista</button>';
+        html += '<button onmousedown="event.preventDefault();richExec(\'insertUnorderedList\')" title="Viñetas">•</button>';
         html += '</div>';
         html += '<div class="richtext-editor" contenteditable="true" data-key="' + f.key + '" oninput="updateFollowupRich(\'' + f.key + '\',this)" onblur="updateFollowupRich(\'' + f.key + '\',this)">' + sanitizeRich(state[f.key] || '') + '</div>';
         html += '</div>';
