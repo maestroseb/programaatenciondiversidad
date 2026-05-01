@@ -269,6 +269,14 @@
     .docentes-add { margin-top: 6px; }
     .docentes-hint { font-size: 12px; color: var(--gris-500); margin-top: 6px; }
 
+    .presence-banner {
+      max-width: 1200px; margin: 8px auto 0; padding: 10px 14px;
+      background: #fef3c7; border: 1px solid #fbbf24; border-radius: 10px;
+      color: #78350f; font-size: 13px; font-weight: 600;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .presence-icon { font-size: 16px; line-height: 1; }
+
     .program-tag {
       display: inline-flex; align-items: center; gap: 8px;
       padding: 9px 14px; background: var(--verde-tint);
@@ -1233,6 +1241,9 @@
       areas: [], // [{name, objectives: [{id,title,indicators,contents,activities}]}]
       docentes: [], // ['Ana López (PT)', 'Marta Pérez (AL)']
       docenteFilter: 'Todos',
+      // Concurrencia
+      expectedUpdatedAt: '',
+      presenceOthers: [],
       // Follow-up text fields
       valoracionInicial: '',
       seguimiento1T: '',
@@ -1598,6 +1609,7 @@
       }
       state.activeYearId = newId;
       state.selectedStudent = null;
+      stopPresence();
       // Recargar config (cursoEscolar del año) y lista de alumnos del nuevo año
       loadConfig(function() { loadStudentList(); });
     }
@@ -1779,6 +1791,7 @@
           if (state.selectedStudent === name) {
             state.selectedStudent = null;
             state.dirty = false;
+            stopPresence();
             loadStudentList();
           } else {
             document.getElementById('studentItems').innerHTML = renderStudentItems(getFilteredStudents());
@@ -1846,6 +1859,7 @@
             state.studentName = data.studentName;
             state.course = data.course;
             state.docentes = (data.docentes || []).slice();
+            state.expectedUpdatedAt = data.updatedAt || '';
             state.valoracionInicial = data.valoracionInicial || '';
             state.seguimiento1T = data.seguimiento1T || '';
             state.seguimiento2T = data.seguimiento2T || '';
@@ -1895,6 +1909,7 @@
           } else {
             showToast('Datos de ' + name + ' cargados', 'success');
           }
+          startPresence(state.studentName);
         })
         .withFailureHandler(function(err) {
           showToast('Error al cargar: ' + err.message, 'error');
@@ -1904,6 +1919,7 @@
     }
 
     async function newStudent() {
+      stopPresence();
       if (state.dirty && !(await confirmDialog('Tienes cambios sin guardar. Si continúas, se perderán.', { title: 'Cambios sin guardar', confirmText: 'Descartar y continuar', cancelText: 'Seguir editando', danger: true }))) return;
       flushDraftTimer();
       draftLastSavedAt = null;
@@ -1917,6 +1933,8 @@
       state.studentName = '';
       state.course = '';
       state.docentes = [];
+      state.expectedUpdatedAt = '';
+      state.presenceOthers = [];
       state.areas = [];
       state.valoracionInicial = '';
       state.seguimiento1T = '';
@@ -1939,8 +1957,84 @@
     async function goBack() {
       if (state.dirty && !(await confirmDialog('Tienes cambios sin guardar. Si vuelves a la lista, se perderán.', { title: 'Cambios sin guardar', confirmText: 'Descartar y volver', cancelText: 'Seguir editando', danger: true }))) return;
       state.dirty = false;
+      stopPresence();
       loadStudentList();
     }
+
+    /* ═══════════════════════════════════════════
+       PRESENCIA (avisar de ediciones simultáneas)
+    ═══════════════════════════════════════════ */
+    var presenceTimer = null;
+    var presenceCurrent = { yearId: '', tabName: '' };
+    var PRESENCE_HEARTBEAT_MS = 60000;
+
+    function startPresence(tabName) {
+      stopPresence();
+      if (!tabName) return;
+      presenceCurrent = { yearId: state.activeYearId || '', tabName: tabName };
+      sendPresence(true);
+      presenceTimer = setInterval(function() { sendPresence(false); }, PRESENCE_HEARTBEAT_MS);
+    }
+
+    function stopPresence() {
+      if (presenceTimer) { clearInterval(presenceTimer); presenceTimer = null; }
+      var prev = presenceCurrent;
+      presenceCurrent = { yearId: '', tabName: '' };
+      state.presenceOthers = [];
+      renderPresenceBanner();
+      if (prev.tabName) {
+        try {
+          google.script.run
+            .withSuccessHandler(function() {})
+            .withFailureHandler(function() {})
+            .releasePresence(prev.yearId, prev.tabName);
+        } catch (e) {}
+      }
+    }
+
+    function sendPresence(initial) {
+      if (!presenceCurrent.tabName) return;
+      var fn = initial ? 'acquirePresence' : 'heartbeatPresence';
+      google.script.run
+        .withSuccessHandler(function(others) {
+          state.presenceOthers = others || [];
+          renderPresenceBanner();
+        })
+        .withFailureHandler(function() {})
+        [fn](presenceCurrent.yearId, presenceCurrent.tabName);
+    }
+
+    function renderPresenceBanner() {
+      var existing = document.getElementById('presenceBanner');
+      if (!state.presenceOthers || state.presenceOthers.length === 0) {
+        if (existing) existing.remove();
+        return;
+      }
+      var names = state.presenceOthers.map(function(o) { return o.email || 'alguien sin identificar'; });
+      var msg = (names.length === 1)
+        ? names[0] + ' está editando esta ficha ahora mismo. Si guardáis a la vez, gana quien lo haga después.'
+        : (names.join(', ') + ' están editando esta ficha ahora mismo.');
+      if (existing) {
+        existing.querySelector('.presence-text').textContent = msg;
+        return;
+      }
+      var content = document.getElementById('content');
+      if (!content) return;
+      var div = document.createElement('div');
+      div.id = 'presenceBanner';
+      div.className = 'presence-banner';
+      div.innerHTML = '<span class="presence-icon">⚠️</span><span class="presence-text">' + escHtml(msg) + '</span>';
+      content.parentNode.insertBefore(div, content);
+    }
+
+    window.addEventListener('beforeunload', function() {
+      if (presenceCurrent.tabName) {
+        try {
+          // best-effort: en beforeunload no podemos esperar al callback
+          google.script.run.releasePresence(presenceCurrent.yearId, presenceCurrent.tabName);
+        } catch (e) {}
+      }
+    });
 
     /* ═══════════════════════════════════════════
        RENDER: Form View
@@ -3013,6 +3107,7 @@
         studentName: state.studentName,
         course: state.course,
         docentes: (state.docentes || []).slice(),
+        expectedUpdatedAt: state.expectedUpdatedAt || '',
         valoracionInicial: state.valoracionInicial,
         seguimiento1T: state.seguimiento1T,
         seguimiento2T: state.seguimiento2T,
@@ -3045,6 +3140,7 @@
           state.saving = false;
           state.selectedStudent = state.studentName;
           state.isNew = false;
+          if (result && result.updatedAt) state.expectedUpdatedAt = result.updatedAt;
           setBaselineFromCurrent();
           clearDraft(state.studentName);
 
@@ -3064,6 +3160,8 @@
           btn.disabled = false;
           btn.innerHTML = svgIcon('save') + ' Guardar';
           updateBadge();
+          // Si era nuevo alumno, registrar presencia ahora que ya existe la pestaña
+          if (!presenceCurrent.tabName) startPresence(state.studentName);
           showToast('Datos guardados en Google Sheets', 'success');
         })
         .withFailureHandler(function(err) {
@@ -3072,6 +3170,18 @@
           btn.disabled = false;
           btn.innerHTML = svgIcon('save') + ' Guardar';
           var msg = (err && err.message) ? err.message : 'No se pudo conectar';
+          if (msg.indexOf('CONFLICT') !== -1) {
+            // Conflicto de versión: ofrecemos recargar tras conservar el borrador
+            var clean = msg.replace(/^.*CONFLICT:\s*/i, '');
+            showToast(clean + ' · tu borrador local se mantiene hasta que recargues.', 'error', {
+              action: 'Recargar alumno',
+              onAction: function() {
+                if (state.selectedStudent) selectStudent(state.selectedStudent);
+              },
+              duration: 15000
+            });
+            return;
+          }
           showToast('Error al guardar: ' + msg + ' · tus datos siguen en el borrador local', 'error', {
             action: 'Reintentar',
             onAction: saveData,

@@ -14,6 +14,8 @@ const SS_ID = '11bkLpUZKKkSbEPZkmCPqI23LBWreishKmIYL1yRJS74';
 const INDICE_TAB = 'Índice';
 const CONFIG_TAB = 'Config';
 const CURSOS_TAB = 'Cursos';
+const LOCKS_TAB = 'Locks';
+const PRESENCE_TTL_MS = 5 * 60 * 1000;
 
 /* ───────── Web App entry point ───────── */
 
@@ -387,15 +389,24 @@ function getStudentData(studentName, yearId) {
 
   // Row 1: metadata
   const meta = data[0];
-  // Docentes pueden estar en col 9 (label) + col 10 (valor) si la pestaña ya se guardó con la versión nueva
   let docentesStr = '';
   if (String(meta[8] || '').trim().toUpperCase() === 'DOCENTES') {
     docentesStr = String(meta[9] || '').trim();
+  }
+  let updatedAt = '';
+  let updatedBy = '';
+  if (String(meta[10] || '').trim().toUpperCase() === 'UPDATED_AT') {
+    updatedAt = String(meta[11] || '').trim();
+  }
+  if (String(meta[12] || '').trim().toUpperCase() === 'UPDATED_BY') {
+    updatedBy = String(meta[13] || '').trim();
   }
   const result = {
     studentName: String(meta[1] || '').trim(),
     course: String(meta[3] || '').trim(),
     docentes: parseDocentesString_(docentesStr),
+    updatedAt: updatedAt,
+    updatedBy: updatedBy,
     valoracionInicial: '',
     seguimiento1T: '',
     seguimiento2T: '',
@@ -481,6 +492,20 @@ function saveStudentData(payload) {
   if (!lock.tryLock(20000)) throw new Error('Otro usuario está guardando. Reintenta.');
   try {
     let sheet = ss.getSheetByName(tabName);
+    // Comprobación de versión optimista: si la pestaña ya existe y el cliente
+    // envía expectedUpdatedAt, debe coincidir con el actual de la hoja.
+    if (sheet && data.expectedUpdatedAt !== undefined && data.expectedUpdatedAt !== null) {
+      const last = sheet.getLastColumn() >= 12 ? sheet.getRange(1, 1, 1, 14).getValues()[0] : [];
+      let currentUpdatedAt = '';
+      if (String(last[10] || '').trim().toUpperCase() === 'UPDATED_AT') {
+        currentUpdatedAt = String(last[11] || '').trim();
+      }
+      if (currentUpdatedAt && String(data.expectedUpdatedAt) !== currentUpdatedAt) {
+        const byRaw = (String(last[12] || '').trim().toUpperCase() === 'UPDATED_BY') ? String(last[13] || '').trim() : '';
+        const by = byRaw ? (' por ' + byRaw) : '';
+        throw new Error('CONFLICT: otra persona ha guardado cambios' + by + ' mientras editabas. Recarga el alumno y vuelve a aplicar tus cambios.');
+      }
+    }
     if (sheet) {
       sheet.clear();
     } else {
@@ -560,20 +585,34 @@ function saveStudentData(payload) {
     }
 
     const docentesStr = serializeDocentes_(data.docentes || []);
+    const newUpdatedAt = new Date().toISOString();
+    const userEmail = getCurrentUserEmail_();
     if (rows.length > 0) {
       sheet.getRange(1, 1, rows.length, NUM_COLS).setValues(rows);
       sheet.getRange(1, 8).setValue(areaNames);
       sheet.getRange(1, 9).setValue('DOCENTES');
       sheet.getRange(1, 10).setValue(docentesStr);
+      sheet.getRange(1, 11).setValue('UPDATED_AT');
+      sheet.getRange(1, 12).setValue(newUpdatedAt);
+      sheet.getRange(1, 13).setValue('UPDATED_BY');
+      sheet.getRange(1, 14).setValue(userEmail);
     }
 
     formatStudentSheet_(sheet, rows);
     updateIndiceIn_(ss, data.studentName, data.course, 'PE', areaNames, docentesStr);
+    return { success: true, message: 'Datos guardados correctamente', updatedAt: newUpdatedAt, updatedBy: userEmail };
   } finally {
     lock.releaseLock();
   }
+}
 
-  return { success: true, message: 'Datos guardados correctamente' };
+function getCurrentUserEmail_() {
+  try {
+    var e = Session.getActiveUser().getEmail();
+    return e || '';
+  } catch (err) {
+    return '';
+  }
 }
 
 /* ───────── DELETE: eliminar alumno ───────── */
@@ -675,8 +714,8 @@ function formatStudentSheet_(sheet, rowsData) {
   fullRange.setFontWeights(fontWeights);
   fullRange.setWraps(wraps);
 
-  const metaWeights = [['bold', 'normal', 'bold', 'normal', 'bold', 'normal', 'bold', 'normal', 'bold', 'normal']];
-  sheet.getRange(1, 1, 1, 10).setFontWeights(metaWeights);
+  const metaWeights = [['bold', 'normal', 'bold', 'normal', 'bold', 'normal', 'bold', 'normal', 'bold', 'normal', 'bold', 'normal', 'bold', 'normal']];
+  sheet.getRange(1, 1, 1, 14).setFontWeights(metaWeights);
 }
 
 /* ───────── Gestión de cursos académicos ───────── */
@@ -828,6 +867,73 @@ function deleteYear(yearId, confirmLabel) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/* ───────── Presencia (avisar de ediciones simultáneas) ───────── */
+
+function getOrCreateLocksSheet_() {
+  const ss = getMasterSS_();
+  let sheet = ss.getSheetByName(LOCKS_TAB);
+  if (!sheet) {
+    sheet = ss.insertSheet(LOCKS_TAB);
+    sheet.appendRow(['YEAR_ID', 'TAB_NAME', 'USER_EMAIL', 'TIMESTAMP']);
+    sheet.getRange(1, 1, 1, 4).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function updatePresence_(yearId, tabName, doRegister) {
+  if (!yearId || !tabName) return [];
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return [];
+  try {
+    const sheet = getOrCreateLocksSheet_();
+    const data = sheet.getDataRange().getValues();
+    const myEmail = getCurrentUserEmail_();
+    const nowMs = Date.now();
+    const ttl = PRESENCE_TTL_MS;
+    const others = [];
+
+    for (let i = data.length - 1; i >= 1; i--) {
+      const row = data[i];
+      const rYear = String(row[0] || '').trim();
+      const rTab = String(row[1] || '').trim();
+      const rEmail = String(row[2] || '').trim();
+      const rTs = Number(row[3] || 0);
+      // Limpia entradas expiradas
+      if (!rTs || (nowMs - rTs) > ttl) {
+        sheet.deleteRow(i + 1);
+        continue;
+      }
+      // Solo nos interesa este alumno en este año
+      if (rYear !== yearId || rTab !== tabName) continue;
+      if (rEmail === myEmail) {
+        // Borramos la propia para reescribirla con timestamp actual
+        sheet.deleteRow(i + 1);
+      } else {
+        others.push({ email: rEmail || 'Usuario sin identificar', ts: rTs });
+      }
+    }
+    if (doRegister) {
+      sheet.appendRow([yearId, tabName, myEmail, nowMs]);
+    }
+    return others;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function acquirePresence(yearId, tabName) {
+  return updatePresence_(yearId, tabName, true);
+}
+
+function heartbeatPresence(yearId, tabName) {
+  return updatePresence_(yearId, tabName, true);
+}
+
+function releasePresence(yearId, tabName) {
+  return updatePresence_(yearId, tabName, false);
 }
 
 function updateIndiceIn_(ss, name, course, program, area, docentesStr) {
