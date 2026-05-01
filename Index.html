@@ -2978,7 +2978,11 @@
 
         area.objectives.forEach(function(obj, i) {
           var objNum = i + 1;
-          html += '<tr class="obj-row"><td colspan="4">' + objNum + '.- ' + escHtml(obj.title || '—') + '</td></tr>';
+          html += '<tr class="obj-row"><td>' + objNum + '.- ' + escHtml(obj.title || '—') + '</td>';
+          html += evalCell(obj.eval1T);
+          html += evalCell(obj.eval2T);
+          html += evalCell(obj.eval3T);
+          html += '</tr>';
 
           var indCount = 0;
           obj.indicators.forEach(function(ind) {
