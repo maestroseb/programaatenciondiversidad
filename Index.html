@@ -244,6 +244,50 @@
     .field-input:read-only { background: var(--gris-100); color: var(--gris-500); }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
+    .grid-student-info { display: grid; grid-template-columns: minmax(180px, 1.4fr) minmax(120px, 0.7fr) minmax(280px, 2.4fr); gap: 12px; align-items: start; }
+    @media (max-width: 880px) { .grid-student-info { grid-template-columns: 1.4fr 1fr; } .grid-student-info > div:nth-child(3) { grid-column: 1 / -1; } }
+    @media (max-width: 560px) { .grid-student-info { grid-template-columns: 1fr; } .grid-student-info > div:nth-child(3) { grid-column: auto; } }
+
+    .docentes-chips {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      padding: 5px 8px; min-height: 42px;
+      border: 1px solid var(--gris-200); border-radius: var(--radio);
+      background: var(--gris-0); align-items: center;
+    }
+    .docentes-chips .docentes-add-inline {
+      flex: 0 0 auto; min-width: 90px; max-width: 130px; border: none; background: transparent;
+      padding: 4px 6px; font-family: inherit; font-size: 13px; color: var(--gris-600);
+      outline: none; cursor: pointer;
+    }
+    .docentes-empty { color: var(--gris-400); font-size: 13px; font-style: italic; }
+    .docente-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: #d1fae5; color: #064e3b; border: 1px solid #6ee7b7;
+      border-radius: 999px; padding: 3px 4px 3px 10px; font-size: 13px; font-weight: 600;
+    }
+    .docente-chip-x {
+      background: rgba(0,0,0,0.08); border: none; color: inherit;
+      width: 18px; height: 18px; border-radius: 50%; cursor: pointer;
+      font-size: 14px; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .docente-chip-x:hover { background: rgba(0,0,0,0.18); }
+    .docentes-add { margin-top: 6px; }
+    .docentes-hint { font-size: 12px; color: var(--gris-500); margin-top: 6px; }
+    .docentes-empty-box {
+      padding: 11px 14px; min-height: 42px;
+      border: 1px dashed var(--gris-300); border-radius: var(--radio);
+      background: var(--gris-50); color: var(--gris-500);
+      font-size: 13px; font-style: italic;
+      display: flex; align-items: center;
+    }
+
+    .presence-banner {
+      max-width: 1200px; margin: 8px auto 0; padding: 10px 14px;
+      background: #fef3c7; border: 1px solid #fbbf24; border-radius: 10px;
+      color: #78350f; font-size: 13px; font-weight: 600;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .presence-icon { font-size: 16px; line-height: 1; }
 
     .program-tag {
       display: inline-flex; align-items: center; gap: 8px;
@@ -490,6 +534,12 @@
     .section-indicators .section-label::before { background: var(--ambar); }
     .section-contents .section-label::before { background: var(--verde-medio); }
     .section-activities .section-label::before { background: var(--azul); }
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px 20px; flex-wrap: wrap; margin-bottom: 10px;
+    }
+    .section-header .section-label { margin-bottom: 0; }
+    .section-header .section-legend { margin: 0; }
     .section-legend {
       display: flex; flex-wrap: wrap; gap: 4px 14px;
       font-size: 12px; color: var(--gris-500); font-weight: 500;
@@ -522,14 +572,18 @@
     .eval-select {
       width: 58px; padding: 7px 4px; border-radius: var(--radio); border: 1px solid var(--gris-300);
       font-size: 12px; font-family: inherit; font-weight: 700;
-      text-align: center; cursor: pointer; background: var(--gris-0); flex-shrink: 0; margin-top: 6px;
+      text-align: center; cursor: pointer; background: var(--gris-0); flex-shrink: 0;
       letter-spacing: 0.04em;
       transition: border-color var(--trans-fast);
     }
     .eval-select.eval-ni { background: var(--rojo-light); border-color: rgba(220,38,38,.3); color: var(--rojo-dark); }
     .eval-select.eval-ep { background: var(--ambar-light); border-color: rgba(217,119,6,.3); color: var(--ambar-dark); }
     .eval-select.eval-c { background: var(--verde-tint-dark); border-color: var(--verde-acento); color: var(--verde-oscuro); }
-    .eval-group { display: flex; gap: 4px; flex-shrink: 0; margin-top: 6px; }
+    .eval-group { display: flex; gap: 4px; flex-shrink: 0; }
+    .section-indicators .list-item { align-items: center; }
+    .section-indicators .list-item > .list-num { align-self: flex-start; margin-top: 4px; }
+    .indicator-headers { margin-bottom: 2px; align-items: flex-end !important; }
+    .indicator-headers .list-num { margin-top: 0; height: 0; padding: 0; border: 0; }
     .eval-label { font-size: 11px; font-weight: 700; color: var(--gris-500); text-align: center; letter-spacing: 0.04em; }
     .btn-remove-item {
       width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--gris-200);
@@ -898,10 +952,14 @@
       animation: fadeIn 0.15s ease;
     }
     .settings-panel {
-      background: var(--gris-0); border-radius: var(--radio-lg); max-width: 480px; width: 100%;
+      background: var(--gris-0); border-radius: var(--radio-lg); max-width: 720px; width: 100%;
+      max-height: calc(100vh - 40px);
       box-shadow: var(--sombra-xl); overflow: hidden;
+      display: flex; flex-direction: column;
       animation: popIn 0.2s ease;
     }
+    .settings-header { flex-shrink: 0; }
+    .settings-footer { flex-shrink: 0; }
     .settings-header {
       padding: 18px 22px;
       background: var(--verde-oscuro);
@@ -920,8 +978,71 @@
     }
     .settings-close:hover { color: #fff; background: rgba(255,255,255,0.12); transform: rotate(90deg); }
     .settings-close svg { width: 14px; height: 14px; }
-    .settings-body { padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+    .settings-body { padding: 22px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; flex: 1 1 auto; }
+    .settings-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+    @media (max-width: 600px) { .settings-grid-2 { grid-template-columns: 1fr; } }
     .settings-footer { padding: 14px 22px; border-top: 1px solid var(--gris-200); display: flex; justify-content: flex-end; gap: 8px; background: var(--gris-50); }
+    .settings-section-title {
+      font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
+      color: var(--gris-500); padding-top: 6px; border-top: 1px solid var(--gris-200);
+      margin-top: 4px;
+    }
+    .settings-section-title:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+    .settings-toggle {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--gris-700); cursor: pointer; user-select: none;
+    }
+    .settings-toggle input { width: 16px; height: 16px; accent-color: var(--verde-medio); cursor: pointer; }
+    .list-editor { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+    .list-row { display: flex; align-items: center; gap: 6px; }
+    .list-row .list-input { flex: 1; }
+    .list-btn-move, .list-btn-remove {
+      background: var(--gris-50); border: 1px solid var(--gris-200); border-radius: 8px;
+      width: 32px; height: 36px; display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--gris-600); flex-shrink: 0;
+    }
+    .list-btn-move:hover { background: var(--gris-100); }
+    .list-btn-remove { color: var(--rojo); }
+    .list-btn-remove:hover { background: #fee2e2; border-color: #fecaca; }
+    .list-btn-move svg, .list-btn-remove svg { width: 16px; height: 16px; }
+    .btn-add-list {
+      background: transparent; border: 1px dashed var(--gris-300); border-radius: 8px;
+      color: var(--gris-600); padding: 8px 14px; cursor: pointer; font-family: inherit;
+      font-size: 13px; font-weight: 600;
+    }
+    .btn-add-list:hover { background: var(--gris-50); border-color: var(--verde-medio); color: var(--verde-medio); }
+    .list-hint { font-size: 12px; color: var(--gris-500); margin-top: 6px; }
+
+    .years-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+    .years-empty { font-size: 13px; color: var(--gris-500); font-style: italic; padding: 8px 0; }
+    .year-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 10px 12px; border: 1px solid var(--gris-200); border-radius: 10px;
+      background: var(--gris-0);
+    }
+    .year-row.active { border-color: var(--verde-medio); background: #f0fdf4; }
+    .year-row.archived { opacity: 0.65; }
+    .year-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+    .year-label { font-weight: 700; color: var(--gris-700); }
+    .year-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .year-badge-active { background: var(--verde-medio); color: #fff; }
+    .year-badge-archived { background: var(--gris-200); color: var(--gris-700); }
+    .year-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .year-link {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 6px; text-decoration: none;
+      color: var(--gris-600); border: 1px solid var(--gris-200); background: var(--gris-0);
+      font-size: 14px;
+    }
+    .year-link:hover { color: var(--verde-medio); border-color: var(--verde-medio); }
+    .btn-year-action {
+      background: var(--gris-0); border: 1px solid var(--gris-200); border-radius: 8px;
+      padding: 5px 10px; cursor: pointer; font-family: inherit; font-size: 12px;
+      font-weight: 600; color: var(--gris-700);
+    }
+    .btn-year-action:hover { background: var(--gris-50); border-color: var(--gris-300); }
+    .btn-year-delete { color: var(--rojo); }
+    .btn-year-delete:hover { background: #fee2e2; border-color: #fecaca; }
 
     /* ─── Course Filter ─── */
     .course-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -933,6 +1054,11 @@
     }
     .course-chip:hover { border-color: var(--verde-acento); color: var(--verde-medio); }
     .course-chip.active { background: var(--verde-medio); color: #fff; border-color: var(--verde-medio); }
+    .docente-filter-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .docente-filter-label { font-size: 13px; font-weight: 700; color: var(--gris-700); }
+    .docente-filter { max-width: 280px; padding: 6px 10px; font-size: 13px; }
+    .course-sep { margin: 0 6px; color: var(--gris-300); }
+    .docentes-inline { color: var(--gris-600); font-size: 13px; }
 
     .btn-settings {
       background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
@@ -943,6 +1069,19 @@
     }
     .btn-settings:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.3); }
     .btn-settings svg { width: 18px; height: 18px; }
+
+    .year-select {
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
+      color: #fff; padding: 7px 10px; border-radius: var(--radio); font-family: inherit;
+      font-size: 13px; font-weight: 600; cursor: pointer; max-width: 220px;
+    }
+    .year-select option { color: #111; }
+    .year-archived-toggle {
+      display: inline-flex; align-items: center; gap: 4px;
+      color: rgba(255,255,255,0.85); font-size: 11px; font-weight: 600;
+      cursor: pointer; user-select: none;
+    }
+    .year-archived-toggle input { accent-color: #fff; cursor: pointer; }
 
     /* ─── Loading ─── */
     .loading { text-align: center; padding: 48px 20px; color: var(--gris-500); font-size: 15px; }
@@ -1045,6 +1184,7 @@
           <div class="subtitle">Gestión de programas individualizados</div>
         </div>
         <div class="header-tools">
+          <select class="year-select" id="yearSelect" onchange="onYearChange()" title="Curso académico activo" style="display:none"></select>
           <button class="btn-back" id="btnBack" style="display:none" onclick="goBack()"><span class="icon" id="iconBack"></span> Alumnos</button>
           <button class="btn-settings" id="btnSettings" onclick="openSettings()" title="Ajustes del centro" aria-label="Ajustes del centro"><span class="icon" id="iconSettings"></span></button>
         </div>
@@ -1123,6 +1263,11 @@
       studentName: '',
       course: '',
       areas: [], // [{name, objectives: [{id,title,indicators,contents,activities}]}]
+      docentes: [], // ['Ana López (PT)', 'Marta Pérez (AL)']
+      docenteFilter: 'Todos',
+      // Concurrencia
+      expectedUpdatedAt: '',
+      presenceOthers: [],
       // Follow-up text fields
       valoracionInicial: '',
       seguimiento1T: '',
@@ -1130,6 +1275,9 @@
       seguimiento3T: '',
       // Config
       config: { centro: '', localidad: '', cursoEscolar: '' },
+      activeYearId: '',
+      years: [],
+      showArchivedYears: false,
       courseFilter: 'Todos',
       // Informe a las familias
       informeFamilias: { indicadores: [], evaluaciones: [] }
@@ -1160,6 +1308,7 @@
       return {
         studentName: state.studentName,
         course: state.course,
+        docentes: (state.docentes || []).slice(),
         areas: JSON.parse(JSON.stringify(state.areas)),
         valoracionInicial: state.valoracionInicial,
         seguimiento1T: state.seguimiento1T,
@@ -1172,6 +1321,7 @@
     function applyStateSnapshot(snapshot) {
       state.studentName = snapshot.studentName;
       state.course = snapshot.course;
+      state.docentes = (snapshot.docentes || []).slice();
       state.areas = snapshot.areas;
       state.valoracionInicial = snapshot.valoracionInicial;
       state.seguimiento1T = snapshot.seguimiento1T;
@@ -1420,14 +1570,75 @@
     function loadConfig(callback) {
       google.script.run
         .withSuccessHandler(function(cfg) {
-          if (cfg) state.config = cfg;
+          if (cfg) {
+            state.config = {
+              centro: cfg.centro || '',
+              localidad: cfg.localidad || '',
+              cursoEscolar: cfg.cursoEscolar || '',
+              courses: cfg.courses || [],
+              docentes: cfg.docentes || []
+            };
+            state.years = cfg.years || [];
+            state.activeYearId = cfg.activeYearId || '';
+          }
           updateHeaderSubtitle();
+          renderYearSelect();
           if (callback) callback();
         })
-        .withFailureHandler(function() {
+        .withFailureHandler(function(err) {
+          showToast('Error al cargar configuración: ' + (err && err.message ? err.message : err), 'error');
           if (callback) callback();
         })
         .getConfig();
+    }
+
+    function renderYearSelect() {
+      var sel = document.getElementById('yearSelect');
+      if (!sel) return;
+      if (!state.years || state.years.length === 0) {
+        sel.style.display = 'none';
+        return;
+      }
+      sel.style.display = '';
+      var showArchived = !!state.showArchivedYears;
+      var visible = state.years.filter(function(y) { return showArchived || !y.archived; });
+      // Si el activo está archivado y no mostramos archivados, lo incluimos igualmente
+      if (state.activeYearId && !visible.some(function(y) { return y.id === state.activeYearId; })) {
+        var act = state.years.find(function(y) { return y.id === state.activeYearId; });
+        if (act) visible.unshift(act);
+      }
+      // Más reciente primero
+      visible.sort(function(a, b) {
+        var ta = new Date(a.createdAt).getTime() || 0;
+        var tb = new Date(b.createdAt).getTime() || 0;
+        return tb - ta;
+      });
+      var html = '';
+      visible.forEach(function(y) {
+        var label = y.label + (y.archived ? ' (archivado)' : '');
+        html += '<option value="' + escAttr(y.id) + '"' + (y.id === state.activeYearId ? ' selected' : '') + '>' + escHtml(label) + '</option>';
+      });
+      sel.innerHTML = html;
+    }
+
+    async function onYearChange() {
+      var sel = document.getElementById('yearSelect');
+      if (!sel) return;
+      var newId = sel.value;
+      if (newId === state.activeYearId) return;
+      if (state.dirty) {
+        var ok = await confirmDialog('Tienes cambios sin guardar. Si cambias de curso académico, se perderán.', { title: 'Cambios sin guardar', confirmText: 'Descartar y cambiar', cancelText: 'Seguir editando', danger: true });
+        if (!ok) {
+          sel.value = state.activeYearId;
+          return;
+        }
+        state.dirty = false;
+      }
+      state.activeYearId = newId;
+      state.selectedStudent = null;
+      stopPresence();
+      // Recargar config (cursoEscolar del año) y lista de alumnos del nuevo año
+      loadConfig(function() { loadStudentList(); });
     }
 
     function updateHeaderSubtitle() {
@@ -1453,7 +1664,7 @@
           state.students = [];
           renderListView();
         })
-        .getStudentList();
+        .getStudentList(state.activeYearId);
     }
 
     /* ═══════════════════════════════════════════
@@ -1477,7 +1688,7 @@
       html += '<div class="student-list-body">';
       html += '<div class="search-wrap">';
       html += '<span class="icon-search">' + ICONS.search + '</span>';
-      html += '<input class="search-input" id="searchInput" type="text" placeholder="Buscar alumno, curso o programa..." oninput="filterStudents()">';
+      html += '<input class="search-input" id="searchInput" type="text" placeholder="Buscar alumno, curso, programa o docente..." oninput="filterStudents()">';
       html += '</div>';
 
       // Course filter chips
@@ -1492,6 +1703,27 @@
           html += '<button class="course-chip' + (state.courseFilter === c ? ' active' : '') + '" onclick="setCourseFilter(\'' + escAttr(c) + '\')">' + escHtml(c) + '</button>';
         });
         html += '</div>';
+      }
+
+      // Docente filter dropdown
+      var docentesInUse = [];
+      state.students.forEach(function(s) {
+        (s.docentes || []).forEach(function(d) {
+          if (d && docentesInUse.indexOf(d) === -1) docentesInUse.push(d);
+        });
+      });
+      if (docentesInUse.length > 0) {
+        html += '<div class="docente-filter-wrap">';
+        html += '<label class="docente-filter-label">Docente:</label>';
+        html += '<select class="field-select docente-filter" onchange="setDocenteFilter(this.value)">';
+        html += '<option value="Todos"' + (state.docenteFilter === 'Todos' ? ' selected' : '') + '>Todos</option>';
+        docentesInUse.sort().forEach(function(d) {
+          html += '<option value="' + escAttr(d) + '"' + (state.docenteFilter === d ? ' selected' : '') + '>' + escHtml(d) + '</option>';
+        });
+        html += '</select>';
+        html += '</div>';
+      } else if (state.docenteFilter !== 'Todos') {
+        state.docenteFilter = 'Todos';
       }
 
       html += '<div id="studentItems">';
@@ -1523,7 +1755,11 @@
         var nameAttr = escAttr(s.name);
         html += '<div class="student-item" role="button" tabindex="0" onclick="selectStudent(\'' + nameAttr + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();selectStudent(\'' + nameAttr + '\')}">';
         html += '<div><div class="name">' + escHtml(s.name) + '</div>';
-        html += '<div class="course">' + escHtml(s.course) + '</div></div>';
+        html += '<div class="course">' + escHtml(s.course);
+        if (s.docentes && s.docentes.length) {
+          html += '<span class="course-sep">·</span><span class="docentes-inline">' + escHtml(s.docentes.join(', ')) + '</span>';
+        }
+        html += '</div></div>';
         html += '<div class="student-item-actions">';
         html += '<span class="program-badge">PE</span>';
         html += '<button class="btn-student-action btn-duplicate-student" title="Duplicar alumno" aria-label="Duplicar alumno" onclick="event.stopPropagation();confirmDuplicateStudent(\'' + nameAttr + '\')">' + ICONS.copy + '</button>';
@@ -1560,16 +1796,17 @@
                 name: newName,
                 course: data.course || '',
                 program: 'PE',
-                area: (data.areas || []).map(function(a) { return a.name; }).join(', ')
+                area: (data.areas || []).map(function(a) { return a.name; }).join(', '),
+                docentes: (data.docentes || []).slice()
               });
               document.getElementById('studentItems').innerHTML = renderStudentItems(getFilteredStudents());
               showToast('Alumno duplicado como "' + newName + '"', 'success');
             })
             .withFailureHandler(function(err) { showToast('Error al guardar: ' + err.message, 'error'); })
-            .saveStudentData(JSON.stringify(data));
+            .saveStudentData(JSON.stringify(Object.assign({}, data, { yearId: state.activeYearId })));
         })
         .withFailureHandler(function(err) { showToast('Error al leer: ' + err.message, 'error'); })
-        .getStudentData(oldName);
+        .getStudentData(oldName, state.activeYearId);
     }
 
     async function confirmDeleteStudent(name) {
@@ -1581,6 +1818,7 @@
           if (state.selectedStudent === name) {
             state.selectedStudent = null;
             state.dirty = false;
+            stopPresence();
             loadStudentList();
           } else {
             document.getElementById('studentItems').innerHTML = renderStudentItems(getFilteredStudents());
@@ -1588,7 +1826,7 @@
           showToast('Alumno eliminado', 'success');
         })
         .withFailureHandler(function(err) { showToast('Error al eliminar: ' + err.message, 'error'); })
-        .deleteStudent(name);
+        .deleteStudent(name, state.activeYearId);
     }
 
     function getFilteredStudents() {
@@ -1596,9 +1834,17 @@
       var q = searchEl ? searchEl.value.toLowerCase() : '';
       return state.students.filter(function(s) {
         var matchesCourse = (state.courseFilter === 'Todos') || (s.course === state.courseFilter);
-        var matchesSearch = !q || s.name.toLowerCase().includes(q) || s.course.toLowerCase().includes(q) || s.program.toLowerCase().includes(q);
-        return matchesCourse && matchesSearch;
+        var docentes = s.docentes || [];
+        var matchesDocente = (state.docenteFilter === 'Todos') || docentes.indexOf(state.docenteFilter) !== -1;
+        var docentesText = docentes.join(' ').toLowerCase();
+        var matchesSearch = !q || s.name.toLowerCase().includes(q) || s.course.toLowerCase().includes(q) || s.program.toLowerCase().includes(q) || docentesText.includes(q);
+        return matchesCourse && matchesDocente && matchesSearch;
       });
+    }
+
+    function setDocenteFilter(d) {
+      state.docenteFilter = d || 'Todos';
+      filterStudents();
     }
 
     function filterStudents() {
@@ -1639,6 +1885,8 @@
           if (data) {
             state.studentName = data.studentName;
             state.course = data.course;
+            state.docentes = (data.docentes || []).slice();
+            state.expectedUpdatedAt = data.updatedAt || '';
             state.valoracionInicial = data.valoracionInicial || '';
             state.seguimiento1T = data.seguimiento1T || '';
             state.seguimiento2T = data.seguimiento2T || '';
@@ -1669,6 +1917,7 @@
             var s = state.students.find(function(st) { return st.name === name; });
             state.studentName = name;
             state.course = s ? s.course : '';
+            state.docentes = s && s.docentes ? s.docentes.slice() : [];
             state.areas = [];
             state.valoracionInicial = '';
             state.seguimiento1T = '';
@@ -1687,15 +1936,17 @@
           } else {
             showToast('Datos de ' + name + ' cargados', 'success');
           }
+          startPresence(state.studentName);
         })
         .withFailureHandler(function(err) {
           showToast('Error al cargar: ' + err.message, 'error');
           renderListView();
         })
-        .getStudentData(name);
+        .getStudentData(name, state.activeYearId);
     }
 
     async function newStudent() {
+      stopPresence();
       if (state.dirty && !(await confirmDialog('Tienes cambios sin guardar. Si continúas, se perderán.', { title: 'Cambios sin guardar', confirmText: 'Descartar y continuar', cancelText: 'Seguir editando', danger: true }))) return;
       flushDraftTimer();
       draftLastSavedAt = null;
@@ -1708,6 +1959,9 @@
       state.dirty = false;
       state.studentName = '';
       state.course = '';
+      state.docentes = [];
+      state.expectedUpdatedAt = '';
+      state.presenceOthers = [];
       state.areas = [];
       state.valoracionInicial = '';
       state.seguimiento1T = '';
@@ -1730,8 +1984,84 @@
     async function goBack() {
       if (state.dirty && !(await confirmDialog('Tienes cambios sin guardar. Si vuelves a la lista, se perderán.', { title: 'Cambios sin guardar', confirmText: 'Descartar y volver', cancelText: 'Seguir editando', danger: true }))) return;
       state.dirty = false;
+      stopPresence();
       loadStudentList();
     }
+
+    /* ═══════════════════════════════════════════
+       PRESENCIA (avisar de ediciones simultáneas)
+    ═══════════════════════════════════════════ */
+    var presenceTimer = null;
+    var presenceCurrent = { yearId: '', tabName: '' };
+    var PRESENCE_HEARTBEAT_MS = 60000;
+
+    function startPresence(tabName) {
+      stopPresence();
+      if (!tabName) return;
+      presenceCurrent = { yearId: state.activeYearId || '', tabName: tabName };
+      sendPresence(true);
+      presenceTimer = setInterval(function() { sendPresence(false); }, PRESENCE_HEARTBEAT_MS);
+    }
+
+    function stopPresence() {
+      if (presenceTimer) { clearInterval(presenceTimer); presenceTimer = null; }
+      var prev = presenceCurrent;
+      presenceCurrent = { yearId: '', tabName: '' };
+      state.presenceOthers = [];
+      renderPresenceBanner();
+      if (prev.tabName) {
+        try {
+          google.script.run
+            .withSuccessHandler(function() {})
+            .withFailureHandler(function() {})
+            .releasePresence(prev.yearId, prev.tabName);
+        } catch (e) {}
+      }
+    }
+
+    function sendPresence(initial) {
+      if (!presenceCurrent.tabName) return;
+      var fn = initial ? 'acquirePresence' : 'heartbeatPresence';
+      google.script.run
+        .withSuccessHandler(function(others) {
+          state.presenceOthers = others || [];
+          renderPresenceBanner();
+        })
+        .withFailureHandler(function() {})
+        [fn](presenceCurrent.yearId, presenceCurrent.tabName);
+    }
+
+    function renderPresenceBanner() {
+      var existing = document.getElementById('presenceBanner');
+      if (!state.presenceOthers || state.presenceOthers.length === 0) {
+        if (existing) existing.remove();
+        return;
+      }
+      var names = state.presenceOthers.map(function(o) { return o.email || 'alguien sin identificar'; });
+      var msg = (names.length === 1)
+        ? names[0] + ' está editando esta ficha ahora mismo. Si guardáis a la vez, gana quien lo haga después.'
+        : (names.join(', ') + ' están editando esta ficha ahora mismo.');
+      if (existing) {
+        existing.querySelector('.presence-text').textContent = msg;
+        return;
+      }
+      var content = document.getElementById('content');
+      if (!content) return;
+      var div = document.createElement('div');
+      div.id = 'presenceBanner';
+      div.className = 'presence-banner';
+      div.innerHTML = '<span class="presence-icon">⚠️</span><span class="presence-text">' + escHtml(msg) + '</span>';
+      content.parentNode.insertBefore(div, content);
+    }
+
+    window.addEventListener('beforeunload', function() {
+      if (presenceCurrent.tabName) {
+        try {
+          // best-effort: en beforeunload no podemos esperar al callback
+          google.script.run.releasePresence(presenceCurrent.yearId, presenceCurrent.tabName);
+        } catch (e) {}
+      }
+    });
 
     /* ═══════════════════════════════════════════
        RENDER: Form View
@@ -1770,13 +2100,20 @@
       // ─── Student Info Card ───
       html += '<div class="card" id="secDatos"><div class="card-body">';
       html += '<div class="card-title"><span class="card-icon">' + ICONS.user + '</span> Datos del alumno/a</div>';
-      html += '<div class="grid-2">';
+      html += '<div class="grid-student-info">';
       html += '<div><label class="field-label">Nombre del alumno/a *</label>';
-      html += '<input class="field-input" id="fName" value="' + escAttr(state.studentName) + '" placeholder="Nombre y apellidos" oninput="onFieldChange()" ' + (state.selectedStudent && !state.isNew ? 'readonly' : '') + '></div>';
+      html += '<input class="field-input" id="fName" value="' + escAttr(state.studentName) + '" placeholder="Nombre y apellidos" oninput="onFieldChange()"></div>';
       html += '<div><label class="field-label">Curso *</label>';
       html += '<select class="field-select" id="fCourse" onchange="onFieldChange()"><option value="">Selecciona curso</option>';
-      COURSES.forEach(function(c) { html += '<option value="' + c + '"' + (state.course === c ? ' selected' : '') + '>' + c + '</option>'; });
+      var courseOptions = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES;
+      // Si el alumno tiene un curso que ya no está en la lista, lo añadimos para no perder el dato
+      if (state.course && courseOptions.indexOf(state.course) === -1) {
+        html += '<option value="' + escAttr(state.course) + '" selected>' + escHtml(state.course) + ' (no en lista)</option>';
+      }
+      courseOptions.forEach(function(c) { html += '<option value="' + escAttr(c) + '"' + (state.course === c ? ' selected' : '') + '>' + escHtml(c) + '</option>'; });
       html += '</select></div>';
+      html += '<div><label class="field-label">Docente(s) especialista(s)</label>';
+      html += '<div id="docentesWrap"></div></div>';
       html += '</div>';
 
       // Areas (multi-select checkboxes)
@@ -1828,6 +2165,69 @@
 
       // Auto-resize observation and list textareas
       document.querySelectorAll('.ind-obs-textarea, .list-textarea').forEach(function(ta) { autoResize(ta); });
+
+      renderDocentesWidget();
+    }
+
+    function renderDocentesWidget() {
+      var wrap = document.getElementById('docentesWrap');
+      if (!wrap) return;
+      var available = (state.config.docentes || []).slice();
+      var selected = (state.docentes || []).slice();
+      var notSelected = available.filter(function(d) { return selected.indexOf(d) === -1; });
+
+      // Sin selección: usar un select normal a la misma altura que Curso
+      if (selected.length === 0) {
+        if (available.length === 0) {
+          wrap.innerHTML = '<div class="docentes-empty-box">Añade docentes en Ajustes para poder asignarlos</div>';
+          return;
+        }
+        var html0 = '<select class="field-select" id="docentesAddSelect" onchange="addDocenteFromSelect(this)">';
+        html0 += '<option value="">— Sin asignar —</option>';
+        available.forEach(function(d) {
+          html0 += '<option value="' + escAttr(d) + '">' + escHtml(d) + '</option>';
+        });
+        html0 += '</select>';
+        wrap.innerHTML = html0;
+        return;
+      }
+
+      // Con chips: caja con chips y select compacto inline
+      var html = '<div class="docentes-chips" id="docentesChips">';
+      selected.forEach(function(d) {
+        html += '<span class="docente-chip">' + escHtml(d)
+          + '<button type="button" class="docente-chip-x" title="Quitar" onclick="removeDocente(\'' + escAttr(d) + '\')">×</button>'
+          + '</span>';
+      });
+      if (notSelected.length > 0) {
+        html += '<select class="docentes-add-inline" id="docentesAddSelect" onchange="addDocenteFromSelect(this)">';
+        html += '<option value="">+ Añadir</option>';
+        notSelected.forEach(function(d) {
+          html += '<option value="' + escAttr(d) + '">' + escHtml(d) + '</option>';
+        });
+        html += '</select>';
+      }
+      html += '</div>';
+
+      wrap.innerHTML = html;
+    }
+
+    function addDocenteFromSelect(sel) {
+      var v = sel.value;
+      if (!v) return;
+      if ((state.docentes || []).indexOf(v) === -1) {
+        state.docentes = (state.docentes || []).slice();
+        state.docentes.push(v);
+        onFieldChange();
+        renderDocentesWidget();
+      }
+      sel.value = '';
+    }
+
+    function removeDocente(name) {
+      state.docentes = (state.docentes || []).filter(function(d) { return d !== name; });
+      onFieldChange();
+      renderDocentesWidget();
     }
 
     function scrollToId(id) {
@@ -1940,11 +2340,13 @@
 
       // Indicators
       html += '<div class="section section-indicators">';
+      html += '<div class="section-header">';
       html += '<div class="section-label">Indicadores de evaluación</div>';
       html += '<div class="section-legend">';
       html += '<span><span class="eval-tag eval-tag-ni">NI</span> No iniciado</span>';
       html += '<span><span class="eval-tag eval-tag-ep">EP</span> En proceso</span>';
       html += '<span><span class="eval-tag eval-tag-c">C</span> Conseguido</span>';
+      html += '</div>';
       html += '</div>';
       html += renderDynamicList(obj.id, 'indicators', obj.indicators, 'Ej: Mantiene la atención durante 10-15 min...');
       html += '</div>';
@@ -1969,10 +2371,19 @@
       var isIndicator = (listType === 'indicators');
       var html = '';
       if (isIndicator && items.length > 0) {
-        html += '<div style="display:flex;justify-content:flex-end;gap:4px;margin-bottom:4px;padding-right:38px">';
-        html += '<span class="eval-label" style="width:56px">1T</span>';
-        html += '<span class="eval-label" style="width:56px">2T</span>';
-        html += '<span class="eval-label" style="width:56px">3T</span>';
+        var hasOne = items.length <= 1;
+        // Espejo de la estructura de un .list-item para alinear las cabeceras
+        // exactamente sobre los selects, independientemente de los botones a la derecha.
+        html += '<div class="list-item indicator-headers">';
+        html += '<span class="list-num" aria-hidden="true" style="visibility:hidden">0</span>';
+        html += '<span style="flex:1"></span>';
+        html += '<div class="eval-group" style="margin-top:0">';
+        html += '<span class="eval-label" style="width:58px">1T</span>';
+        html += '<span class="eval-label" style="width:58px">2T</span>';
+        html += '<span class="eval-label" style="width:58px">3T</span>';
+        html += '</div>';
+        html += '<span class="list-move-group" aria-hidden="true" style="visibility:hidden;width:24px;height:0;margin:0;flex-shrink:0"></span>';
+        if (!hasOne) html += '<span aria-hidden="true" style="width:28px;flex-shrink:0"></span>';
         html += '</div>';
       }
       var soloClass = (items.length <= 1) ? ' has-one' : '';
@@ -2739,9 +3150,16 @@
         }
       });
 
+      // Detección de renombrado: enviamos el nombre original tal y como lo
+      // teníamos antes de editar para que el backend pueda renombrar la pestaña.
+      var originalStudentName = (!state.isNew && state.selectedStudent) ? state.selectedStudent : '';
       var payload = JSON.stringify({
+        yearId: state.activeYearId,
         studentName: state.studentName,
+        originalStudentName: originalStudentName,
         course: state.course,
+        docentes: (state.docentes || []).slice(),
+        expectedUpdatedAt: state.expectedUpdatedAt || '',
         valoracionInicial: state.valoracionInicial,
         seguimiento1T: state.seguimiento1T,
         seguimiento2T: state.seguimiento2T,
@@ -2772,26 +3190,41 @@
         .withSuccessHandler(function(result) {
           clearTimeout(slowSaveTimer);
           state.saving = false;
+          var prevSelected = state.selectedStudent;
+          var renamed = !!(originalStudentName && originalStudentName !== state.studentName);
           state.selectedStudent = state.studentName;
           state.isNew = false;
+          if (result && result.updatedAt) state.expectedUpdatedAt = result.updatedAt;
           setBaselineFromCurrent();
           clearDraft(state.studentName);
+          if (renamed) clearDraft(originalStudentName);
 
           // Update local students list
           var areaStr = state.areas.map(function(a) { return a.name; }).join(', ');
+          var docentesArr = (state.docentes || []).slice();
+          if (renamed) {
+            // Quitar la entrada con el nombre antiguo
+            state.students = state.students.filter(function(s) { return s.name !== originalStudentName; });
+          }
           var existing = state.students.find(function(s) { return s.name === state.studentName; });
           if (!existing) {
-            state.students.push({ name: state.studentName, course: state.course, program: 'PE', area: areaStr });
+            state.students.push({ name: state.studentName, course: state.course, program: 'PE', area: areaStr, docentes: docentesArr });
           } else {
             existing.course = state.course;
             existing.program = 'PE';
             existing.area = areaStr;
+            existing.docentes = docentesArr;
           }
 
           btn.disabled = false;
           btn.innerHTML = svgIcon('save') + ' Guardar';
           updateBadge();
-          showToast('Datos guardados en Google Sheets', 'success');
+          // Reiniciar la presencia al nuevo nombre si hubo renombrado, o registrarla si era nuevo
+          if (renamed || !presenceCurrent.tabName) {
+            stopPresence();
+            startPresence(state.studentName);
+          }
+          showToast(renamed ? ('Alumno renombrado a "' + state.studentName + '" y guardado') : 'Datos guardados en Google Sheets', 'success');
         })
         .withFailureHandler(function(err) {
           clearTimeout(slowSaveTimer);
@@ -2799,6 +3232,18 @@
           btn.disabled = false;
           btn.innerHTML = svgIcon('save') + ' Guardar';
           var msg = (err && err.message) ? err.message : 'No se pudo conectar';
+          if (msg.indexOf('CONFLICT') !== -1) {
+            // Conflicto de versión: ofrecemos recargar tras conservar el borrador
+            var clean = msg.replace(/^.*CONFLICT:\s*/i, '');
+            showToast(clean + ' · tu borrador local se mantiene hasta que recargues.', 'error', {
+              action: 'Recargar alumno',
+              onAction: function() {
+                if (state.selectedStudent) selectStudent(state.selectedStudent);
+              },
+              duration: 15000
+            });
+            return;
+          }
           showToast('Error al guardar: ' + msg + ' · tus datos siguen en el borrador local', 'error', {
             action: 'Reintentar',
             onAction: saveData,
@@ -3123,14 +3568,38 @@
       var c = state.config;
       var html = '<div class="settings-overlay" id="settingsOverlay" onclick="if(event.target===this)closeSettings()">';
       html += '<div class="settings-panel">';
-      html += '<div class="settings-header"><span class="settings-title">' + ICONS.settings + ' Ajustes del centro</span><button class="settings-close" onclick="closeSettings()" title="Cerrar" aria-label="Cerrar">' + ICONS.x + '</button></div>';
+      html += '<div class="settings-header"><span class="settings-title">' + ICONS.settings + ' Ajustes</span><button class="settings-close" onclick="closeSettings()" title="Cerrar" aria-label="Cerrar">' + ICONS.x + '</button></div>';
       html += '<div class="settings-body">';
+
+      html += '<div class="settings-section-title">Cursos académicos</div>';
+      html += '<label class="settings-toggle"><input type="checkbox" id="cfgShowArchived"' + (state.showArchivedYears ? ' checked' : '') + ' onchange="toggleShowArchivedYears(this.checked)"> Mostrar cursos archivados en el selector</label>';
+      html += '<div id="yearsList" class="years-list">' + renderYearsListHtml() + '</div>';
+      html += '<button type="button" class="btn-add-list" onclick="duplicateYearPrompt()">+ Duplicar curso académico actual</button>';
+      html += '<div class="list-hint">Al duplicar se crea una copia del curso con la misma estructura (alumnos, ámbitos, objetivos, indicadores, contenidos y actividades) pero con observaciones, evaluaciones y seguimientos en blanco.</div>';
+
+      html += '<div class="settings-section-title">Datos del centro</div>';
+      html += '<div class="settings-grid-2">';
       html += '<div><label class="field-label">Centro educativo</label>';
       html += '<input class="field-input" id="cfgCentro" value="' + escAttr(c.centro || '') + '" placeholder="Ej: CEIP Carlos III"></div>';
       html += '<div><label class="field-label">Localidad</label>';
       html += '<input class="field-input" id="cfgLocalidad" value="' + escAttr(c.localidad || '') + '" placeholder="Ej: La Carlota"></div>';
+      html += '</div>';
+
+      html += '<div class="settings-section-title">Curso académico activo</div>';
       html += '<div><label class="field-label">Curso escolar</label>';
       html += '<input class="field-input" id="cfgCurso" value="' + escAttr(c.cursoEscolar || '') + '" placeholder="Ej: 2025/2026 (vacío = automático)"></div>';
+
+      html += '<div class="settings-grid-2">';
+      html += '<div><label class="field-label">Cursos del año (1º A, 1º B, …)</label>';
+      html += '<div class="list-editor" id="coursesEditor"></div>';
+      html += '<button type="button" class="btn-add-list" onclick="addCfgListItem(\'coursesEditor\', \'\')">+ Añadir curso</button></div>';
+
+      html += '<div><label class="field-label">Docentes especialistas</label>';
+      html += '<div class="list-editor" id="docentesEditor"></div>';
+      html += '<button type="button" class="btn-add-list" onclick="addCfgListItem(\'docentesEditor\', \'\')">+ Añadir docente</button>';
+      html += '<div class="list-hint">Sugerencia: incluye el rol entre paréntesis. Ej: <i>Ana López (PT)</i></div></div>';
+      html += '</div>';
+
       html += '</div>';
       html += '<div class="settings-footer">';
       html += '<button class="btn btn-secondary" onclick="closeSettings()">Cancelar</button>';
@@ -3141,6 +3610,42 @@
       wrapper.id = 'settingsWrapper';
       wrapper.innerHTML = html;
       document.body.appendChild(wrapper);
+
+      // Rellenar listas
+      var coursesList = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES.slice();
+      coursesList.forEach(function(v) { addCfgListItem('coursesEditor', v); });
+      (state.config.docentes || []).forEach(function(v) { addCfgListItem('docentesEditor', v); });
+    }
+
+    function addCfgListItem(containerId, value) {
+      var c = document.getElementById(containerId);
+      if (!c) return;
+      var row = document.createElement('div');
+      row.className = 'list-row';
+      row.innerHTML =
+        '<button type="button" class="list-btn-move" title="Subir" onclick="moveCfgListItem(this, -1)">' + ICONS.arrowUp + '</button>' +
+        '<button type="button" class="list-btn-move" title="Bajar" onclick="moveCfgListItem(this, 1)">' + ICONS.arrowDown + '</button>' +
+        '<input class="field-input list-input" type="text" value="' + escAttr(value || '') + '">' +
+        '<button type="button" class="list-btn-remove" title="Eliminar" onclick="this.parentNode.remove()">' + ICONS.trash + '</button>';
+      c.appendChild(row);
+    }
+
+    function moveCfgListItem(btn, dir) {
+      var row = btn.parentNode;
+      var parent = row.parentNode;
+      if (dir < 0 && row.previousElementSibling) parent.insertBefore(row, row.previousElementSibling);
+      else if (dir > 0 && row.nextElementSibling) parent.insertBefore(row.nextElementSibling, row);
+    }
+
+    function readCfgListEditor(containerId) {
+      var c = document.getElementById(containerId);
+      if (!c) return [];
+      var out = [];
+      c.querySelectorAll('.list-input').forEach(function(inp) {
+        var v = inp.value.trim();
+        if (v) out.push(v);
+      });
+      return out;
     }
 
     function closeSettings() {
@@ -3148,30 +3653,185 @@
       if (w) w.remove();
     }
 
+    function renderYearsListHtml() {
+      if (!state.years || state.years.length === 0) {
+        return '<div class="years-empty">Aún no hay cursos académicos registrados.</div>';
+      }
+      var sorted = state.years.slice().sort(function(a, b) {
+        var ta = new Date(a.createdAt).getTime() || 0;
+        var tb = new Date(b.createdAt).getTime() || 0;
+        return tb - ta;
+      });
+      var html = '';
+      sorted.forEach(function(y) {
+        var isActive = y.id === state.activeYearId;
+        html += '<div class="year-row' + (isActive ? ' active' : '') + (y.archived ? ' archived' : '') + '">';
+        html += '<div class="year-info">';
+        html += '<span class="year-label">' + escHtml(y.label) + '</span>';
+        if (isActive) html += '<span class="year-badge year-badge-active">activo</span>';
+        if (y.archived) html += '<span class="year-badge year-badge-archived">archivado</span>';
+        html += '</div>';
+        html += '<div class="year-actions">';
+        if (y.url) html += '<a class="year-link" href="' + escAttr(y.url) + '" target="_blank" rel="noopener" title="Abrir en Google Sheets">↗</a>';
+        if (y.archived) {
+          html += '<button type="button" class="btn-year-action" onclick="toggleArchiveYear(\'' + escAttr(y.id) + '\', false)">Desarchivar</button>';
+        } else {
+          html += '<button type="button" class="btn-year-action" onclick="toggleArchiveYear(\'' + escAttr(y.id) + '\', true)">Archivar</button>';
+        }
+        html += '<button type="button" class="btn-year-action btn-year-delete" onclick="confirmDeleteYear(\'' + escAttr(y.id) + '\', \'' + escAttr(y.label) + '\')">Borrar</button>';
+        html += '</div>';
+        html += '</div>';
+      });
+      return html;
+    }
+
+    function refreshYearsList() {
+      var el = document.getElementById('yearsList');
+      if (el) el.innerHTML = renderYearsListHtml();
+    }
+
+    function toggleShowArchivedYears(checked) {
+      state.showArchivedYears = !!checked;
+      renderYearSelect();
+    }
+
+    async function duplicateYearPrompt() {
+      var current = state.years.find(function(y) { return y.id === state.activeYearId; });
+      var defaultLabel = current ? suggestNextYearLabel(current.label) : '';
+      var newLabel = await promptDialog('Se creará un nuevo curso académico copiando los datos del actual. Las observaciones, evaluaciones y seguimientos se dejarán en blanco.', {
+        title: 'Duplicar curso académico',
+        confirmText: 'Duplicar',
+        cancelText: 'Cancelar',
+        placeholder: 'Ej: 2026/2027',
+        defaultValue: defaultLabel,
+        validate: function(v) {
+          if (!v) return 'Indica el nombre del nuevo curso académico';
+          if (state.years.some(function(y) { return y.label.toLowerCase() === v.toLowerCase(); })) return 'Ya existe un curso académico con ese nombre';
+          return '';
+        }
+      });
+      if (!newLabel) return;
+      showToast('Duplicando curso académico... esto puede tardar unos segundos', 'info', { duration: 8000 });
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res && res.id) {
+            state.years.push({ id: res.id, label: res.label, url: res.url, createdAt: new Date().toISOString(), archived: false });
+            state.activeYearId = res.id;
+            renderYearSelect();
+            refreshYearsList();
+            showToast('Curso "' + res.label + '" creado y activo', 'success');
+            // Recargar configuración y alumnos del nuevo año
+            loadConfig(function() { loadStudentList(); });
+          }
+        })
+        .withFailureHandler(function(err) {
+          showToast('Error al duplicar: ' + (err && err.message ? err.message : err), 'error');
+        })
+        .cloneSchoolYear(JSON.stringify({ sourceYearId: state.activeYearId, newLabel: newLabel }));
+    }
+
+    function suggestNextYearLabel(current) {
+      // 2025/2026 → 2026/2027
+      var m = String(current).match(/^(\d{4})\s*\/\s*(\d{4})$/);
+      if (m) return (parseInt(m[1], 10) + 1) + '/' + (parseInt(m[2], 10) + 1);
+      return '';
+    }
+
+    function toggleArchiveYear(yearId, archived) {
+      google.script.run
+        .withSuccessHandler(function() {
+          var y = state.years.find(function(yr) { return yr.id === yearId; });
+          if (y) y.archived = !!archived;
+          renderYearSelect();
+          refreshYearsList();
+          showToast(archived ? 'Curso archivado' : 'Curso desarchivado', 'success');
+        })
+        .withFailureHandler(function(err) {
+          showToast('Error: ' + (err && err.message ? err.message : err), 'error');
+        })
+        .archiveYear(yearId, !!archived);
+    }
+
+    async function confirmDeleteYear(yearId, label) {
+      if (state.years.filter(function(y) { return y.id; }).length <= 1) {
+        showToast('No puedes borrar el único curso académico', 'error');
+        return;
+      }
+      var typed = await promptDialog('Esta acción moverá el archivo del curso "' + label + '" a la papelera de Drive (recuperable 30 días) y lo quitará del registro. Para confirmar, escribe el nombre exacto del curso académico.', {
+        title: 'Borrar curso académico',
+        confirmText: 'Borrar',
+        cancelText: 'Cancelar',
+        placeholder: label,
+        danger: true,
+        validate: function(v) {
+          if (v !== label) return 'El texto no coincide con "' + label + '"';
+          return '';
+        }
+      });
+      if (!typed) return;
+      google.script.run
+        .withSuccessHandler(function() {
+          state.years = state.years.filter(function(y) { return y.id !== yearId; });
+          var wasActive = state.activeYearId === yearId;
+          if (wasActive) {
+            // Activar el más reciente no archivado
+            var candidate = null;
+            state.years.forEach(function(y) {
+              if (y.archived) return;
+              if (!candidate || (new Date(y.createdAt).getTime() || 0) > (new Date(candidate.createdAt).getTime() || 0)) candidate = y;
+            });
+            state.activeYearId = candidate ? candidate.id : (state.years[0] ? state.years[0].id : '');
+          }
+          renderYearSelect();
+          refreshYearsList();
+          showToast('Curso "' + label + '" borrado', 'success');
+          if (wasActive) loadConfig(function() { loadStudentList(); });
+        })
+        .withFailureHandler(function(err) {
+          showToast('Error al borrar: ' + (err && err.message ? err.message : err), 'error');
+        })
+        .deleteYear(yearId, label);
+    }
+
     function saveConfigFromUI() {
       var payload = {
+        yearId: state.activeYearId,
         centro: document.getElementById('cfgCentro').value.trim(),
         localidad: document.getElementById('cfgLocalidad').value.trim(),
         cursoEscolar: document.getElementById('cfgCurso').value.trim()
       };
+      var listsPayload = {
+        yearId: state.activeYearId,
+        courses: readCfgListEditor('coursesEditor'),
+        docentes: readCfgListEditor('docentesEditor')
+      };
       var btn = document.getElementById('btnSaveConfig');
       btn.disabled = true;
-      btn.textContent = 'Guardando...';
+      btn.innerHTML = '<span class="spinner"></span> Guardando...';
+
+      var onError = function(err) {
+        btn.disabled = false;
+        btn.innerHTML = 'Guardar';
+        showToast('Error al guardar ajustes: ' + (err && err.message ? err.message : err), 'error');
+      };
 
       google.script.run
         .withSuccessHandler(function() {
-          state.config.centro = payload.centro;
-          state.config.localidad = payload.localidad;
-          if (payload.cursoEscolar) state.config.cursoEscolar = payload.cursoEscolar;
-          updateHeaderSubtitle();
-          closeSettings();
-          showToast('Ajustes del centro guardados', 'success');
+          google.script.run
+            .withSuccessHandler(function() {
+              state.config.centro = payload.centro;
+              state.config.localidad = payload.localidad;
+              if (payload.cursoEscolar) state.config.cursoEscolar = payload.cursoEscolar;
+              state.config.courses = listsPayload.courses;
+              state.config.docentes = listsPayload.docentes;
+              updateHeaderSubtitle();
+              closeSettings();
+              showToast('Ajustes guardados', 'success');
+            })
+            .withFailureHandler(onError)
+            .saveYearLists(JSON.stringify(listsPayload));
         })
-        .withFailureHandler(function(err) {
-          btn.disabled = false;
-          btn.textContent = 'Guardar';
-          showToast('Error al guardar ajustes: ' + err.message, 'error');
-        })
+        .withFailureHandler(onError)
         .saveConfig(JSON.stringify(payload));
     }
 
