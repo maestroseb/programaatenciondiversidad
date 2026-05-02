@@ -273,6 +273,13 @@
     .docente-chip-x:hover { background: rgba(0,0,0,0.18); }
     .docentes-add { margin-top: 6px; }
     .docentes-hint { font-size: 12px; color: var(--gris-500); margin-top: 6px; }
+    .docentes-empty-box {
+      padding: 11px 14px; min-height: 42px;
+      border: 1px dashed var(--gris-300); border-radius: var(--radio);
+      background: var(--gris-50); color: var(--gris-500);
+      font-size: 13px; font-style: italic;
+      display: flex; align-items: center;
+    }
 
     .presence-banner {
       max-width: 1200px; margin: 8px auto 0; padding: 10px 14px;
@@ -565,15 +572,17 @@
     .eval-select {
       width: 58px; padding: 7px 4px; border-radius: var(--radio); border: 1px solid var(--gris-300);
       font-size: 12px; font-family: inherit; font-weight: 700;
-      text-align: center; cursor: pointer; background: var(--gris-0); flex-shrink: 0; margin-top: 6px;
+      text-align: center; cursor: pointer; background: var(--gris-0); flex-shrink: 0;
       letter-spacing: 0.04em;
       transition: border-color var(--trans-fast);
     }
     .eval-select.eval-ni { background: var(--rojo-light); border-color: rgba(220,38,38,.3); color: var(--rojo-dark); }
     .eval-select.eval-ep { background: var(--ambar-light); border-color: rgba(217,119,6,.3); color: var(--ambar-dark); }
     .eval-select.eval-c { background: var(--verde-tint-dark); border-color: var(--verde-acento); color: var(--verde-oscuro); }
-    .eval-group { display: flex; gap: 4px; flex-shrink: 0; margin-top: 6px; }
-    .indicator-headers { margin-bottom: 2px; align-items: flex-end; }
+    .eval-group { display: flex; gap: 4px; flex-shrink: 0; }
+    .section-indicators .list-item { align-items: center; }
+    .section-indicators .list-item > .list-num { align-self: flex-start; margin-top: 4px; }
+    .indicator-headers { margin-bottom: 2px; align-items: flex-end !important; }
     .indicator-headers .list-num { margin-top: 0; height: 0; padding: 0; border: 0; }
     .eval-label { font-size: 11px; font-weight: 700; color: var(--gris-500); text-align: center; letter-spacing: 0.04em; }
     .btn-remove-item {
@@ -979,6 +988,11 @@
       margin-top: 4px;
     }
     .settings-section-title:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+    .settings-toggle {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--gris-700); cursor: pointer; user-select: none;
+    }
+    .settings-toggle input { width: 16px; height: 16px; accent-color: var(--verde-medio); cursor: pointer; }
     .list-editor { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
     .list-row { display: flex; align-items: center; gap: 6px; }
     .list-row .list-input { flex: 1; }
@@ -1171,9 +1185,6 @@
         </div>
         <div class="header-tools">
           <select class="year-select" id="yearSelect" onchange="onYearChange()" title="Curso académico activo" style="display:none"></select>
-          <label class="year-archived-toggle" id="yearArchivedToggle" style="display:none" title="Mostrar también cursos archivados">
-            <input type="checkbox" id="yearShowArchived" onchange="renderYearSelect()"> archivados
-          </label>
           <button class="btn-back" id="btnBack" style="display:none" onclick="goBack()"><span class="icon" id="iconBack"></span> Alumnos</button>
           <button class="btn-settings" id="btnSettings" onclick="openSettings()" title="Ajustes del centro" aria-label="Ajustes del centro"><span class="icon" id="iconSettings"></span></button>
         </div>
@@ -1583,16 +1594,13 @@
 
     function renderYearSelect() {
       var sel = document.getElementById('yearSelect');
-      var toggle = document.getElementById('yearArchivedToggle');
       if (!sel) return;
       if (!state.years || state.years.length === 0) {
         sel.style.display = 'none';
-        if (toggle) toggle.style.display = 'none';
         return;
       }
       sel.style.display = '';
-      if (toggle) toggle.style.display = 'inline-flex';
-      var showArchived = !!(document.getElementById('yearShowArchived') && document.getElementById('yearShowArchived').checked);
+      var showArchived = !!state.showArchivedYears;
       var visible = state.years.filter(function(y) { return showArchived || !y.archived; });
       // Si el activo está archivado y no mostramos archivados, lo incluimos igualmente
       if (state.activeYearId && !visible.some(function(y) { return y.id === state.activeYearId; })) {
@@ -2168,6 +2176,23 @@
       var selected = (state.docentes || []).slice();
       var notSelected = available.filter(function(d) { return selected.indexOf(d) === -1; });
 
+      // Sin selección: usar un select normal a la misma altura que Curso
+      if (selected.length === 0) {
+        if (available.length === 0) {
+          wrap.innerHTML = '<div class="docentes-empty-box">Añade docentes en Ajustes para poder asignarlos</div>';
+          return;
+        }
+        var html0 = '<select class="field-select" id="docentesAddSelect" onchange="addDocenteFromSelect(this)">';
+        html0 += '<option value="">— Sin asignar —</option>';
+        available.forEach(function(d) {
+          html0 += '<option value="' + escAttr(d) + '">' + escHtml(d) + '</option>';
+        });
+        html0 += '</select>';
+        wrap.innerHTML = html0;
+        return;
+      }
+
+      // Con chips: caja con chips y select compacto inline
       var html = '<div class="docentes-chips" id="docentesChips">';
       selected.forEach(function(d) {
         html += '<span class="docente-chip">' + escHtml(d)
@@ -2176,13 +2201,11 @@
       });
       if (notSelected.length > 0) {
         html += '<select class="docentes-add-inline" id="docentesAddSelect" onchange="addDocenteFromSelect(this)">';
-        html += '<option value="">' + (selected.length === 0 ? 'Selecciona docente(s)' : '+ Añadir') + '</option>';
+        html += '<option value="">+ Añadir</option>';
         notSelected.forEach(function(d) {
           html += '<option value="' + escAttr(d) + '">' + escHtml(d) + '</option>';
         });
         html += '</select>';
-      } else if (selected.length === 0 && available.length === 0) {
-        html += '<span class="docentes-empty">Añade docentes en Ajustes</span>';
       }
       html += '</div>';
 
@@ -2359,7 +2382,7 @@
         html += '<span class="eval-label" style="width:58px">2T</span>';
         html += '<span class="eval-label" style="width:58px">3T</span>';
         html += '</div>';
-        html += '<div class="list-move-group" aria-hidden="true" style="visibility:hidden;height:0;margin:0"></div>';
+        html += '<span class="list-move-group" aria-hidden="true" style="visibility:hidden;width:24px;height:0;margin:0;flex-shrink:0"></span>';
         if (!hasOne) html += '<span aria-hidden="true" style="width:28px;flex-shrink:0"></span>';
         html += '</div>';
       }
@@ -3549,6 +3572,7 @@
       html += '<div class="settings-body">';
 
       html += '<div class="settings-section-title">Cursos académicos</div>';
+      html += '<label class="settings-toggle"><input type="checkbox" id="cfgShowArchived"' + (state.showArchivedYears ? ' checked' : '') + ' onchange="toggleShowArchivedYears(this.checked)"> Mostrar cursos archivados en el selector</label>';
       html += '<div id="yearsList" class="years-list">' + renderYearsListHtml() + '</div>';
       html += '<button type="button" class="btn-add-list" onclick="duplicateYearPrompt()">+ Duplicar curso académico actual</button>';
       html += '<div class="list-hint">Al duplicar se crea una copia del curso con la misma estructura (alumnos, ámbitos, objetivos, indicadores, contenidos y actividades) pero con observaciones, evaluaciones y seguimientos en blanco.</div>';
@@ -3666,6 +3690,11 @@
       if (el) el.innerHTML = renderYearsListHtml();
     }
 
+    function toggleShowArchivedYears(checked) {
+      state.showArchivedYears = !!checked;
+      renderYearSelect();
+    }
+
     async function duplicateYearPrompt() {
       var current = state.years.find(function(y) { return y.id === state.activeYearId; });
       var defaultLabel = current ? suggestNextYearLabel(current.label) : '';
@@ -3778,11 +3807,11 @@
       };
       var btn = document.getElementById('btnSaveConfig');
       btn.disabled = true;
-      btn.textContent = 'Guardando...';
+      btn.innerHTML = '<span class="spinner"></span> Guardando...';
 
       var onError = function(err) {
         btn.disabled = false;
-        btn.textContent = 'Guardar';
+        btn.innerHTML = 'Guardar';
         showToast('Error al guardar ajustes: ' + (err && err.message ? err.message : err), 'error');
       };
 
