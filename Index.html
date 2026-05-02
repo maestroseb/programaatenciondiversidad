@@ -249,19 +249,30 @@
     @media (max-width: 560px) { .grid-student-info { grid-template-columns: 1fr; } .grid-student-info > div:nth-child(3) { grid-column: auto; } }
 
     .docentes-chips {
+      position: relative;
       display: flex; flex-wrap: wrap; gap: 6px;
-      padding: 5px 8px; min-height: 42px;
+      padding: 5px 32px 5px 8px; min-height: 42px;
       border: 1px solid var(--gris-200); border-radius: var(--radio);
       background: var(--gris-0); align-items: center; cursor: pointer;
     }
-    .docentes-chips .docente-chip { cursor: default; }
     .docentes-chips .docentes-add-inline {
-      flex: 0 0 auto; width: 28px; min-width: 28px; border: none; background: transparent;
-      padding: 0; font-family: inherit; font-size: 13px; color: var(--gris-600);
-      outline: none; cursor: pointer; margin-left: auto;
-      appearance: auto;
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      border: none; background: transparent; opacity: 0; cursor: pointer;
+      padding: 0; margin: 0; font-family: inherit; font-size: 13px;
+      appearance: none; -webkit-appearance: none;
+      z-index: 0;
     }
-    .docentes-chips .docentes-add-inline option { color: var(--gris-700); }
+    .docentes-chips .docentes-add-inline option { color: var(--gris-700); opacity: 1; }
+    .docentes-chips .docente-chip {
+      position: relative; z-index: 1; pointer-events: none;
+    }
+    .docentes-chips .docente-chip-x { pointer-events: auto; }
+    .docentes-chips .docentes-arrow {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      width: 14px; height: 14px; color: var(--gris-500); pointer-events: none;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .docentes-chips .docentes-arrow svg { width: 14px; height: 14px; }
     .docentes-empty { color: var(--gris-400); font-size: 13px; font-style: italic; }
     .docente-chip {
       display: inline-flex; align-items: center; gap: 4px;
@@ -2199,39 +2210,28 @@
         return;
       }
 
-      // Con chips: caja con chips y select compacto inline
-      var html = '<div class="docentes-chips" id="docentesChips" onclick="openDocentesPicker(event)">';
-      selected.forEach(function(d) {
-        html += '<span class="docente-chip">' + escHtml(d)
-          + '<button type="button" class="docente-chip-x" title="Quitar" onclick="event.stopPropagation();removeDocente(\'' + escAttr(d) + '\')">×</button>'
-          + '</span>';
-      });
+      // Con chips: caja con chips y un <select> transparente que cubre toda la caja
+      // para que pulsar en cualquier zona (excepto la X) abra el desplegable nativo.
+      var html = '<div class="docentes-chips" id="docentesChips">';
       if (notSelected.length > 0) {
-        html += '<select class="docentes-add-inline" id="docentesAddSelect" title="Añadir docente" aria-label="Añadir docente" onchange="addDocenteFromSelect(this)">';
+        html += '<select class="docentes-add-inline" id="docentesAddSelect" title="Añadir docente" aria-label="Añadir docente" onchange="addDocenteFromSelect(this)" onmousedown="event.stopPropagation()">';
         html += '<option value=""></option>';
         notSelected.forEach(function(d) {
           html += '<option value="' + escAttr(d) + '">' + escHtml(d) + '</option>';
         });
         html += '</select>';
       }
+      selected.forEach(function(d) {
+        html += '<span class="docente-chip">' + escHtml(d)
+          + '<button type="button" class="docente-chip-x" title="Quitar" onclick="event.stopPropagation();removeDocente(\'' + escAttr(d) + '\')">×</button>'
+          + '</span>';
+      });
+      if (notSelected.length > 0) {
+        html += '<span class="docentes-arrow" aria-hidden="true">' + ICONS.chevronDown + '</span>';
+      }
       html += '</div>';
 
       wrap.innerHTML = html;
-    }
-
-    function openDocentesPicker(evt) {
-      // Open the inline docentes <select> when clicking anywhere on the chips box,
-      // except on a chip's remove button or on the select itself (native behaviour).
-      if (evt && evt.target && evt.target.closest &&
-          (evt.target.closest('.docente-chip-x') || evt.target.closest('.docentes-add-inline'))) {
-        return;
-      }
-      var sel = document.getElementById('docentesAddSelect');
-      if (!sel) return;
-      if (typeof sel.showPicker === 'function') {
-        try { sel.showPicker(); return; } catch (e) {}
-      }
-      sel.focus();
     }
 
     function addDocenteFromSelect(sel) {
