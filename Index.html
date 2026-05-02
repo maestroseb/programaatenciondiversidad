@@ -255,10 +255,12 @@
       background: var(--gris-0); align-items: center;
     }
     .docentes-chips .docentes-add-inline {
-      flex: 0 0 auto; min-width: 90px; max-width: 130px; border: none; background: transparent;
-      padding: 4px 6px; font-family: inherit; font-size: 13px; color: var(--gris-600);
-      outline: none; cursor: pointer;
+      flex: 0 0 auto; width: 28px; min-width: 28px; border: none; background: transparent;
+      padding: 0; font-family: inherit; font-size: 13px; color: var(--gris-600);
+      outline: none; cursor: pointer; margin-left: auto;
+      appearance: auto;
     }
+    .docentes-chips .docentes-add-inline option { color: var(--gris-700); }
     .docentes-empty { color: var(--gris-400); font-size: 13px; font-style: italic; }
     .docente-chip {
       display: inline-flex; align-items: center; gap: 4px;
@@ -603,6 +605,10 @@
       display: flex; align-items: center; justify-content: center; padding: 0;
       transition: all var(--trans-fast);
     }
+    .section-indicators .list-move-group {
+      margin-top: 0; align-self: center; height: 32px;
+    }
+    .section-indicators .btn-move-item { height: auto; flex: 1; min-height: 0; }
     .btn-move-item svg { width: 11px; height: 11px; }
     .btn-move-item:hover:not(:disabled) { background: var(--verde-tint); border-color: var(--verde-acento); color: var(--verde-medio); }
     .btn-move-item:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -2200,8 +2206,8 @@
           + '</span>';
       });
       if (notSelected.length > 0) {
-        html += '<select class="docentes-add-inline" id="docentesAddSelect" onchange="addDocenteFromSelect(this)">';
-        html += '<option value="">+ Añadir</option>';
+        html += '<select class="docentes-add-inline" id="docentesAddSelect" title="Añadir docente" aria-label="Añadir docente" onchange="addDocenteFromSelect(this)">';
+        html += '<option value=""></option>';
         notSelected.forEach(function(d) {
           html += '<option value="' + escAttr(d) + '">' + escHtml(d) + '</option>';
         });
@@ -2695,7 +2701,10 @@
 
     function currentSnapshotKey() {
       // Same shape as buildDraftSnapshot but excluding savedAt; used to compare against baseline.
+      // Rich-text fields are normalized so that browser-introduced markup on focus/blur
+      // (e.g. trailing <br>, <div> wrappers) doesn't mark the form as dirty.
       try {
+        var nrh = normalizeRichHtml;
         return JSON.stringify({
           studentName: state.studentName || '',
           course: state.course || '',
@@ -2709,17 +2718,17 @@
                   indicators: (o.indicators || []).map(function(i) { return { text: i.text || '', eval1T: i.eval1T || '', eval2T: i.eval2T || '', eval3T: i.eval3T || '', observaciones: i.observaciones || '' }; }),
                   contents: (function() {
                     var arr = Array.isArray(o.contents) ? o.contents : [];
-                    return arr.map(function(c) { return { text: (c && c.text) || '' }; });
+                    return arr.map(function(c) { return { text: nrh((c && c.text) || '') }; });
                   })(),
-                  activities: typeof o.activities === 'string' ? o.activities : ''
+                  activities: nrh(typeof o.activities === 'string' ? o.activities : '')
                 };
               })
             };
           }),
-          valoracionInicial: state.valoracionInicial || '',
-          seguimiento1T: state.seguimiento1T || '',
-          seguimiento2T: state.seguimiento2T || '',
-          seguimiento3T: state.seguimiento3T || '',
+          valoracionInicial: nrh(state.valoracionInicial || ''),
+          seguimiento1T: nrh(state.seguimiento1T || ''),
+          seguimiento2T: nrh(state.seguimiento2T || ''),
+          seguimiento3T: nrh(state.seguimiento3T || ''),
           informeFamilias: {
             indicadores: (state.informeFamilias && state.informeFamilias.indicadores || []).map(function(x) { return { text: x.text || '' }; }),
             evaluaciones: (state.informeFamilias && state.informeFamilias.evaluaciones || []).map(function(x) { return { eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '' }; })
@@ -3847,10 +3856,10 @@
       var s = String(html);
       // Browser-introduced no-op markup that appears on focus/blur of contenteditable
       s = s.replace(/&nbsp;/gi, ' ');
-      s = s.replace(/<br\s*\/?>/gi, '<br>');
-      s = s.replace(/<div>\s*<br>\s*<\/div>/gi, '<br>');
-      s = s.replace(/<div>([\s\S]*?)<\/div>/gi, '$1<br>');
-      s = s.replace(/<p>([\s\S]*?)<\/p>/gi, '$1<br>');
+      s = s.replace(/<br\b[^>]*\/?>/gi, '<br>');
+      s = s.replace(/<div\b[^>]*>\s*(?:<br>\s*)?<\/div>/gi, '<br>');
+      s = s.replace(/<div\b[^>]*>([\s\S]*?)<\/div>/gi, '$1<br>');
+      s = s.replace(/<p\b[^>]*>([\s\S]*?)<\/p>/gi, '$1<br>');
       s = s.replace(/(<br>\s*)+$/g, '');
       s = s.replace(/\s+/g, ' ');
       return s.trim();
