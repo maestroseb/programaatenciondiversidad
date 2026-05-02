@@ -252,8 +252,9 @@
       display: flex; flex-wrap: wrap; gap: 6px;
       padding: 5px 8px; min-height: 42px;
       border: 1px solid var(--gris-200); border-radius: var(--radio);
-      background: var(--gris-0); align-items: center;
+      background: var(--gris-0); align-items: center; cursor: pointer;
     }
+    .docentes-chips .docente-chip { cursor: default; }
     .docentes-chips .docentes-add-inline {
       flex: 0 0 auto; width: 28px; min-width: 28px; border: none; background: transparent;
       padding: 0; font-family: inherit; font-size: 13px; color: var(--gris-600);
@@ -1190,8 +1191,8 @@
           <div class="subtitle">Gestión de programas individualizados</div>
         </div>
         <div class="header-tools">
-          <select class="year-select" id="yearSelect" onchange="onYearChange()" title="Curso académico activo" style="display:none"></select>
           <button class="btn-back" id="btnBack" style="display:none" onclick="goBack()"><span class="icon" id="iconBack"></span> Alumnos</button>
+          <select class="year-select" id="yearSelect" onchange="onYearChange()" title="Curso académico activo" style="display:none"></select>
           <button class="btn-settings" id="btnSettings" onclick="openSettings()" title="Ajustes del centro" aria-label="Ajustes del centro"><span class="icon" id="iconSettings"></span></button>
         </div>
       </div>
@@ -2199,10 +2200,10 @@
       }
 
       // Con chips: caja con chips y select compacto inline
-      var html = '<div class="docentes-chips" id="docentesChips">';
+      var html = '<div class="docentes-chips" id="docentesChips" onclick="openDocentesPicker(event)">';
       selected.forEach(function(d) {
         html += '<span class="docente-chip">' + escHtml(d)
-          + '<button type="button" class="docente-chip-x" title="Quitar" onclick="removeDocente(\'' + escAttr(d) + '\')">×</button>'
+          + '<button type="button" class="docente-chip-x" title="Quitar" onclick="event.stopPropagation();removeDocente(\'' + escAttr(d) + '\')">×</button>'
           + '</span>';
       });
       if (notSelected.length > 0) {
@@ -2216,6 +2217,21 @@
       html += '</div>';
 
       wrap.innerHTML = html;
+    }
+
+    function openDocentesPicker(evt) {
+      // Open the inline docentes <select> when clicking anywhere on the chips box,
+      // except on a chip's remove button or on the select itself (native behaviour).
+      if (evt && evt.target && evt.target.closest &&
+          (evt.target.closest('.docente-chip-x') || evt.target.closest('.docentes-add-inline'))) {
+        return;
+      }
+      var sel = document.getElementById('docentesAddSelect');
+      if (!sel) return;
+      if (typeof sel.showPicker === 'function') {
+        try { sel.showPicker(); return; } catch (e) {}
+      }
+      sel.focus();
     }
 
     function addDocenteFromSelect(sel) {
