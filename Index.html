@@ -255,7 +255,7 @@
       background: var(--gris-0); align-items: center;
     }
     .docentes-chips .docentes-add-inline {
-      flex: 1; min-width: 140px; border: none; background: transparent;
+      flex: 0 0 auto; min-width: 90px; max-width: 130px; border: none; background: transparent;
       padding: 4px 6px; font-family: inherit; font-size: 13px; color: var(--gris-600);
       outline: none; cursor: pointer;
     }
@@ -527,6 +527,12 @@
     .section-indicators .section-label::before { background: var(--ambar); }
     .section-contents .section-label::before { background: var(--verde-medio); }
     .section-activities .section-label::before { background: var(--azul); }
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px 20px; flex-wrap: wrap; margin-bottom: 10px;
+    }
+    .section-header .section-label { margin-bottom: 0; }
+    .section-header .section-legend { margin: 0; }
     .section-legend {
       display: flex; flex-wrap: wrap; gap: 4px 14px;
       font-size: 12px; color: var(--gris-500); font-weight: 500;
@@ -567,6 +573,8 @@
     .eval-select.eval-ep { background: var(--ambar-light); border-color: rgba(217,119,6,.3); color: var(--ambar-dark); }
     .eval-select.eval-c { background: var(--verde-tint-dark); border-color: var(--verde-acento); color: var(--verde-oscuro); }
     .eval-group { display: flex; gap: 4px; flex-shrink: 0; margin-top: 6px; }
+    .indicator-headers { margin-bottom: 2px; align-items: flex-end; }
+    .indicator-headers .list-num { margin-top: 0; height: 0; padding: 0; border: 0; }
     .eval-label { font-size: 11px; font-weight: 700; color: var(--gris-500); text-align: center; letter-spacing: 0.04em; }
     .btn-remove-item {
       width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--gris-200);
@@ -2309,11 +2317,13 @@
 
       // Indicators
       html += '<div class="section section-indicators">';
+      html += '<div class="section-header">';
       html += '<div class="section-label">Indicadores de evaluación</div>';
       html += '<div class="section-legend">';
       html += '<span><span class="eval-tag eval-tag-ni">NI</span> No iniciado</span>';
       html += '<span><span class="eval-tag eval-tag-ep">EP</span> En proceso</span>';
       html += '<span><span class="eval-tag eval-tag-c">C</span> Conseguido</span>';
+      html += '</div>';
       html += '</div>';
       html += renderDynamicList(obj.id, 'indicators', obj.indicators, 'Ej: Mantiene la atención durante 10-15 min...');
       html += '</div>';
@@ -2338,10 +2348,19 @@
       var isIndicator = (listType === 'indicators');
       var html = '';
       if (isIndicator && items.length > 0) {
-        html += '<div style="display:flex;justify-content:flex-end;gap:4px;margin-bottom:4px;padding-right:38px">';
-        html += '<span class="eval-label" style="width:56px">1T</span>';
-        html += '<span class="eval-label" style="width:56px">2T</span>';
-        html += '<span class="eval-label" style="width:56px">3T</span>';
+        var hasOne = items.length <= 1;
+        // Espejo de la estructura de un .list-item para alinear las cabeceras
+        // exactamente sobre los selects, independientemente de los botones a la derecha.
+        html += '<div class="list-item indicator-headers">';
+        html += '<span class="list-num" aria-hidden="true" style="visibility:hidden">0</span>';
+        html += '<span style="flex:1"></span>';
+        html += '<div class="eval-group" style="margin-top:0">';
+        html += '<span class="eval-label" style="width:58px">1T</span>';
+        html += '<span class="eval-label" style="width:58px">2T</span>';
+        html += '<span class="eval-label" style="width:58px">3T</span>';
+        html += '</div>';
+        html += '<div class="list-move-group" aria-hidden="true" style="visibility:hidden;height:0;margin:0"></div>';
+        if (!hasOne) html += '<span aria-hidden="true" style="width:28px;flex-shrink:0"></span>';
         html += '</div>';
       }
       var soloClass = (items.length <= 1) ? ' has-one' : '';
