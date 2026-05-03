@@ -1595,6 +1595,7 @@
     });
 
     function loadConfig(callback) {
+      var requestedYearId = state.activeYearId || '';
       google.script.run
         .withSuccessHandler(function(cfg) {
           if (cfg) {
@@ -1616,7 +1617,7 @@
           showToast('Error al cargar configuración: ' + (err && err.message ? err.message : err), 'error');
           if (callback) callback();
         })
-        .getConfig();
+        .getConfig(requestedYearId);
     }
 
     function renderYearSelect() {
