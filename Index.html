@@ -249,15 +249,38 @@
     @media (max-width: 560px) { .grid-student-info { grid-template-columns: 1fr; } .grid-student-info > div:nth-child(3) { grid-column: auto; } }
 
     .docentes-chips {
+      position: relative;
       display: flex; flex-wrap: wrap; gap: 6px;
-      padding: 5px 8px; min-height: 42px;
-      border: 1px solid var(--gris-200); border-radius: var(--radio);
-      background: var(--gris-0); align-items: center;
+      padding: 8px 36px 8px 10px; min-height: 44px;
+      border: 1px solid var(--gris-300); border-radius: var(--radio);
+      background: var(--gris-0); align-items: center; cursor: pointer;
+      transition: border-color var(--trans-fast), box-shadow var(--trans-fast);
     }
-    .docentes-chips .docentes-add-inline {
-      flex: 0 0 auto; min-width: 90px; max-width: 130px; border: none; background: transparent;
-      padding: 4px 6px; font-family: inherit; font-size: 13px; color: var(--gris-600);
-      outline: none; cursor: pointer;
+    .docentes-chips.is-open { border-color: var(--verde-medio); box-shadow: 0 0 0 3px var(--verde-tint); }
+    .docentes-chips .docente-chip { position: relative; z-index: 1; pointer-events: none; }
+    .docentes-chips .docente-chip-x { pointer-events: auto; }
+    .docentes-chips .docentes-arrow {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      width: 14px; height: 14px; color: var(--gris-500); pointer-events: none;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .docentes-chips .docentes-arrow svg { width: 14px; height: 14px; }
+    .docentes-popup {
+      position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+      background: var(--gris-0); border: 1px solid var(--gris-300);
+      border-radius: var(--radio); box-shadow: var(--sombra-md, 0 6px 16px rgba(0,0,0,0.12));
+      max-height: 240px; overflow-y: auto; z-index: 50;
+      padding: 4px;
+    }
+    .docentes-popup-item {
+      padding: 8px 10px; border-radius: 6px; cursor: pointer;
+      font-size: 14px; color: var(--verde-oscuro);
+    }
+    .docentes-popup-item:hover, .docentes-popup-item.is-active {
+      background: var(--verde-tint); color: var(--verde-oscuro);
+    }
+    .docentes-popup-empty {
+      padding: 8px 10px; color: var(--gris-500); font-size: 13px; font-style: italic;
     }
     .docentes-empty { color: var(--gris-400); font-size: 13px; font-style: italic; }
     .docente-chip {
@@ -603,6 +626,10 @@
       display: flex; align-items: center; justify-content: center; padding: 0;
       transition: all var(--trans-fast);
     }
+    .section-indicators .list-move-group {
+      margin-top: 0; align-self: center; height: 32px;
+    }
+    .section-indicators .btn-move-item { height: auto; flex: 1; min-height: 0; }
     .btn-move-item svg { width: 11px; height: 11px; }
     .btn-move-item:hover:not(:disabled) { background: var(--verde-tint); border-color: var(--verde-acento); color: var(--verde-medio); }
     .btn-move-item:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -1184,8 +1211,8 @@
           <div class="subtitle">Gestión de programas individualizados</div>
         </div>
         <div class="header-tools">
-          <select class="year-select" id="yearSelect" onchange="onYearChange()" title="Curso académico activo" style="display:none"></select>
           <button class="btn-back" id="btnBack" style="display:none" onclick="goBack()"><span class="icon" id="iconBack"></span> Alumnos</button>
+          <select class="year-select" id="yearSelect" onchange="onYearChange()" title="Curso académico activo" style="display:none"></select>
           <button class="btn-settings" id="btnSettings" onclick="openSettings()" title="Ajustes del centro" aria-label="Ajustes del centro"><span class="icon" id="iconSettings"></span></button>
         </div>
       </div>
@@ -2182,7 +2209,7 @@
           wrap.innerHTML = '<div class="docentes-empty-box">Añade docentes en Ajustes para poder asignarlos</div>';
           return;
         }
-        var html0 = '<select class="field-select" id="docentesAddSelect" onchange="addDocenteFromSelect(this)">';
+        var html0 = '<select class="field-select" id="docentesAddSelect" onchange="addDocente(this.value);this.value=\'\';">';
         html0 += '<option value="">— Sin asignar —</option>';
         available.forEach(function(d) {
           html0 += '<option value="' + escAttr(d) + '">' + escHtml(d) + '</option>';
@@ -2192,41 +2219,89 @@
         return;
       }
 
-      // Con chips: caja con chips y select compacto inline
-      var html = '<div class="docentes-chips" id="docentesChips">';
+      // Con chips: caja con chips y un popup propio que se abre debajo al pulsar
+      // cualquier zona del recuadro (excepto la X de un chip seleccionado).
+      var openable = notSelected.length > 0;
+      var html = '<div class="docentes-chips' + (openable ? '' : ' is-disabled') + '" id="docentesChips"'
+        + (openable ? ' onclick="toggleDocentesPopup(event)"' : '') + '>';
       selected.forEach(function(d) {
         html += '<span class="docente-chip">' + escHtml(d)
-          + '<button type="button" class="docente-chip-x" title="Quitar" onclick="removeDocente(\'' + escAttr(d) + '\')">×</button>'
+          + '<button type="button" class="docente-chip-x" title="Quitar" onclick="event.stopPropagation();removeDocente(\'' + escAttr(d) + '\')">×</button>'
           + '</span>';
       });
-      if (notSelected.length > 0) {
-        html += '<select class="docentes-add-inline" id="docentesAddSelect" onchange="addDocenteFromSelect(this)">';
-        html += '<option value="">+ Añadir</option>';
-        notSelected.forEach(function(d) {
-          html += '<option value="' + escAttr(d) + '">' + escHtml(d) + '</option>';
-        });
-        html += '</select>';
+      if (openable) {
+        html += '<span class="docentes-arrow" aria-hidden="true">' + ICONS.chevronDown + '</span>';
       }
       html += '</div>';
 
       wrap.innerHTML = html;
     }
 
-    function addDocenteFromSelect(sel) {
-      var v = sel.value;
-      if (!v) return;
-      if ((state.docentes || []).indexOf(v) === -1) {
+    function toggleDocentesPopup(evt) {
+      if (evt && evt.target && evt.target.closest && evt.target.closest('.docente-chip-x')) return;
+      var box = document.getElementById('docentesChips');
+      if (!box) return;
+      var existing = document.getElementById('docentesPopup');
+      if (existing) { closeDocentesPopup(); return; }
+      var available = (state.config.docentes || []).slice();
+      var selected = (state.docentes || []).slice();
+      var notSelected = available.filter(function(d) { return selected.indexOf(d) === -1; });
+      if (notSelected.length === 0) return;
+      var pop = document.createElement('div');
+      pop.className = 'docentes-popup';
+      pop.id = 'docentesPopup';
+      pop.setAttribute('role', 'listbox');
+      pop.onclick = function(e) { e.stopPropagation(); };
+      notSelected.forEach(function(d) {
+        var item = document.createElement('div');
+        item.className = 'docentes-popup-item';
+        item.setAttribute('role', 'option');
+        item.textContent = d;
+        item.onclick = function(e) { e.stopPropagation(); addDocente(d); };
+        pop.appendChild(item);
+      });
+      box.appendChild(pop);
+      box.classList.add('is-open');
+      setTimeout(function() {
+        document.addEventListener('click', closeDocentesPopupOnOutside, true);
+        document.addEventListener('keydown', closeDocentesPopupOnEsc);
+      }, 0);
+    }
+
+    function closeDocentesPopupOnOutside(e) {
+      var box = document.getElementById('docentesChips');
+      if (!box) { closeDocentesPopup(); return; }
+      if (!box.contains(e.target)) closeDocentesPopup();
+    }
+
+    function closeDocentesPopupOnEsc(e) {
+      if (e.key === 'Escape') closeDocentesPopup();
+    }
+
+    function closeDocentesPopup() {
+      var pop = document.getElementById('docentesPopup');
+      if (pop && pop.parentNode) pop.parentNode.removeChild(pop);
+      var box = document.getElementById('docentesChips');
+      if (box) box.classList.remove('is-open');
+      document.removeEventListener('click', closeDocentesPopupOnOutside, true);
+      document.removeEventListener('keydown', closeDocentesPopupOnEsc);
+    }
+
+    function addDocente(name) {
+      if (!name) return;
+      if ((state.docentes || []).indexOf(name) === -1) {
         state.docentes = (state.docentes || []).slice();
-        state.docentes.push(v);
-        onFieldChange();
-        renderDocentesWidget();
+        state.docentes.push(name);
+        markDirty();
       }
-      sel.value = '';
+      closeDocentesPopup();
+      renderDocentesWidget();
     }
 
     function removeDocente(name) {
       state.docentes = (state.docentes || []).filter(function(d) { return d !== name; });
-      onFieldChange();
+      markDirty();
+      closeDocentesPopup();
       renderDocentesWidget();
     }
 
@@ -2695,7 +2770,10 @@
 
     function currentSnapshotKey() {
       // Same shape as buildDraftSnapshot but excluding savedAt; used to compare against baseline.
+      // Rich-text fields are normalized so that browser-introduced markup on focus/blur
+      // (e.g. trailing <br>, <div> wrappers) doesn't mark the form as dirty.
       try {
+        var nrh = normalizeRichHtml;
         return JSON.stringify({
           studentName: state.studentName || '',
           course: state.course || '',
@@ -2709,17 +2787,17 @@
                   indicators: (o.indicators || []).map(function(i) { return { text: i.text || '', eval1T: i.eval1T || '', eval2T: i.eval2T || '', eval3T: i.eval3T || '', observaciones: i.observaciones || '' }; }),
                   contents: (function() {
                     var arr = Array.isArray(o.contents) ? o.contents : [];
-                    return arr.map(function(c) { return { text: (c && c.text) || '' }; });
+                    return arr.map(function(c) { return { text: nrh((c && c.text) || '') }; });
                   })(),
-                  activities: typeof o.activities === 'string' ? o.activities : ''
+                  activities: nrh(typeof o.activities === 'string' ? o.activities : '')
                 };
               })
             };
           }),
-          valoracionInicial: state.valoracionInicial || '',
-          seguimiento1T: state.seguimiento1T || '',
-          seguimiento2T: state.seguimiento2T || '',
-          seguimiento3T: state.seguimiento3T || '',
+          valoracionInicial: nrh(state.valoracionInicial || ''),
+          seguimiento1T: nrh(state.seguimiento1T || ''),
+          seguimiento2T: nrh(state.seguimiento2T || ''),
+          seguimiento3T: nrh(state.seguimiento3T || ''),
           informeFamilias: {
             indicadores: (state.informeFamilias && state.informeFamilias.indicadores || []).map(function(x) { return { text: x.text || '' }; }),
             evaluaciones: (state.informeFamilias && state.informeFamilias.evaluaciones || []).map(function(x) { return { eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '' }; })
@@ -3847,10 +3925,10 @@
       var s = String(html);
       // Browser-introduced no-op markup that appears on focus/blur of contenteditable
       s = s.replace(/&nbsp;/gi, ' ');
-      s = s.replace(/<br\s*\/?>/gi, '<br>');
-      s = s.replace(/<div>\s*<br>\s*<\/div>/gi, '<br>');
-      s = s.replace(/<div>([\s\S]*?)<\/div>/gi, '$1<br>');
-      s = s.replace(/<p>([\s\S]*?)<\/p>/gi, '$1<br>');
+      s = s.replace(/<br\b[^>]*\/?>/gi, '<br>');
+      s = s.replace(/<div\b[^>]*>\s*(?:<br>\s*)?<\/div>/gi, '<br>');
+      s = s.replace(/<div\b[^>]*>([\s\S]*?)<\/div>/gi, '$1<br>');
+      s = s.replace(/<p\b[^>]*>([\s\S]*?)<\/p>/gi, '$1<br>');
       s = s.replace(/(<br>\s*)+$/g, '');
       s = s.replace(/\s+/g, ' ');
       return s.trim();
