@@ -251,28 +251,37 @@
     .docentes-chips {
       position: relative;
       display: flex; flex-wrap: wrap; gap: 6px;
-      padding: 5px 32px 5px 8px; min-height: 42px;
-      border: 1px solid var(--gris-200); border-radius: var(--radio);
+      padding: 8px 36px 8px 10px; min-height: 44px;
+      border: 1px solid var(--gris-300); border-radius: var(--radio);
       background: var(--gris-0); align-items: center; cursor: pointer;
+      transition: border-color var(--trans-fast), box-shadow var(--trans-fast);
     }
-    .docentes-chips .docentes-add-inline {
-      position: absolute; inset: 0; width: 100%; height: 100%;
-      border: none; background: transparent; opacity: 0; cursor: pointer;
-      padding: 0; margin: 0; font-family: inherit; font-size: 13px;
-      appearance: none; -webkit-appearance: none;
-      z-index: 0;
-    }
-    .docentes-chips .docentes-add-inline option { color: var(--gris-700); opacity: 1; }
-    .docentes-chips .docente-chip {
-      position: relative; z-index: 1; pointer-events: none;
-    }
+    .docentes-chips.is-open { border-color: var(--verde-medio); box-shadow: 0 0 0 3px var(--verde-tint); }
+    .docentes-chips .docente-chip { position: relative; z-index: 1; pointer-events: none; }
     .docentes-chips .docente-chip-x { pointer-events: auto; }
     .docentes-chips .docentes-arrow {
-      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
       width: 14px; height: 14px; color: var(--gris-500); pointer-events: none;
       display: flex; align-items: center; justify-content: center;
     }
     .docentes-chips .docentes-arrow svg { width: 14px; height: 14px; }
+    .docentes-popup {
+      position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+      background: var(--gris-0); border: 1px solid var(--gris-300);
+      border-radius: var(--radio); box-shadow: var(--sombra-md, 0 6px 16px rgba(0,0,0,0.12));
+      max-height: 240px; overflow-y: auto; z-index: 50;
+      padding: 4px;
+    }
+    .docentes-popup-item {
+      padding: 8px 10px; border-radius: 6px; cursor: pointer;
+      font-size: 14px; color: var(--verde-oscuro);
+    }
+    .docentes-popup-item:hover, .docentes-popup-item.is-active {
+      background: var(--verde-tint); color: var(--verde-oscuro);
+    }
+    .docentes-popup-empty {
+      padding: 8px 10px; color: var(--gris-500); font-size: 13px; font-style: italic;
+    }
     .docentes-empty { color: var(--gris-400); font-size: 13px; font-style: italic; }
     .docente-chip {
       display: inline-flex; align-items: center; gap: 4px;
@@ -2200,7 +2209,7 @@
           wrap.innerHTML = '<div class="docentes-empty-box">Añade docentes en Ajustes para poder asignarlos</div>';
           return;
         }
-        var html0 = '<select class="field-select" id="docentesAddSelect" onchange="addDocenteFromSelect(this)">';
+        var html0 = '<select class="field-select" id="docentesAddSelect" onchange="addDocente(this.value);this.value=\'\';">';
         html0 += '<option value="">— Sin asignar —</option>';
         available.forEach(function(d) {
           html0 += '<option value="' + escAttr(d) + '">' + escHtml(d) + '</option>';
@@ -2210,23 +2219,17 @@
         return;
       }
 
-      // Con chips: caja con chips y un <select> transparente que cubre toda la caja
-      // para que pulsar en cualquier zona (excepto la X) abra el desplegable nativo.
-      var html = '<div class="docentes-chips" id="docentesChips">';
-      if (notSelected.length > 0) {
-        html += '<select class="docentes-add-inline" id="docentesAddSelect" title="Añadir docente" aria-label="Añadir docente" onchange="addDocenteFromSelect(this)" onmousedown="event.stopPropagation()">';
-        html += '<option value=""></option>';
-        notSelected.forEach(function(d) {
-          html += '<option value="' + escAttr(d) + '">' + escHtml(d) + '</option>';
-        });
-        html += '</select>';
-      }
+      // Con chips: caja con chips y un popup propio que se abre debajo al pulsar
+      // cualquier zona del recuadro (excepto la X de un chip seleccionado).
+      var openable = notSelected.length > 0;
+      var html = '<div class="docentes-chips' + (openable ? '' : ' is-disabled') + '" id="docentesChips"'
+        + (openable ? ' onclick="toggleDocentesPopup(event)"' : '') + '>';
       selected.forEach(function(d) {
         html += '<span class="docente-chip">' + escHtml(d)
           + '<button type="button" class="docente-chip-x" title="Quitar" onclick="event.stopPropagation();removeDocente(\'' + escAttr(d) + '\')">×</button>'
           + '</span>';
       });
-      if (notSelected.length > 0) {
+      if (openable) {
         html += '<span class="docentes-arrow" aria-hidden="true">' + ICONS.chevronDown + '</span>';
       }
       html += '</div>';
@@ -2234,21 +2237,71 @@
       wrap.innerHTML = html;
     }
 
-    function addDocenteFromSelect(sel) {
-      var v = sel.value;
-      if (!v) return;
-      if ((state.docentes || []).indexOf(v) === -1) {
+    function toggleDocentesPopup(evt) {
+      if (evt && evt.target && evt.target.closest && evt.target.closest('.docente-chip-x')) return;
+      var box = document.getElementById('docentesChips');
+      if (!box) return;
+      var existing = document.getElementById('docentesPopup');
+      if (existing) { closeDocentesPopup(); return; }
+      var available = (state.config.docentes || []).slice();
+      var selected = (state.docentes || []).slice();
+      var notSelected = available.filter(function(d) { return selected.indexOf(d) === -1; });
+      if (notSelected.length === 0) return;
+      var pop = document.createElement('div');
+      pop.className = 'docentes-popup';
+      pop.id = 'docentesPopup';
+      pop.setAttribute('role', 'listbox');
+      pop.onclick = function(e) { e.stopPropagation(); };
+      notSelected.forEach(function(d) {
+        var item = document.createElement('div');
+        item.className = 'docentes-popup-item';
+        item.setAttribute('role', 'option');
+        item.textContent = d;
+        item.onclick = function(e) { e.stopPropagation(); addDocente(d); };
+        pop.appendChild(item);
+      });
+      box.appendChild(pop);
+      box.classList.add('is-open');
+      setTimeout(function() {
+        document.addEventListener('click', closeDocentesPopupOnOutside, true);
+        document.addEventListener('keydown', closeDocentesPopupOnEsc);
+      }, 0);
+    }
+
+    function closeDocentesPopupOnOutside(e) {
+      var box = document.getElementById('docentesChips');
+      if (!box) { closeDocentesPopup(); return; }
+      if (!box.contains(e.target)) closeDocentesPopup();
+    }
+
+    function closeDocentesPopupOnEsc(e) {
+      if (e.key === 'Escape') closeDocentesPopup();
+    }
+
+    function closeDocentesPopup() {
+      var pop = document.getElementById('docentesPopup');
+      if (pop && pop.parentNode) pop.parentNode.removeChild(pop);
+      var box = document.getElementById('docentesChips');
+      if (box) box.classList.remove('is-open');
+      document.removeEventListener('click', closeDocentesPopupOnOutside, true);
+      document.removeEventListener('keydown', closeDocentesPopupOnEsc);
+    }
+
+    function addDocente(name) {
+      if (!name) return;
+      if ((state.docentes || []).indexOf(name) === -1) {
         state.docentes = (state.docentes || []).slice();
-        state.docentes.push(v);
-        onFieldChange();
-        renderDocentesWidget();
+        state.docentes.push(name);
+        markDirty();
       }
-      sel.value = '';
+      closeDocentesPopup();
+      renderDocentesWidget();
     }
 
     function removeDocente(name) {
       state.docentes = (state.docentes || []).filter(function(d) { return d !== name; });
-      onFieldChange();
+      markDirty();
+      closeDocentesPopup();
       renderDocentesWidget();
     }
 
