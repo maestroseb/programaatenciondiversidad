@@ -2,6 +2,15 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <script>
+    // Tema: 'auto' (sigue al sistema), 'light' o 'dark'. Se aplica antes de pintar para evitar parpadeos.
+    (function() {
+      var pref = 'auto';
+      try { pref = localStorage.getItem('padd:theme') || 'auto'; } catch (e) {}
+      var dark = pref === 'dark' || (pref === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sofia+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -74,9 +83,9 @@
       color-scheme: light;
     }
 
-    /* ─── Modo oscuro (según la preferencia del sistema) ─── */
-    @media (prefers-color-scheme: dark) {
-      :root {
+    /* ─── Modo oscuro (data-theme lo fija el script del <head>: sistema o elección del usuario) ─── */
+    @media all {
+      :root[data-theme="dark"] {
         --gris-0: #18211d;
         --gris-50: #0f1613;
         --gris-100: #1f2a25;
@@ -1318,6 +1327,123 @@
     .print-table .rich-cell p { margin: 0 0 4px; }
     .print-table .rich-cell p:last-child { margin-bottom: 0; }
 
+
+    /* ═══════════════════════════════════════════
+       REDISEÑO 2026 — cabecera clara translúcida, superficies suaves,
+       botones neutros y ámbitos con color de acento (no bloques sólidos).
+       Todo por tokens: funciona igual en claro y oscuro.
+    ═══════════════════════════════════════════ */
+    :root {
+      --radio: 10px;
+      --radio-lg: 16px;
+      --c-surface-glass: rgba(255,255,255,.82);
+      --c-ctrl-bg: var(--gris-100);
+      --c-ctrl-bg-hover: var(--gris-200);
+      --c-ctrl-text: var(--gris-700);
+      --sombra-card: 0 1px 2px rgba(16,24,20,.04), 0 8px 24px -12px rgba(16,24,20,.12);
+    }
+    :root[data-theme="dark"] {
+      --c-surface-glass: rgba(24,33,29,.82);
+      --sombra-card: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+    }
+    body { background: var(--gris-50); }
+
+    /* Cabecera */
+    .header {
+      background: var(--c-surface-glass);
+      -webkit-backdrop-filter: saturate(180%) blur(14px);
+      backdrop-filter: saturate(180%) blur(14px);
+      border-bottom: 1px solid var(--gris-200);
+      box-shadow: none;
+    }
+    .header-brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark {
+      width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, var(--verde-acento), var(--verde-oscuro));
+      color: #fff; font-weight: 800; font-size: var(--fs-md); letter-spacing: .02em;
+      box-shadow: 0 4px 12px -4px rgba(27,67,50,.5);
+    }
+    .brand-text { min-width: 0; }
+    .header h1 { color: var(--c-heading); font-size: var(--fs-2xl); letter-spacing: -0.015em; }
+    .header .subtitle { color: var(--gris-500); }
+    .header-toolbar { border-top: 1px solid var(--gris-200); }
+
+    /* Controles de la cabecera: neutros sobre superficie clara */
+    .btn-back, .btn-settings, .year-select,
+    .btn-secondary, .btn-undo, .btn-redo, .btn-print {
+      background: var(--c-ctrl-bg); border: 1px solid transparent; color: var(--c-ctrl-text);
+    }
+    .btn-back:hover, .btn-settings:hover,
+    .btn-secondary:hover:not(:disabled), .btn-undo:hover:not(:disabled),
+    .btn-redo:hover:not(:disabled), .btn-print:hover:not(:disabled) {
+      background: var(--c-ctrl-bg-hover); border-color: transparent; color: var(--gris-900); transform: none;
+    }
+    .year-select { color: var(--c-ctrl-text); }
+    .btn-clear:hover:not(:disabled) { background: var(--danger-bg); border-color: var(--danger-border); color: var(--rojo); }
+    .student-badge { background: var(--verde-tint); border: 1px solid transparent; }
+    .student-badge .icon { color: var(--c-accent); }
+    .student-badge .name { color: var(--c-heading); }
+    .badge-course { background: var(--gris-0); border-color: var(--gris-200); color: var(--c-accent); }
+    .badge-draft { background: var(--c-ctrl-bg); color: var(--gris-600); border-color: transparent; }
+    .badge-dirty { background: var(--warn-bg); color: var(--warn-text); border-color: var(--warn-border); }
+
+    /* Botón principal */
+    .btn-primary { background: var(--verde-medio); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 4px 12px -4px rgba(45,106,79,.55); }
+    .btn-primary:hover:not(:disabled) { background: var(--verde-oscuro); box-shadow: 0 6px 16px -6px rgba(45,106,79,.7); }
+    :root[data-theme="dark"] .btn-primary { background: var(--verde-acento); }
+    :root[data-theme="dark"] .btn-primary:hover:not(:disabled) { background: var(--verde-claro); color: #0f2a1f; }
+    .btn-primary:disabled { background: var(--gris-200); color: var(--gris-500); }
+
+    /* Tarjetas */
+    .card, .area-wrap, .followup-card, .side-nav { border-color: var(--gris-200); box-shadow: var(--sombra-card); }
+    .card-icon { border-radius: 10px; }
+
+    /* Lista de alumnos */
+    .student-list-header { background: transparent; border-bottom: 1px solid var(--gris-200); padding: 18px 20px; }
+    .student-list-header h2 { color: var(--c-heading); }
+    .student-list-header h2 .icon { color: var(--c-accent); }
+    .student-list-header .count { color: var(--gris-500); }
+    .btn-new { background: var(--verde-medio); border: none; color: #fff; border-radius: var(--radio-pill); padding: 9px 16px; box-shadow: 0 4px 12px -4px rgba(45,106,79,.55); }
+    .btn-new:hover { background: var(--verde-oscuro); border-color: transparent; }
+    :root[data-theme="dark"] .btn-new { background: var(--verde-acento); }
+    .search-input { border-radius: var(--radio-pill); background: var(--gris-50); }
+    .search-input:focus { background: var(--gris-0); }
+    .student-item { border-color: transparent; background: transparent; padding: 10px 12px; margin-bottom: 2px; }
+    .student-item:hover { background: var(--gris-50); border-color: var(--gris-200); }
+    .student-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .student-text { min-width: 0; }
+    .student-text .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .student-avatar {
+      width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--verde-tint); color: var(--c-accent);
+      font-weight: 800; font-size: var(--fs-md); letter-spacing: .02em;
+    }
+    .program-badge { background: var(--verde-tint); color: var(--c-accent); }
+    .course-chip { border-radius: var(--radio-pill); }
+
+    /* Ámbitos: cabecera tintada con acento de color en vez de bloque sólido */
+    .area-header {
+      background: color-mix(in srgb, var(--area-color) 9%, var(--gris-0));
+      color: var(--area-color);
+      border-bottom: 1px solid color-mix(in srgb, var(--area-color) 22%, var(--gris-200));
+      box-shadow: inset 4px 0 0 var(--area-color);
+    }
+    :root[data-theme="dark"] .area-header {
+      background: color-mix(in srgb, var(--area-color) 18%, var(--gris-0));
+      color: color-mix(in srgb, var(--area-color) 55%, #fff);
+    }
+    .area-header .area-count { opacity: .7; }
+    .btn-collapse-area {
+      background: var(--gris-0); border: 1px solid color-mix(in srgb, var(--area-color) 30%, var(--gris-200));
+      color: inherit; border-radius: var(--radio-pill);
+    }
+    .btn-collapse-area:hover { background: color-mix(in srgb, var(--area-color) 14%, var(--gris-0)); border-color: var(--area-color); }
+    .obj-header { background: var(--gris-0); }
+    .obj-num { background: var(--verde-tint); color: var(--c-accent); }
+    :root[data-theme="dark"] .side-nav a.nav-area { color: color-mix(in srgb, var(--area-color) 55%, #fff); }
+
     @media print {
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
       body { background: #fff !important; }
@@ -1339,12 +1465,16 @@
     <div class="header-inner">
       <div class="header-row">
         <div class="header-brand">
+          <span class="brand-mark" aria-hidden="true">PA</span>
+          <div class="brand-text">
           <h1>Programas de Atención a la Diversidad</h1>
           <div class="subtitle">Gestión de programas individualizados</div>
+          </div>
         </div>
         <div class="header-tools">
           <button class="btn-back" id="btnBack" style="display:none" onclick="goBack()"><span class="icon" id="iconBack"></span> Alumnos</button>
           <select class="year-select" id="yearSelect" onchange="onYearChange()" title="Curso académico activo" style="display:none"></select>
+          <button class="btn-settings" id="btnTheme" onclick="cycleTheme()" title="Tema: automático" aria-label="Cambiar tema claro/oscuro"><span class="icon" id="iconTheme"></span></button>
           <button class="btn-settings" onclick="openSettings()" title="Ajustes del centro" aria-label="Ajustes del centro"><span class="icon" id="iconSettings"></span></button>
         </div>
       </div>
@@ -1401,6 +1531,9 @@
       info:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
       loader:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>',
       chevronDown:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
+      sun:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>',
+      moon:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
+      monitor:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
       arrowUp:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>',
       arrowDown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>'
     };
@@ -1725,6 +1858,12 @@
         var el = document.getElementById(id);
         if (el) el.innerHTML = ICONS[iconMap[id]] || '';
       });
+      updateThemeButton();
+      if (window.matchMedia) {
+        var mq = matchMedia('(prefers-color-scheme: dark)');
+        var onSys = function() { if (getThemePref() === 'auto') applyTheme('auto'); };
+        if (mq.addEventListener) mq.addEventListener('change', onSys); else if (mq.addListener) mq.addListener(onSys);
+      }
       // Altura real de la cabecera fija (cambia con la barra del alumno y al envolver en móvil)
       var headerEl = document.querySelector('.header');
       if (headerEl && typeof ResizeObserver === 'function') {
@@ -1734,6 +1873,36 @@
       }
       loadAll();
     });
+
+    /* ─── Tema claro/oscuro ─── */
+    var THEME_KEY = 'padd:theme';
+    var THEME_LABELS = { auto: 'automático (sistema)', light: 'claro', dark: 'oscuro' };
+    var themePrefMem = null; // respaldo si localStorage no está disponible
+    function getThemePref() {
+      if (themePrefMem) return themePrefMem;
+      try { return localStorage.getItem(THEME_KEY) || 'auto'; } catch (e) { return 'auto'; }
+    }
+    function applyTheme(pref) {
+      var dark = pref === 'dark' || (pref === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      updateThemeButton();
+    }
+    function updateThemeButton() {
+      var pref = getThemePref();
+      var icon = document.getElementById('iconTheme');
+      if (icon) icon.innerHTML = ICONS[pref === 'dark' ? 'moon' : pref === 'light' ? 'sun' : 'monitor'];
+      var btn = document.getElementById('btnTheme');
+      if (btn) btn.title = 'Tema: ' + THEME_LABELS[pref] + ' · pulsa para cambiar';
+    }
+    // Automático → Claro → Oscuro → Automático
+    function cycleTheme() {
+      var order = ['auto', 'light', 'dark'];
+      var next = order[(order.indexOf(getThemePref()) + 1) % order.length];
+      themePrefMem = next;
+      try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+      applyTheme(next);
+      showToast('Tema: ' + THEME_LABELS[next], 'info', { duration: 2000 });
+    }
 
     function applyConfig(cfg) {
       if (cfg) {
@@ -1745,6 +1914,8 @@
           docentes: cfg.docentes || []
         };
         state.isAdmin = !!cfg.isAdmin;
+        state.adminEmail = cfg.adminEmail || '';
+        state.currentUser = cfg.currentUser || '';
         state.years = cfg.years || [];
         state.activeYearId = cfg.activeYearId || '';
       }
@@ -1923,6 +2094,14 @@
       document.getElementById('content').innerHTML = html;
     }
 
+    // Iniciales para el avatar del alumno (máx. 2 letras)
+    function initialsOf(name) {
+      var parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) return '?';
+      var a = parts[0].charAt(0), b = parts.length > 1 ? parts[1].charAt(0) : '';
+      return (a + b).toUpperCase();
+    }
+
     function renderStudentItems(list) {
       if (list.length === 0) {
         if (state.students.length === 0) {
@@ -1943,12 +2122,13 @@
       list.forEach(function(s) {
         var nameArg = jsArg(s.name);
         html += '<div class="student-item" role="button" tabindex="0" onclick="selectStudent(' + nameArg + ')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();selectStudent(' + nameArg + ')}">';
-        html += '<div><div class="name">' + escHtml(s.name) + '</div>';
+        html += '<div class="student-main"><span class="student-avatar" aria-hidden="true">' + escHtml(initialsOf(s.name)) + '</span>';
+        html += '<div class="student-text"><div class="name">' + escHtml(s.name) + '</div>';
         html += '<div class="course">' + escHtml(s.course);
         if (s.docentes && s.docentes.length) {
           html += '<span class="course-sep">·</span><span class="docentes-inline">' + escHtml(s.docentes.join(', ')) + '</span>';
         }
-        html += '</div></div>';
+        html += '</div></div></div>';
         html += '<div class="student-item-actions">';
         html += '<span class="program-badge">PE</span>';
         html += '<button class="btn-student-action btn-duplicate-student" title="Duplicar alumno" aria-label="Duplicar alumno" onclick="event.stopPropagation();confirmDuplicateStudent(' + nameArg + ')">' + ICONS.copy + '</button>';
@@ -2531,7 +2711,7 @@
       var color = getAreaColor(area.name);
 
       var html = '<div class="area-wrap" id="area_' + areaIdx + '">';
-      html += '<div class="area-header" style="background:' + color.headerBg + '">';
+      html += '<div class="area-header" style="--area-color:' + color.headerBg + '">';
       html += '<span class="area-title">' + escHtml(area.name) + ' <span class="area-count">(' + area.objectives.length + ' obj.)</span></span>';
       html += '<button class="btn-collapse-area" id="collapseArea_' + areaIdx + '" onclick="toggleAreaCollapse(' + areaIdx + ')" title="Colapsar o expandir todos los objetivos de este ámbito">Colapsar todo</button>';
       html += '</div>';
@@ -3914,7 +4094,11 @@
       html += '<div class="list-hint">Sugerencia: incluye el rol entre paréntesis. Ej: <i>Ana López (PT)</i></div></div>';
       html += '</div>';
 
-      if (state.isAdmin) {
+      if (!state.isAdmin) {
+        // Visible siempre, para que quede claro quién puede gestionar el acceso
+        html += '<div class="settings-section-title">Usuarios autorizados</div>';
+        html += '<div class="list-hint">Solo el administrador de la aplicación' + (state.adminEmail ? ' (<b>' + escHtml(state.adminEmail) + '</b>)' : '') + ' puede añadir o quitar correos autorizados.' + (state.currentUser ? ' Has entrado como <b>' + escHtml(state.currentUser) + '</b>.' : '') + '</div>';
+      } else {
         html += '<div class="settings-section-title">Usuarios autorizados</div>';
         html += '<div class="list-hint" id="usersAdminHint">Cargando…</div>';
         html += '<div class="list-editor" id="usersEditor"></div>';

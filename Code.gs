@@ -415,7 +415,9 @@ function buildConfig_(yearId) {
       years: years,
       courses: courses,
       docentes: docentes,
-      isAdmin: isAdmin_()
+      isAdmin: isAdmin_(),
+      adminEmail: getAdminEmail_(),
+      currentUser: normEmail_(getCurrentUserEmail_())
     }
   };
 }
