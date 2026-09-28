@@ -313,9 +313,55 @@
       color: var(--area-color, var(--verde-medio));
     }
     .side-nav a.nav-section { padding-left: 22px; font-size: var(--fs-base); color: var(--gris-500); font-weight: 500; }
+    /* Móvil/tablet: el menú lateral pasa a ser una barra de secciones horizontal y fija */
     @media (max-width: 900px) {
-      .content-with-nav { grid-template-columns: minmax(0, 1fr); }
-      .side-nav { display: none; }
+      html { scroll-padding-top: calc(var(--header-offset) + 64px); }
+      .content-with-nav { grid-template-columns: minmax(0, 1fr); padding-top: 12px; }
+      .content-main { grid-column: 1; }
+      .side-nav {
+        grid-column: 1; width: auto; max-height: none;
+        position: sticky; top: var(--header-offset); z-index: 20;
+        display: flex; gap: 6px; padding: 8px; margin: 0 0 14px;
+        overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+      }
+      .side-nav::-webkit-scrollbar { display: none; }
+      .side-nav-title { display: none; }
+      .side-nav a, .side-nav a.nav-area, .side-nav a.nav-section {
+        flex-shrink: 0; white-space: nowrap;
+        padding: 7px 12px; border-left: none; border-radius: var(--radio-pill);
+        background: var(--gris-100); font-size: var(--fs-base);
+      }
+      .side-nav a.nav-area { background: color-mix(in srgb, var(--area-color) 12%, var(--gris-0)); }
+    }
+
+    /* Tabla del informe: desplazamiento horizontal en pantallas estrechas */
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 16px; }
+    .table-scroll .informe-table { margin-bottom: 0; min-width: 520px; }
+
+    /* Etiqueta del trimestre junto a cada select de evaluación (solo en móvil) */
+    .eval-mobile-label { display: none; }
+
+    @media (max-width: 600px) {
+      .content, .content-with-nav { padding-left: 12px; padding-right: 12px; }
+      .header { padding: 10px 12px; }
+      .header h1 { font-size: var(--fs-2xl); }
+      /* Barra de acciones compacta: solo iconos salvo Guardar */
+      .toolbar-right .btn-undo, .toolbar-right .btn-redo, .toolbar-right .btn-print { font-size: 0; gap: 0; padding: 8px 10px; }
+      .toolbar-right .btn-undo svg, .toolbar-right .btn-redo svg, .toolbar-right .btn-print svg { width: 16px; height: 16px; }
+      .toolbar-right { width: 100%; justify-content: flex-end; }
+      /* Indicadores: texto en una línea completa y evaluaciones debajo */
+      .list-item.indicator-headers { display: none; }
+      .header-row { flex-wrap: wrap; row-gap: 8px; }
+      .header-brand { flex: 1 1 100%; }
+      .header-tools { margin-left: auto; }
+      .header .subtitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .section-indicators .list-item { flex-wrap: wrap; row-gap: 6px; }
+      .section-indicators .list-textarea { flex: 1 1 calc(100% - 40px); min-width: 0; }
+      .section-indicators .eval-group { margin-left: 30px; align-items: center; gap: 4px; }
+      .eval-mobile-label { display: inline; font-size: var(--fs-xs); font-weight: 800; color: var(--gris-500); margin-left: 4px; }
+      .eval-mobile-label:first-child { margin-left: 0; }
+      .section-indicators .list-move-group { margin-left: auto; }
     }
 
     /* ─── Cards ─── */
@@ -342,6 +388,9 @@
       font-size: var(--fs-sm); font-weight: 800; text-transform: uppercase;
       letter-spacing: 0.08em; color: var(--gris-500); margin-bottom: 6px; display: block;
     }
+    .areas-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+    @media (max-width: 640px) { .areas-grid { grid-template-columns: 1fr; } }
+    .field-invalid { border-color: var(--rojo) !important; box-shadow: 0 0 0 3px var(--rojo-light) !important; }
     .field-input, .field-select {
       width: 100%; padding: 11px 14px; border-radius: var(--radio);
       border: 1px solid var(--gris-300); font-size: var(--fs-xl);
@@ -594,7 +643,9 @@
     .obj-toggle {
       color: var(--gris-500); transition: transform 0.25s;
       display: inline-flex; align-items: center; justify-content: center;
+      background: none; border: none; padding: 4px; border-radius: 6px; cursor: pointer;
     }
+    .obj-toggle:hover { color: var(--c-heading); background: var(--gris-100); }
     .obj-toggle svg { width: 16px; height: 16px; }
     .obj-toggle.collapsed { transform: rotate(-90deg); }
     .obj-actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
@@ -971,6 +1022,9 @@
       color: #fff;
       transform: translateY(-1px);
     }
+    /* "Limpiar" es destructivo: se distingue al pasar el ratón */
+    .btn-clear:hover:not(:disabled) { background: rgba(220,38,38,.28); border-color: rgba(252,165,165,.6); }
+
     /* Botón secundario para fondos claros (modales, vista de impresión) */
     .btn-ghost {
       border: 1px solid var(--gris-300);
@@ -1307,7 +1361,7 @@
         <div class="toolbar-right">
           <button class="btn btn-undo" id="btnUndo" onclick="undo()" title="Deshacer (Ctrl+Z)" disabled><span class="icon" id="iconUndo"></span> Deshacer</button>
           <button class="btn btn-redo" id="btnRedo" onclick="redo()" title="Rehacer (Ctrl+Shift+Z)" disabled><span class="icon" id="iconRedo"></span> Rehacer</button>
-          <button class="btn btn-secondary" onclick="clearForm()">Limpiar</button>
+          <button class="btn btn-secondary btn-clear" onclick="clearForm()" title="Vaciar los objetivos del formulario">Limpiar</button>
           <button class="btn btn-print" onclick="openPrintOptions()"><span class="icon" id="iconPrint"></span> Imprimir</button>
           <button class="btn btn-primary" id="btnSave" onclick="saveData()"><span class="icon" id="iconSave"></span> Guardar</button>
         </div>
@@ -1671,6 +1725,13 @@
         var el = document.getElementById(id);
         if (el) el.innerHTML = ICONS[iconMap[id]] || '';
       });
+      // Altura real de la cabecera fija (cambia con la barra del alumno y al envolver en móvil)
+      var headerEl = document.querySelector('.header');
+      if (headerEl && typeof ResizeObserver === 'function') {
+        new ResizeObserver(function() {
+          document.documentElement.style.setProperty('--header-offset', headerEl.offsetHeight + 'px');
+        }).observe(headerEl);
+      }
       loadAll();
     });
 
@@ -2214,20 +2275,20 @@
       // ─── Side Nav ───
       var nav = '<nav class="side-nav">';
       nav += '<div class="side-nav-title">Programa</div>';
-      nav += '<a onclick="scrollToId(\'secDatos\')">Datos del alumno</a>';
+      nav += '<a href="#" onclick="event.preventDefault();scrollToId(\'secDatos\')">Datos del alumno</a>';
       if (state.areas.length) {
         nav += '<div class="side-nav-title side-nav-title--sub">Ámbitos</div>';
         state.areas.forEach(function(area, i) {
           var navColor = getAreaColor(area.name);
-          nav += '<a class="nav-area" style="--area-color:' + navColor.headerBg + '" onclick="scrollToId(\'area_' + i + '\')">' + escHtml(shortAreaName(area.name)) + '</a>';
+          nav += '<a class="nav-area" style="--area-color:' + navColor.headerBg + '" href="#" onclick="event.preventDefault();scrollToId(\'area_' + i + '\')">' + escHtml(shortAreaName(area.name)) + '</a>';
         });
       }
       nav += '<div class="side-nav-title side-nav-title--sub">Evaluación</div>';
-      nav += '<a class="nav-section" onclick="scrollToId(\'secValoracion\')">Valoración inicial</a>';
-      nav += '<a class="nav-section" onclick="scrollToId(\'secSeg1T\')">Seguimiento 1T</a>';
-      nav += '<a class="nav-section" onclick="scrollToId(\'secSeg2T\')">Seguimiento 2T</a>';
-      nav += '<a class="nav-section" onclick="scrollToId(\'secSeg3T\')">Seguimiento 3T</a>';
-      nav += '<a class="nav-section" onclick="scrollToId(\'secInforme\')">Informe familias</a>';
+      nav += '<a class="nav-section" href="#" onclick="event.preventDefault();scrollToId(\'secValoracion\')">Valoración inicial</a>';
+      nav += '<a class="nav-section" href="#" onclick="event.preventDefault();scrollToId(\'secSeg1T\')">Seguimiento 1T</a>';
+      nav += '<a class="nav-section" href="#" onclick="event.preventDefault();scrollToId(\'secSeg2T\')">Seguimiento 2T</a>';
+      nav += '<a class="nav-section" href="#" onclick="event.preventDefault();scrollToId(\'secSeg3T\')">Seguimiento 3T</a>';
+      nav += '<a class="nav-section" href="#" onclick="event.preventDefault();scrollToId(\'secInforme\')">Informe familias</a>';
       nav += '</nav>';
 
       // ─── Main content ───
@@ -2237,9 +2298,9 @@
       html += '<div class="card" id="secDatos"><div class="card-body">';
       html += '<div class="card-title"><span class="card-icon">' + ICONS.user + '</span> Datos del alumno/a</div>';
       html += '<div class="grid-student-info">';
-      html += '<div><label class="field-label">Nombre del alumno/a *</label>';
+      html += '<div><label class="field-label" for="fName">Nombre del alumno/a *</label>';
       html += '<input class="field-input" id="fName" value="' + escAttr(state.studentName) + '" placeholder="Nombre y apellidos" oninput="onFieldChange()"></div>';
-      html += '<div><label class="field-label">Curso *</label>';
+      html += '<div><label class="field-label" for="fCourse">Curso *</label>';
       html += '<select class="field-select" id="fCourse" onchange="onFieldChange()"><option value="">Selecciona curso</option>';
       var courseOptions = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES;
       // Si el alumno tiene un curso que ya no está en la lista, lo añadimos para no perder el dato
@@ -2248,14 +2309,14 @@
       }
       courseOptions.forEach(function(c) { html += '<option value="' + escAttr(c) + '"' + (state.course === c ? ' selected' : '') + '>' + escHtml(c) + '</option>'; });
       html += '</select></div>';
-      html += '<div><label class="field-label">Docente(s) especialista(s)</label>';
-      html += '<div id="docentesWrap"></div></div>';
+      html += '<div><div class="field-label" id="lblDocentes">Docente(s) especialista(s)</div>';
+      html += '<div id="docentesWrap" role="group" aria-labelledby="lblDocentes"></div></div>';
       html += '</div>';
 
       // Areas (multi-select checkboxes)
       html += '<div style="margin-top:18px">';
-      html += '<label class="field-label">Ámbitos de trabajo *</label>';
-      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">';
+      html += '<div class="field-label" id="lblAreas">Ámbitos de trabajo *</div>';
+      html += '<div class="areas-grid" id="areasGroup" role="group" aria-labelledby="lblAreas">';
       AREAS.forEach(function(a) {
         var checked = selectedAreaNames.indexOf(a) >= 0;
         html += '<label class="area-check' + (checked ? ' is-checked' : '') + '">';
@@ -2283,11 +2344,11 @@
         html += '<div class="followup-header"><span class="followup-badge">' + f.badge + '</span>' + escHtml(f.label) + '</div>';
         html += '<div class="richtext-wrap">';
         html += '<div class="richtext-toolbar">';
-        html += '<button onmousedown="event.preventDefault();richExec(\'bold\')" title="Negrita"><b>N</b></button>';
-        html += '<button onmousedown="event.preventDefault();richExec(\'italic\')" title="Cursiva"><i>K</i></button>';
-        html += '<button onmousedown="event.preventDefault();richExec(\'insertUnorderedList\')" title="Viñetas">•</button>';
+        html += '<button type="button" onmousedown="event.preventDefault();richExec(\'bold\')" title="Negrita" aria-label="Negrita"><b>N</b></button>';
+        html += '<button type="button" onmousedown="event.preventDefault();richExec(\'italic\')" title="Cursiva" aria-label="Cursiva"><i>K</i></button>';
+        html += '<button type="button" onmousedown="event.preventDefault();richExec(\'insertUnorderedList\')" title="Viñetas" aria-label="Lista con viñetas">•</button>';
         html += '</div>';
-        html += '<div class="richtext-editor" contenteditable="true" data-key="' + f.key + '" oninput="updateFollowupRich(\'' + f.key + '\',this)" onblur="updateFollowupRich(\'' + f.key + '\',this)">' + sanitizeRich(state[f.key] || '') + '</div>';
+        html += '<div class="richtext-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="' + escAttr(f.label) + '" data-key="' + f.key + '" oninput="updateFollowupRich(\'' + f.key + '\',this)" onblur="updateFollowupRich(\'' + f.key + '\',this)">' + sanitizeRich(state[f.key] || '') + '</div>';
         html += '</div>';
         html += '</div>';
       });
@@ -2495,7 +2556,7 @@
       html += '<div style="display:flex;align-items:flex-start;gap:10px;min-width:0;flex:1">';
       html += '<span class="obj-num" style="margin-top:2px">' + (index + 1) + '</span>';
       html += '<div style="display:flex;flex-direction:column;min-width:0;flex:1">';
-      html += '<span class="obj-title-text" contenteditable="true" spellcheck="true"'
+      html += '<span class="obj-title-text" contenteditable="true" spellcheck="true" role="textbox" aria-label="Título del objetivo"'
            + ' data-placeholder="Escribe el objetivo..."'
            + ' onclick="event.stopPropagation()"'
            + ' onfocus="event.stopPropagation()"'
@@ -2513,7 +2574,7 @@
       if (canRemove) {
         html += '<button class="btn-remove-obj" title="Eliminar objetivo" aria-label="Eliminar objetivo" onclick="event.stopPropagation();removeObjective(' + areaIdx + ',\'' + obj.id + '\')">' + ICONS.trash + '</button>';
       }
-      html += '<span class="obj-toggle" id="toggle_' + obj.id + '">' + ICONS.chevronDown + '</span>';
+      html += '<button type="button" class="obj-toggle" id="toggle_' + obj.id + '" aria-expanded="true" aria-controls="body_' + obj.id + '" aria-label="Plegar o desplegar objetivo" onclick="event.stopPropagation();toggleObjective(\'' + obj.id + '\')">' + ICONS.chevronDown + '</button>';
       html += '</div></div>';
 
       // Body
@@ -2585,9 +2646,11 @@
       html += '<textarea class="list-textarea" rows="1" placeholder="' + escAttr(placeholder) + '" oninput="autoResize(this);updateListItem(\'' + objId + '\',\'' + listType + '\',\'' + item.id + '\',this.value)">' + escHtml(item.text) + '</textarea>';
       if (isIndicator) {
         html += '<div class="eval-group">';
-        html += renderEvalSelect(objId, item.id, '1T', item.eval1T || '');
-        html += renderEvalSelect(objId, item.id, '2T', item.eval2T || '');
-        html += renderEvalSelect(objId, item.id, '3T', item.eval3T || '');
+        ['1T', '2T', '3T'].forEach(function(t) {
+          // La etiqueta del trimestre solo se ve en móvil (en escritorio hay cabeceras de columna)
+          html += '<span class="eval-mobile-label" aria-hidden="true">' + t + '</span>';
+          html += renderEvalSelect(objId, item.id, t, item['eval' + t] || '');
+        });
         html += '</div>';
       }
       if (isIndicator) {
@@ -2628,13 +2691,13 @@
       html += '<span class="list-num content-num">' + (idx + 1) + '</span>';
       html += '<div class="richtext-wrap richtext-wrap-inline content-editor-wrap">';
       html += '<div class="richtext-toolbar">';
-      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'bold\')" title="Negrita"><b>N</b></button>';
-      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'italic\')" title="Cursiva"><i>K</i></button>';
-      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'insertUnorderedList\')" title="Viñetas">•</button>';
+      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'bold\')" title="Negrita" aria-label="Negrita"><b>N</b></button>';
+      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'italic\')" title="Cursiva" aria-label="Cursiva"><i>K</i></button>';
+      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'insertUnorderedList\')" title="Viñetas" aria-label="Lista con viñetas">•</button>';
       html += '</div>';
-      html += '<div id="' + editorId + '" class="richtext-editor richtext-editor-inline" contenteditable="true"'
+      html += '<div id="' + editorId + '" class="richtext-editor richtext-editor-inline" contenteditable="true" role="textbox" aria-multiline="true"'
            + ' data-obj-id="' + objId + '" data-content-item-id="' + item.id + '"'
-           + ' data-placeholder="Ej: Resolución de problemas, numeración..."'
+           + ' data-placeholder="Ej: Resolución de problemas, numeración..." aria-label="Contenido"'
            + ' oninput="updateContentItem(\'' + objId + '\',\'' + item.id + '\',this)"'
            + ' onblur="updateContentItem(\'' + objId + '\',\'' + item.id + '\',this)">'
            + sanitizeRich(item.text || '') + '</div>';
@@ -2712,13 +2775,13 @@
       var editorId = 'rich_' + objId + '_' + fieldKey;
       var html = '<div class="richtext-wrap richtext-wrap-inline">';
       html += '<div class="richtext-toolbar">';
-      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'bold\')" title="Negrita"><b>N</b></button>';
-      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'italic\')" title="Cursiva"><i>K</i></button>';
-      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'insertUnorderedList\')" title="Viñetas">•</button>';
+      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'bold\')" title="Negrita" aria-label="Negrita"><b>N</b></button>';
+      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'italic\')" title="Cursiva" aria-label="Cursiva"><i>K</i></button>';
+      html += '<button type="button" onmousedown="event.preventDefault();richExecOn(\'' + editorId + '\',\'insertUnorderedList\')" title="Viñetas" aria-label="Lista con viñetas">•</button>';
       html += '</div>';
-      html += '<div id="' + editorId + '" class="richtext-editor richtext-editor-inline" contenteditable="true"'
+      html += '<div id="' + editorId + '" class="richtext-editor richtext-editor-inline" contenteditable="true" role="textbox" aria-multiline="true"'
            + ' data-obj-id="' + objId + '" data-obj-field="' + fieldKey + '"'
-           + ' data-placeholder="' + escAttr(placeholder) + '"'
+           + ' data-placeholder="' + escAttr(placeholder) + '" aria-label="' + escAttr(fieldKey === 'activities' ? 'Actividades' : fieldKey) + '"'
            + ' oninput="updateObjRich(\'' + objId + '\',\'' + fieldKey + '\',this)"'
            + ' onblur="updateObjRich(\'' + objId + '\',\'' + fieldKey + '\',this)">'
            + sanitizeRich(value || '') + '</div>';
@@ -2801,7 +2864,7 @@
       if (value === 'NI') cls += ' eval-ni';
       else if (value === 'EP') cls += ' eval-ep';
       else if (value === 'C') cls += ' eval-c';
-      var html = '<select class="' + cls + '" onchange="updateEval(\'' + objId + '\',\'' + itemId + '\',\'' + trimester + '\',this)">';
+      var html = '<select class="' + cls + '" aria-label="Evaluación ' + trimester + '" onchange="updateEval(\'' + objId + '\',\'' + itemId + '\',\'' + trimester + '\',this)">';
       html += '<option value=""' + (!value ? ' selected' : '') + '>—</option>';
       html += '<option value="NI"' + (value === 'NI' ? ' selected' : '') + '>NI</option>';
       html += '<option value="EP"' + (value === 'EP' ? ' selected' : '') + '>EP</option>';
@@ -2844,6 +2907,27 @@
     /* ═══════════════════════════════════════════
        FORM ACTIONS
     ═══════════════════════════════════════════ */
+    // Error de validación junto al campo: lo resalta, lo enfoca y avisa con un toast.
+    function markInvalid(id, msg) {
+      var el = document.getElementById(id);
+      if (el) {
+        el.classList.add('field-invalid');
+        el.setAttribute('aria-invalid', 'true');
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        var focusable = el.matches('input,select,textarea') ? el : el.querySelector('input,select,textarea');
+        if (focusable) focusable.focus({ preventScroll: true });
+        var clear = function() {
+          el.classList.remove('field-invalid');
+          el.removeAttribute('aria-invalid');
+          el.removeEventListener('input', clear);
+          el.removeEventListener('change', clear);
+        };
+        el.addEventListener('input', clear);
+        el.addEventListener('change', clear);
+      }
+      showToast(msg, 'error');
+    }
+
     function onFieldChange() {
       var newName = document.getElementById('fName').value;
       var newCourse = document.getElementById('fCourse').value;
@@ -2968,9 +3052,11 @@
       if (body.classList.contains('hidden')) {
         body.classList.remove('hidden');
         toggle.classList.remove('collapsed');
+        toggle.setAttribute('aria-expanded', 'true');
       } else {
         body.classList.add('hidden');
         toggle.classList.add('collapsed');
+        toggle.setAttribute('aria-expanded', 'false');
       }
     }
 
@@ -2988,9 +3074,11 @@
         if (allCollapsed) {
           body.classList.remove('hidden');
           toggle.classList.remove('collapsed');
+        toggle.setAttribute('aria-expanded', 'true');
         } else {
           body.classList.add('hidden');
           toggle.classList.add('collapsed');
+        toggle.setAttribute('aria-expanded', 'false');
         }
       });
       var btn = document.getElementById('collapseArea_' + areaIdx);
@@ -3195,7 +3283,7 @@
       html += '<div class="card-title"><span class="card-icon">' + ICONS.users + '</span> Informe a las familias</div>';
 
       // Indicator list editor
-      html += '<label class="field-label">Indicadores para el informe</label>';
+      html += '<div class="field-label">Indicadores para el informe</div>';
       html += '<div style="margin-bottom:14px">';
       inf.indicadores.forEach(function(ind, idx) {
         html += '<div class="list-item">';
@@ -3219,7 +3307,7 @@
       if (inf.indicadores.length > 0 && inf.indicadores.some(function(i) { return i.text.trim(); })) {
         trimesters.forEach(function(tri) {
           html += '<div class="informe-trim-label">' + tri.label + '</div>';
-          html += '<table class="informe-table">';
+          html += '<div class="table-scroll"><table class="informe-table">';
           html += '<tr><th style="text-align:left;width:40%">Indicadores</th>';
           INFORME_LEVELS.forEach(function(lv) {
             html += '<th><div class="level-header">' + escHtml(lv.label) + '</div><div class="level-emoji">' + lv.emoji + '</div></th>';
@@ -3236,7 +3324,7 @@
             });
             html += '</tr>';
           });
-          html += '</table>';
+          html += '</table></div>';
         });
       }
 
@@ -3318,9 +3406,9 @@
       state.studentName = document.getElementById('fName').value.trim();
       state.course = document.getElementById('fCourse').value;
 
-      if (!state.studentName) { showToast('Introduce el nombre del alumno/a', 'error'); return; }
-      if (!state.course) { showToast('Selecciona un curso', 'error'); return; }
-      if (state.areas.length === 0) { showToast('Selecciona al menos un ámbito', 'error'); return; }
+      if (!state.studentName) { markInvalid('fName', 'Introduce el nombre del alumno/a'); return; }
+      if (!state.course) { markInvalid('fCourse', 'Selecciona un curso'); return; }
+      if (state.areas.length === 0) { markInvalid('areasGroup', 'Selecciona al menos un ámbito'); return; }
 
       state.saving = true;
       var btn = document.getElementById('btnSave');
@@ -3805,22 +3893,22 @@
 
       html += '<div class="settings-section-title">Datos del centro</div>';
       html += '<div class="settings-grid-2">';
-      html += '<div><label class="field-label">Centro educativo</label>';
+      html += '<div><label class="field-label" for="cfgCentro">Centro educativo</label>';
       html += '<input class="field-input" id="cfgCentro" value="' + escAttr(c.centro || '') + '" placeholder="Ej: CEIP Carlos III"></div>';
-      html += '<div><label class="field-label">Localidad</label>';
+      html += '<div><label class="field-label" for="cfgLocalidad">Localidad</label>';
       html += '<input class="field-input" id="cfgLocalidad" value="' + escAttr(c.localidad || '') + '" placeholder="Ej: La Carlota"></div>';
       html += '</div>';
 
       html += '<div class="settings-section-title">Curso académico activo</div>';
-      html += '<div><label class="field-label">Curso escolar</label>';
+      html += '<div><label class="field-label" for="cfgCurso">Curso escolar</label>';
       html += '<input class="field-input" id="cfgCurso" value="' + escAttr(c.cursoEscolar || '') + '" placeholder="Ej: 2025/2026 (vacío = automático)"></div>';
 
       html += '<div class="settings-grid-2">';
-      html += '<div><label class="field-label">Cursos del año (1º A, 1º B, …)</label>';
+      html += '<div><div class="field-label">Cursos del año (1º A, 1º B, …)</div>';
       html += '<div class="list-editor" id="coursesEditor"></div>';
       html += '<button type="button" class="btn-add-list" onclick="addCfgListItem(\'coursesEditor\', \'\')">+ Añadir curso</button></div>';
 
-      html += '<div><label class="field-label">Docentes especialistas</label>';
+      html += '<div><div class="field-label">Docentes especialistas</div>';
       html += '<div class="list-editor" id="docentesEditor"></div>';
       html += '<button type="button" class="btn-add-list" onclick="addCfgListItem(\'docentesEditor\', \'\')">+ Añadir docente</button>';
       html += '<div class="list-hint">Sugerencia: incluye el rol entre paréntesis. Ej: <i>Ana López (PT)</i></div></div>';
@@ -4241,14 +4329,15 @@
       var placeholder = opts.placeholder || '';
       var validate = opts.validate || function() { return ''; };
       return new Promise(function(resolve) {
+        var prevFocus = document.activeElement;
         var overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
         overlay.innerHTML =
-          '<div class="modal-box" role="dialog" aria-modal="true">' +
-            '<div class="modal-title">' + escHtml(title) + '</div>' +
-            '<div class="modal-message">' + escHtml(message) + '</div>' +
-            '<input type="text" class="modal-input" placeholder="' + escAttr(placeholder) + '" value="' + escAttr(defaultValue) + '">' +
-            '<div class="modal-error" style="display:none"></div>' +
+          '<div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="promptDialogTitle" aria-describedby="promptDialogMsg">' +
+            '<div class="modal-title" id="promptDialogTitle">' + escHtml(title) + '</div>' +
+            '<div class="modal-message" id="promptDialogMsg">' + escHtml(message) + '</div>' +
+            '<input type="text" class="modal-input" aria-labelledby="promptDialogMsg" placeholder="' + escAttr(placeholder) + '" value="' + escAttr(defaultValue) + '">' +
+            '<div class="modal-error" role="alert" style="display:none"></div>' +
             '<div class="modal-actions">' +
               '<button class="modal-btn modal-btn-cancel" data-cancel>' + escHtml(cancelText) + '</button>' +
               '<button class="modal-btn modal-btn-confirm" data-confirm>' + escHtml(confirmText) + '</button>' +
@@ -4259,6 +4348,7 @@
         function close(result) {
           document.removeEventListener('keydown', onKey);
           overlay.remove();
+          if (prevFocus && typeof prevFocus.focus === 'function' && document.body.contains(prevFocus)) prevFocus.focus();
           resolve(result);
         }
         function tryConfirm() {
