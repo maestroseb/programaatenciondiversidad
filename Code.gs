@@ -183,7 +183,28 @@ function getOrCreateCursos_() {
   return sheet;
 }
 
-function readCursosRows_() {
+// Registro de Cursos cacheado (se lee en casi todas las llamadas). Se invalida al
+// duplicar, archivar o borrar un curso; ediciones manuales de la hoja tardan ≤10 min.
+const CURSOS_CACHE_KEY = 'cursosRows.v1';
+
+function invalidateCursosCache_() {
+  CacheService.getScriptCache().remove(CURSOS_CACHE_KEY);
+}
+
+function readCursosRows_(fresh) {
+  const cache = CacheService.getScriptCache();
+  if (!fresh) {
+    const cached = cache.get(CURSOS_CACHE_KEY);
+    if (cached !== null) {
+      try { return JSON.parse(cached); } catch (e) { /* recalcular */ }
+    }
+  }
+  const rows = readCursosRowsFromSheet_();
+  try { cache.put(CURSOS_CACHE_KEY, JSON.stringify(rows), 600); } catch (e) { /* demasiado grande: sin caché */ }
+  return rows;
+}
+
+function readCursosRowsFromSheet_() {
   const sheet = getOrCreateCursos_();
   const data = sheet.getDataRange().getValues();
   const rows = [];
@@ -200,8 +221,8 @@ function readCursosRows_() {
   return rows;
 }
 
-function getActiveYearId_() {
-  const rows = readCursosRows_();
+function getActiveYearId_(rows) {
+  rows = rows || readCursosRows_();
   let best = null;
   rows.forEach(function(r) {
     if (r.archived) return;
@@ -258,9 +279,14 @@ function safeCell_(v) {
 
 /* ───────── Migración del maestro (una vez) ───────── */
 
+const MIGRATED_PROP = 'masterMigrated.v1';
+
 function migrateMasterIfNeeded_() {
+  // Marca en ScriptProperties para no abrir el maestro en cada llamada.
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty(MIGRATED_PROP) === '1') return;
   const ss = getMasterSS_();
-  if (ss.getSheetByName(CURSOS_TAB)) return; // ya migrado
+  if (ss.getSheetByName(CURSOS_TAB)) { props.setProperty(MIGRATED_PROP, '1'); return; } // ya migrado
 
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) {
@@ -321,6 +347,8 @@ function migrateMasterIfNeeded_() {
     mCfg.appendRow(['localidad', masterCfg.localidad || '']);
     mCfg.getRange(1, 1, 1, 2).setFontWeight('bold');
     mCfg.setFrozenRows(1);
+    invalidateCursosCache_();
+    PropertiesService.getScriptProperties().setProperty(MIGRATED_PROP, '1');
   } finally {
     lock.releaseLock();
   }
@@ -331,7 +359,21 @@ function migrateMasterIfNeeded_() {
 function getConfig(yearId) {
   assertAuthorized_();
   migrateMasterIfNeeded_();
+  return buildConfig_(yearId).config;
+}
 
+// Carga inicial en una sola llamada: configuración + lista de alumnos del año activo.
+function getBootstrap(yearId) {
+  assertAuthorized_();
+  migrateMasterIfNeeded_();
+  const built = buildConfig_(yearId);
+  return {
+    config: built.config,
+    students: built.yearSS ? listStudentsIn_(built.yearSS) : []
+  };
+}
+
+function buildConfig_(yearId) {
   // Maestro: centro/localidad + lista de años
   const ss = getMasterSS_();
   const masterCfg = readKeyValueSheet_(ss.getSheetByName(CONFIG_TAB));
@@ -340,14 +382,15 @@ function getConfig(yearId) {
   // Año activo (resuelto a partir de yearId o más reciente no archivado)
   const resolvedId = (yearId && years.some(function(y) { return y.id === yearId; }))
     ? yearId
-    : getActiveYearId_();
+    : getActiveYearId_(years);
 
   let cursoEscolar = '';
   let courses = [];
   let docentes = [];
+  let yearSS = null;
 
   if (resolvedId) {
-    const yearSS = SpreadsheetApp.openById(resolvedId);
+    yearSS = SpreadsheetApp.openById(resolvedId);
     const yearCfg = readKeyValueSheet_(yearSS.getSheetByName(CONFIG_TAB));
     cursoEscolar = yearCfg.cursoEscolar || autoCursoEscolar_();
     courses = Array.isArray(yearCfg.course) ? yearCfg.course : (yearCfg.course ? [yearCfg.course] : []);
@@ -357,14 +400,17 @@ function getConfig(yearId) {
   }
 
   return {
-    centro: masterCfg.centro || '',
-    localidad: masterCfg.localidad || '',
-    cursoEscolar: cursoEscolar,
-    activeYearId: resolvedId || '',
-    years: years,
-    courses: courses,
-    docentes: docentes,
-    isAdmin: isAdmin_()
+    yearSS: yearSS,
+    config: {
+      centro: masterCfg.centro || '',
+      localidad: masterCfg.localidad || '',
+      cursoEscolar: cursoEscolar,
+      activeYearId: resolvedId || '',
+      years: years,
+      courses: courses,
+      docentes: docentes,
+      isAdmin: isAdmin_()
+    }
   };
 }
 
@@ -421,17 +467,22 @@ function upsertKV_(sheet, key, value) {
 }
 
 function setMultiKV_(sheet, key, values) {
-  // Elimina todas las filas con esa clave y reescribe una fila por valor.
+  // Elimina todas las filas con esa clave y reescribe una fila por valor (en bloque).
   const data = sheet.getDataRange().getValues();
-  for (let i = data.length - 1; i >= 1; i--) {
-    if (String(data[i][0]).trim() === key) {
-      sheet.deleteRow(i + 1);
-    }
+  const header = data[0] || ['CLAVE', 'VALOR'];
+  const kept = [];
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim() !== key) kept.push([data[i][0], data[i][1]].map(safeCell_));
   }
   (values || []).forEach(function(v) {
-    var s = String(v == null ? '' : v).trim();
-    if (s) sheet.appendRow([key, safeCell_(s)]);
+    const s = String(v == null ? '' : v).trim();
+    if (s) kept.push([key, safeCell_(s)]);
   });
+  const oldRows = data.length;
+  const newRows = kept.length + 1;
+  sheet.getRange(1, 1, 1, 2).setValues([[header[0], header[1]]]);
+  if (kept.length) sheet.getRange(2, 1, kept.length, 2).setValues(kept);
+  if (oldRows > newRows) sheet.getRange(newRows + 1, 1, oldRows - newRows, sheet.getMaxColumns()).clearContent();
 }
 
 function saveYearLists(payload) {
@@ -483,7 +534,10 @@ function getOrCreateIndiceIn_(ss) {
 function getStudentList(yearId) {
   assertAuthorized_();
   migrateMasterIfNeeded_();
-  const ss = getYearSS_(yearId);
+  return listStudentsIn_(getYearSS_(yearId));
+}
+
+function listStudentsIn_(ss) {
   const sheet = getOrCreateIndiceIn_(ss);
   const data = sheet.getDataRange().getValues();
   const students = [];
@@ -665,6 +719,7 @@ function saveStudentData(payload) {
         }
       }
     }
+    const isNewSheet = !sheet;
     if (sheet) {
       sheet.clear();
     } else {
@@ -749,16 +804,13 @@ function saveStudentData(payload) {
     if (rows.length > 0) {
       const safeRows = rows.map(function(r) { return r.map(safeCell_); });
       sheet.getRange(1, 1, safeRows.length, NUM_COLS).setValues(safeRows);
-      sheet.getRange(1, 8).setValue(safeCell_(areaNames));
-      sheet.getRange(1, 9).setValue('DOCENTES');
-      sheet.getRange(1, 10).setValue(safeCell_(docentesStr));
-      sheet.getRange(1, 11).setValue('UPDATED_AT');
-      sheet.getRange(1, 12).setValue(newUpdatedAt);
-      sheet.getRange(1, 13).setValue('UPDATED_BY');
-      sheet.getRange(1, 14).setValue(userEmail);
+      sheet.getRange(1, 8, 1, 7).setValues([[
+        safeCell_(areaNames), 'DOCENTES', safeCell_(docentesStr),
+        'UPDATED_AT', newUpdatedAt, 'UPDATED_BY', userEmail
+      ]]);
     }
 
-    formatStudentSheet_(sheet, rows);
+    formatStudentSheet_(sheet, rows, isNewSheet);
     updateIndiceIn_(ss, data.studentName, data.course, 'PE', areaNames, docentesStr);
     return { success: true, message: 'Datos guardados correctamente', updatedAt: newUpdatedAt, updatedBy: userEmail };
   } finally {
@@ -807,20 +859,21 @@ function deleteStudent(studentName, yearId) {
 
 /* ───────── Helpers: format & index ───────── */
 
-function formatStudentSheet_(sheet, rowsData) {
+function formatStudentSheet_(sheet, rowsData, isNewSheet) {
   const NUM_COLS = 7;
 
-  sheet.setColumnWidth(1, 80);
-  sheet.setColumnWidth(2, 150);
-  sheet.setColumnWidth(3, 450);
-  sheet.setColumnWidth(4, 50);
-  sheet.setColumnWidth(5, 50);
-  sheet.setColumnWidth(6, 50);
-  sheet.setColumnWidth(7, 300);
+  // clear() no restablece anchos de columna: solo se fijan al crear la pestaña.
+  if (isNewSheet) {
+    sheet.setColumnWidth(1, 80);
+    sheet.setColumnWidth(2, 150);
+    sheet.setColumnWidth(3, 450);
+    sheet.setColumnWidths(4, 3, 50);
+    sheet.setColumnWidth(7, 300);
+  }
 
   sheet.setFrozenRows(2);
 
-  const totalRows = rowsData ? rowsData.length : sheet.getLastRow();
+  const totalRows = rowsData.length;
   if (totalRows < 1) return;
 
   const backgrounds = [];
@@ -839,7 +892,7 @@ function formatStudentSheet_(sheet, rowsData) {
     return { bg: bgRow, fc: fcRow, fw: fwRow, wr: wrRow };
   };
 
-  const source = rowsData || sheet.getRange(1, 1, totalRows, NUM_COLS).getValues();
+  const source = rowsData;
 
   for (let i = 0; i < totalRows; i++) {
     let bg = null, fc = null, fw = 'normal', wrap = false;
@@ -899,7 +952,7 @@ function cloneSchoolYear(payload) {
   if (!lock.tryLock(60000)) throw new Error('Otra operación en curso. Reintenta.');
   try {
     // Validar (dentro del lock) que no existe ya un año con esa etiqueta
-    const existing = readCursosRows_();
+    const existing = readCursosRows_(true);
     if (existing.some(function(y) { return y.label.toLowerCase() === newLabel.toLowerCase(); })) {
       throw new Error('Ya existe un curso académico con ese nombre.');
     }
@@ -930,6 +983,7 @@ function cloneSchoolYear(payload) {
     // Registrar en Cursos del maestro
     const cursos = getOrCreateCursos_();
     cursos.appendRow([safeCell_(newLabel), newId, newUrl, new Date().toISOString(), 'FALSE']);
+    invalidateCursosCache_();
 
     return { id: newId, url: newUrl, label: newLabel };
   } finally {
@@ -985,6 +1039,7 @@ function archiveYear(yearId, archived) {
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][1]).trim() === String(yearId).trim()) {
         sheet.getRange(i + 1, 5).setValue(archived ? 'TRUE' : 'FALSE');
+        invalidateCursosCache_();
         return { success: true };
       }
     }
@@ -1031,6 +1086,7 @@ function deleteYear(yearId, confirmLabel) {
       // El archivo ya pudo ser borrado manualmente — seguimos para limpiar el registro
     }
     sheet.deleteRow(foundRow);
+    invalidateCursosCache_();
     return { success: true };
   } finally {
     lock.releaseLock();
@@ -1039,57 +1095,40 @@ function deleteYear(yearId, confirmLabel) {
 
 /* ───────── Presencia (avisar de ediciones simultáneas) ───────── */
 
-function getOrCreateLocksSheet_() {
-  const ss = getMasterSS_();
-  let sheet = ss.getSheetByName(LOCKS_TAB);
-  if (!sheet) {
-    sheet = ss.insertSheet(LOCKS_TAB);
-    sheet.appendRow(['YEAR_ID', 'TAB_NAME', 'USER_EMAIL', 'TIMESTAMP']);
-    sheet.getRange(1, 1, 1, 4).setFontWeight('bold');
-    sheet.setFrozenRows(1);
-  }
-  return sheet;
+// Presencia en CacheService (sin hoja ni LockService): cada alumno tiene una entrada
+// { email: timestamp } que caduca sola. Una escritura concurrente puede perder una
+// entrada, pero se restablece en el siguiente latido (cada 60 s).
+function presenceKey_(yearId, tabName) {
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, yearId + '|' + tabName, Utilities.Charset.UTF_8);
+  return 'presence:' + Utilities.base64EncodeWebSafe(digest);
 }
 
 function updatePresence_(yearId, tabName, doRegister) {
   if (!yearId || !tabName) return [];
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) return [];
-  try {
-    const sheet = getOrCreateLocksSheet_();
-    const data = sheet.getDataRange().getValues();
-    const myEmail = getCurrentUserEmail_();
-    const nowMs = Date.now();
-    const ttl = PRESENCE_TTL_MS;
-    const others = [];
+  const cache = CacheService.getScriptCache();
+  const key = presenceKey_(String(yearId), String(tabName));
+  const myEmail = getCurrentUserEmail_();
+  const nowMs = Date.now();
+  let entries = {};
+  try { entries = JSON.parse(cache.get(key) || '{}') || {}; } catch (e) { entries = {}; }
 
-    for (let i = data.length - 1; i >= 1; i--) {
-      const row = data[i];
-      const rYear = String(row[0] || '').trim();
-      const rTab = String(row[1] || '').trim();
-      const rEmail = String(row[2] || '').trim();
-      const rTs = Number(row[3] || 0);
-      // Limpia entradas expiradas
-      if (!rTs || (nowMs - rTs) > ttl) {
-        sheet.deleteRow(i + 1);
-        continue;
-      }
-      // Solo nos interesa este alumno en este año
-      if (rYear !== yearId || rTab !== tabName) continue;
-      if (rEmail === myEmail) {
-        // Borramos la propia para reescribirla con timestamp actual
-        sheet.deleteRow(i + 1);
-      } else {
-        others.push({ email: rEmail || 'Usuario sin identificar', ts: rTs });
-      }
-    }
-    if (doRegister) {
-      sheet.appendRow([yearId, tabName, myEmail, nowMs]);
-    }
-    return others;
-  } finally {
-    lock.releaseLock();
+  const others = [];
+  const next = {};
+  Object.keys(entries).forEach(function(email) {
+    const ts = Number(entries[email] || 0);
+    if (!ts || (nowMs - ts) > PRESENCE_TTL_MS) return; // caducada
+    if (email === myEmail) return;                       // la propia se reescribe abajo
+    next[email] = ts;
+    others.push({ email: email || 'Usuario sin identificar', ts: ts });
+  });
+  if (doRegister) next[myEmail] = nowMs;
+
+  if (Object.keys(next).length) {
+    cache.put(key, JSON.stringify(next), Math.ceil(PRESENCE_TTL_MS / 1000));
+  } else {
+    cache.remove(key);
   }
+  return others;
 }
 
 function acquirePresence(yearId, tabName) {

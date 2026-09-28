@@ -1604,34 +1604,45 @@
         var el = document.getElementById(id);
         if (el) el.innerHTML = ICONS[iconMap[id]] || '';
       });
-      loadConfig(function() { loadStudentList(); });
+      loadAll();
     });
 
-    function loadConfig(callback) {
-      var requestedYearId = state.activeYearId || '';
+    function applyConfig(cfg) {
+      if (cfg) {
+        state.config = {
+          centro: cfg.centro || '',
+          localidad: cfg.localidad || '',
+          cursoEscolar: cfg.cursoEscolar || '',
+          courses: cfg.courses || [],
+          docentes: cfg.docentes || []
+        };
+        state.isAdmin = !!cfg.isAdmin;
+        state.years = cfg.years || [];
+        state.activeYearId = cfg.activeYearId || '';
+      }
+      updateHeaderSubtitle();
+      renderYearSelect();
+    }
+
+    // Carga configuración + lista de alumnos en una sola llamada al servidor.
+    function loadAll() {
+      var seq = ++navSeq;
+      state.view = 'list';
+      renderListView('<div class="loading"><div class="loading-icon">' + ICONS.loader + '</div>Cargando alumnos...</div>');
       google.script.run
-        .withSuccessHandler(function(cfg) {
-          if (cfg) {
-            state.config = {
-              centro: cfg.centro || '',
-              localidad: cfg.localidad || '',
-              cursoEscolar: cfg.cursoEscolar || '',
-              courses: cfg.courses || [],
-              docentes: cfg.docentes || []
-            };
-            state.isAdmin = !!cfg.isAdmin;
-            state.years = cfg.years || [];
-            state.activeYearId = cfg.activeYearId || '';
-          }
-          updateHeaderSubtitle();
-          renderYearSelect();
-          if (callback) callback();
+        .withSuccessHandler(function(res) {
+          if (seq !== navSeq) return;
+          applyConfig(res && res.config);
+          state.students = (res && res.students) || [];
+          renderListView();
         })
         .withFailureHandler(function(err) {
-          showToast('Error al cargar configuración: ' + (err && err.message ? err.message : err), 'error');
-          if (callback) callback();
+          if (seq !== navSeq) return;
+          showToast('Error al cargar: ' + (err && err.message ? err.message : err), 'error');
+          state.students = [];
+          renderListView();
         })
-        .getConfig(requestedYearId);
+        .getBootstrap(state.activeYearId || '');
     }
 
     function renderYearSelect() {
@@ -1681,7 +1692,7 @@
       state.selectedStudent = null;
       stopPresence();
       // Recargar config (cursoEscolar del año) y lista de alumnos del nuevo año
-      loadConfig(function() { loadStudentList(); });
+      loadAll();
     }
 
     function updateHeaderSubtitle() {
@@ -2850,10 +2861,21 @@
       state.dirty = (currentSnapshotKey() !== state.baseline);
     }
 
+    // Marca como "sin guardar" al instante y recalcula el estado real (comparando con la
+    // referencia) con debounce, para no serializar todo el formulario en cada pulsación.
+    var dirtyRecomputeTimer = null;
     function markDirty() {
-      recomputeDirty();
+      state.dirty = true;
       updateBadge();
       scheduleDraftSave();
+      if (dirtyRecomputeTimer) clearTimeout(dirtyRecomputeTimer);
+      dirtyRecomputeTimer = setTimeout(function() {
+        dirtyRecomputeTimer = null;
+        // Si entretanto se descartaron los cambios o se salió del formulario, no tocar nada
+        if (!state.dirty || state.view !== 'form') return;
+        recomputeDirty();
+        updateBadge();
+      }, 300);
     }
 
     function updateBadge() {
@@ -2975,6 +2997,7 @@
       if (!found) return;
       var newItem = { id: uid(), text: '' };
       if (listType === 'indicators') newItem.observaciones = '';
+      pushUndo();
       found.obj[listType].push(newItem);
       markDirty();
 
@@ -3040,6 +3063,7 @@
     }
 
     function addObjective(areaIdx) {
+      pushUndo();
       state.areas[areaIdx].objectives.push(createEmptyObjective());
       markDirty();
       renderFormView();
@@ -3147,7 +3171,7 @@
             html += '<tr><td style="font-weight:600">' + (idx + 1) + '.- ' + escHtml(ind.text) + '</td>';
             INFORME_LEVELS.forEach(function(lv) {
               var isActive = currentVal === lv.key;
-              html += '<td><button class="informe-level-btn' + (isActive ? ' active' : '') + '" onclick="setInformeLevel(' + idx + ',\'' + tri.key + '\',\'' + lv.key + '\')">' + lv.emoji + '</button></td>';
+              html += '<td><button type="button" class="informe-level-btn' + (isActive ? ' active' : '') + '" data-inf="' + idx + '|' + tri.key + '" data-level="' + escAttr(lv.key) + '" aria-pressed="' + isActive + '" aria-label="' + escAttr(lv.label) + '" onclick="setInformeLevel(' + idx + ',\'' + tri.key + '\',\'' + lv.key + '\')">' + lv.emoji + '</button></td>';
             });
             html += '</tr>';
           });
@@ -3193,7 +3217,12 @@
       pushUndo({ coalesce: true });
       ev[key] = (ev[key] === level) ? '' : level;
       markDirty();
-      renderFormView();
+      // Solo se actualizan los botones de esa fila/trimestre (sin redibujar todo el formulario)
+      document.querySelectorAll('.informe-level-btn[data-inf="' + idx + '|' + trimester + '"]').forEach(function(btn) {
+        var on = btn.getAttribute('data-level') === ev[key];
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
     }
 
     async function clearForm() {
@@ -3879,7 +3908,7 @@
             refreshYearsList();
             showToast('Curso "' + res.label + '" creado y activo', 'success');
             // Recargar configuración y alumnos del nuevo año
-            loadConfig(function() { loadStudentList(); });
+            loadAll();
           }
         })
         .withFailureHandler(function(err) {
@@ -3943,7 +3972,7 @@
           renderYearSelect();
           refreshYearsList();
           showToast('Curso "' + label + '" borrado', 'success');
-          if (wasActive) loadConfig(function() { loadStudentList(); });
+          if (wasActive) loadAll();
         })
         .withFailureHandler(function(err) {
           showToast('Error al borrar: ' + (err && err.message ? err.message : err), 'error');
