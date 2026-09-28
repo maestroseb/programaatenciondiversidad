@@ -122,9 +122,37 @@ function getActiveYearId_() {
 }
 
 function getYearSS_(yearId) {
-  if (!yearId) yearId = getActiveYearId_();
+  if (yearId) {
+    assertKnownYear_(yearId);
+  } else {
+    yearId = getActiveYearId_();
+  }
   if (!yearId) throw new Error('No hay curso académico activo. Crea uno desde Ajustes.');
   return SpreadsheetApp.openById(yearId);
+}
+
+// Solo se permite operar sobre hojas registradas en Cursos (evita abrir IDs arbitrarios).
+function assertKnownYear_(yearId) {
+  const id = String(yearId || '').trim();
+  if (!id || !readCursosRows_().some(function(r) { return r.id === id; })) {
+    throw new Error('Curso académico no válido.');
+  }
+}
+
+/* ───────── Helpers: validación de datos ───────── */
+
+// Pestañas internas que no pueden usarse como nombre de alumno.
+function assertValidStudentName_(name) {
+  const n = String(name || '').trim().toLowerCase();
+  if ([CONFIG_TAB, INDICE_TAB, LOCKS_TAB].some(function(t) { return t.toLowerCase() === n; })) {
+    throw new Error('"' + String(name).trim() + '" es un nombre reservado. Usa otro nombre para el alumno.');
+  }
+}
+
+// Evita que un texto que empieza por = + - @ se interprete como fórmula en la hoja.
+// El apóstrofo inicial no forma parte del valor: getValues() devuelve el texto original.
+function safeCell_(v) {
+  return (typeof v === 'string' && /^[=+\-@]/.test(v)) ? "'" + v : v;
 }
 
 /* ───────── Migración del maestro (una vez) ───────── */
@@ -252,12 +280,13 @@ function saveConfig(payload) {
       mCfg.getRange(1, 1, 1, 2).setFontWeight('bold');
       mCfg.setFrozenRows(1);
     }
-    upsertKV_(mCfg, 'centro', data.centro != null ? data.centro : '');
-    upsertKV_(mCfg, 'localidad', data.localidad != null ? data.localidad : '');
+    upsertKV_(mCfg, 'centro', data.centro != null ? String(data.centro) : '');
+    upsertKV_(mCfg, 'localidad', data.localidad != null ? String(data.localidad) : '');
 
     // cursoEscolar va al año activo (o al indicado)
     if (data.cursoEscolar !== undefined) {
       const yearId = data.yearId || getActiveYearId_();
+      if (data.yearId) assertKnownYear_(data.yearId);
       if (yearId) {
         const yearSS = SpreadsheetApp.openById(yearId);
         let yCfg = yearSS.getSheetByName(CONFIG_TAB);
@@ -280,11 +309,11 @@ function upsertKV_(sheet, key, value) {
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]).trim() === key) {
-      sheet.getRange(i + 1, 2).setValue(value);
+      sheet.getRange(i + 1, 2).setValue(safeCell_(value));
       return;
     }
   }
-  sheet.appendRow([key, value]);
+  sheet.appendRow([key, safeCell_(value)]);
 }
 
 function setMultiKV_(sheet, key, values) {
@@ -297,7 +326,7 @@ function setMultiKV_(sheet, key, values) {
   }
   (values || []).forEach(function(v) {
     var s = String(v == null ? '' : v).trim();
-    if (s) sheet.appendRow([key, s]);
+    if (s) sheet.appendRow([key, safeCell_(s)]);
   });
 }
 
@@ -306,6 +335,7 @@ function saveYearLists(payload) {
   const data = JSON.parse(payload);
   const yearId = data.yearId || getActiveYearId_();
   if (!yearId) throw new Error('No hay curso académico activo.');
+  if (data.yearId) assertKnownYear_(data.yearId);
 
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(15000)) throw new Error('Otro usuario está guardando. Reintenta.');
@@ -380,6 +410,7 @@ function serializeDocentes_(arr) {
 
 function getStudentData(studentName, yearId) {
   migrateMasterIfNeeded_();
+  assertValidStudentName_(studentName);
   const ss = getYearSS_(yearId);
   const sheet = ss.getSheetByName(studentName);
   if (!sheet) return null;
@@ -489,33 +520,19 @@ function saveStudentData(payload) {
   const tabName = String(data.studentName || '').trim();
   if (!tabName) throw new Error('El nombre del alumno no puede estar vacío.');
   const originalName = String(data.originalStudentName || '').trim();
+  assertValidStudentName_(tabName);
+  if (originalName) assertValidStudentName_(originalName);
 
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) throw new Error('Otro usuario está guardando. Reintenta.');
   try {
-    // Renombrado: si originalName es distinto y existe pestaña, renombrarla
-    let sheet;
-    if (originalName && originalName !== tabName) {
-      const oldSheet = ss.getSheetByName(originalName);
-      const newCollision = ss.getSheetByName(tabName);
-      if (newCollision) throw new Error('Ya existe un alumno con el nombre "' + tabName + '".');
-      if (oldSheet) {
-        oldSheet.setName(tabName);
-        sheet = oldSheet;
-        // Actualizar el Índice: borrar fila con el nombre antiguo
-        const indice = getOrCreateIndiceIn_(ss);
-        const indData = indice.getDataRange().getValues();
-        for (let i = indData.length - 1; i >= 1; i--) {
-          if (String(indData[i][0]).trim() === originalName) {
-            indice.deleteRow(i + 1);
-            break;
-          }
-        }
-      }
+    const isRename = !!(originalName && originalName !== tabName);
+    let sheet = ss.getSheetByName(isRename ? originalName : tabName);
+    if (isRename && ss.getSheetByName(tabName)) {
+      throw new Error('Ya existe un alumno con el nombre "' + tabName + '".');
     }
-    if (!sheet) sheet = ss.getSheetByName(tabName);
-    // Comprobación de versión optimista: si la pestaña ya existe y el cliente
-    // envía expectedUpdatedAt, debe coincidir con el actual de la hoja.
+    // Comprobación de versión optimista (antes de renombrar nada): si la pestaña ya
+    // existe y el cliente envía expectedUpdatedAt, debe coincidir con el actual de la hoja.
     if (sheet && data.expectedUpdatedAt !== undefined && data.expectedUpdatedAt !== null) {
       const last = sheet.getLastColumn() >= 12 ? sheet.getRange(1, 1, 1, 14).getValues()[0] : [];
       let currentUpdatedAt = '';
@@ -526,6 +543,18 @@ function saveStudentData(payload) {
         const byRaw = (String(last[12] || '').trim().toUpperCase() === 'UPDATED_BY') ? String(last[13] || '').trim() : '';
         const by = byRaw ? (' por ' + byRaw) : '';
         throw new Error('CONFLICT: otra persona ha guardado cambios' + by + ' mientras editabas. Recarga el alumno y vuelve a aplicar tus cambios.');
+      }
+    }
+    // Renombrado: renombrar la pestaña y quitar la fila antigua del Índice
+    if (isRename && sheet) {
+      sheet.setName(tabName);
+      const indice = getOrCreateIndiceIn_(ss);
+      const indData = indice.getDataRange().getValues();
+      for (let i = indData.length - 1; i >= 1; i--) {
+        if (String(indData[i][0]).trim() === originalName) {
+          indice.deleteRow(i + 1);
+          break;
+        }
       }
     }
     if (sheet) {
@@ -610,10 +639,11 @@ function saveStudentData(payload) {
     const newUpdatedAt = new Date().toISOString();
     const userEmail = getCurrentUserEmail_();
     if (rows.length > 0) {
-      sheet.getRange(1, 1, rows.length, NUM_COLS).setValues(rows);
-      sheet.getRange(1, 8).setValue(areaNames);
+      const safeRows = rows.map(function(r) { return r.map(safeCell_); });
+      sheet.getRange(1, 1, safeRows.length, NUM_COLS).setValues(safeRows);
+      sheet.getRange(1, 8).setValue(safeCell_(areaNames));
       sheet.getRange(1, 9).setValue('DOCENTES');
-      sheet.getRange(1, 10).setValue(docentesStr);
+      sheet.getRange(1, 10).setValue(safeCell_(docentesStr));
       sheet.getRange(1, 11).setValue('UPDATED_AT');
       sheet.getRange(1, 12).setValue(newUpdatedAt);
       sheet.getRange(1, 13).setValue('UPDATED_BY');
@@ -641,6 +671,9 @@ function getCurrentUserEmail_() {
 
 function deleteStudent(studentName, yearId) {
   migrateMasterIfNeeded_();
+  studentName = String(studentName || '').trim();
+  if (!studentName) throw new Error('Falta el nombre del alumno.');
+  assertValidStudentName_(studentName);
   const ss = getYearSS_(yearId);
 
   const lock = LockService.getScriptLock();
@@ -652,7 +685,7 @@ function deleteStudent(studentName, yearId) {
     const indice = getOrCreateIndiceIn_(ss);
     const data = indice.getDataRange().getValues();
     for (let i = data.length - 1; i >= 1; i--) {
-      if (String(data[i][0]).trim() === studentName.trim()) {
+      if (String(data[i][0]).trim() === studentName) {
         indice.deleteRow(i + 1);
         break;
       }
@@ -750,15 +783,16 @@ function cloneSchoolYear(payload) {
   if (!sourceId) throw new Error('No hay curso académico de origen.');
   if (!newLabel) throw new Error('Indica el nombre del nuevo curso académico.');
 
-  // Validar que no existe ya un año con esa etiqueta
-  const existing = readCursosRows_();
-  if (existing.some(function(y) { return y.label.toLowerCase() === newLabel.toLowerCase(); })) {
-    throw new Error('Ya existe un curso académico con ese nombre.');
-  }
+  assertKnownYear_(sourceId);
 
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(60000)) throw new Error('Otra operación en curso. Reintenta.');
   try {
+    // Validar (dentro del lock) que no existe ya un año con esa etiqueta
+    const existing = readCursosRows_();
+    if (existing.some(function(y) { return y.label.toLowerCase() === newLabel.toLowerCase(); })) {
+      throw new Error('Ya existe un curso académico con ese nombre.');
+    }
     const safeLabel = newLabel.replace(/\//g, '-');
     const fileName = 'Programa Atención a la Diversidad — ' + safeLabel;
 
@@ -785,7 +819,7 @@ function cloneSchoolYear(payload) {
 
     // Registrar en Cursos del maestro
     const cursos = getOrCreateCursos_();
-    cursos.appendRow([newLabel, newId, newUrl, new Date().toISOString(), 'FALSE']);
+    cursos.appendRow([safeCell_(newLabel), newId, newUrl, new Date().toISOString(), 'FALSE']);
 
     return { id: newId, url: newUrl, label: newLabel };
   } finally {
@@ -964,9 +998,9 @@ function updateIndiceIn_(ss, name, course, program, area, docentesStr) {
   const dStr = docentesStr || '';
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]).trim() === name.trim()) {
-      sheet.getRange(i + 1, 1, 1, 5).setValues([[name, course, program, area, dStr]]);
+      sheet.getRange(i + 1, 1, 1, 5).setValues([[name, course, program, area, dStr].map(safeCell_)]);
       return;
     }
   }
-  sheet.appendRow([name, course, program, area, dStr]);
+  sheet.appendRow([name, course, program, area, dStr].map(safeCell_));
 }

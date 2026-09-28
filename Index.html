@@ -897,6 +897,17 @@
       color: #fff;
       transform: translateY(-1px);
     }
+    /* Botón secundario para fondos claros (modales, vista de impresión) */
+    .btn-ghost {
+      border: 1px solid var(--gris-300);
+      background: var(--gris-0);
+      color: var(--gris-700);
+    }
+    .btn-ghost:hover:not(:disabled) {
+      background: var(--gris-100);
+      border-color: var(--gris-500);
+      color: var(--gris-900);
+    }
     .btn-primary {
       border: none;
       background: var(--verde-claro);
@@ -1429,6 +1440,7 @@
         savedAt: Date.now(),
         studentName: state.studentName || '',
         course: state.course || '',
+        docentes: (state.docentes || []).slice(),
         areas: JSON.parse(JSON.stringify(state.areas || [])),
         valoracionInicial: state.valoracionInicial || '',
         seguimiento1T: state.seguimiento1T || '',
@@ -1495,6 +1507,7 @@
     function applyDraftToState(draft) {
       state.studentName = draft.studentName || '';
       state.course = draft.course || '';
+      if (Array.isArray(draft.docentes)) state.docentes = draft.docentes.slice();
       state.valoracionInicial = draft.valoracionInicial || '';
       state.seguimiento1T = draft.seguimiento1T || '';
       state.seguimiento2T = draft.seguimiento2T || '';
@@ -1662,6 +1675,7 @@
         }
         state.dirty = false;
       }
+      navSeq++;
       state.activeYearId = newId;
       state.selectedStudent = null;
       stopPresence();
@@ -1679,15 +1693,22 @@
       }
     }
 
+    // Contador de navegación: permite descartar respuestas del servidor que llegan
+    // después de que el usuario haya cambiado de alumno, de curso o vuelto a la lista.
+    var navSeq = 0;
+
     function loadStudentList() {
+      var seq = ++navSeq;
       state.view = 'list';
       renderListView('<div class="loading"><div class="loading-icon">' + ICONS.loader + '</div>Cargando alumnos...</div>');
       google.script.run
         .withSuccessHandler(function(students) {
+          if (seq !== navSeq) return;
           state.students = students || [];
           renderListView();
         })
         .withFailureHandler(function(err) {
+          if (seq !== navSeq) return;
           showToast('Error al cargar alumnos: ' + err.message, 'error');
           state.students = [];
           renderListView();
@@ -1728,7 +1749,7 @@
         html += '<div class="course-filters" id="courseFilters">';
         html += '<button class="course-chip' + (state.courseFilter === 'Todos' ? ' active' : '') + '" onclick="setCourseFilter(\'Todos\')">Todos</button>';
         coursesInUse.sort().forEach(function(c) {
-          html += '<button class="course-chip' + (state.courseFilter === c ? ' active' : '') + '" onclick="setCourseFilter(\'' + escAttr(c) + '\')">' + escHtml(c) + '</button>';
+          html += '<button class="course-chip' + (state.courseFilter === c ? ' active' : '') + '" onclick="setCourseFilter(' + jsArg(c) + ')">' + escHtml(c) + '</button>';
         });
         html += '</div>';
       }
@@ -1780,8 +1801,8 @@
       }
       let html = '';
       list.forEach(function(s) {
-        var nameAttr = escAttr(s.name);
-        html += '<div class="student-item" role="button" tabindex="0" onclick="selectStudent(\'' + nameAttr + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();selectStudent(\'' + nameAttr + '\')}">';
+        var nameArg = jsArg(s.name);
+        html += '<div class="student-item" role="button" tabindex="0" onclick="selectStudent(' + nameArg + ')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();selectStudent(' + nameArg + ')}">';
         html += '<div><div class="name">' + escHtml(s.name) + '</div>';
         html += '<div class="course">' + escHtml(s.course);
         if (s.docentes && s.docentes.length) {
@@ -1790,8 +1811,8 @@
         html += '</div></div>';
         html += '<div class="student-item-actions">';
         html += '<span class="program-badge">PE</span>';
-        html += '<button class="btn-student-action btn-duplicate-student" title="Duplicar alumno" aria-label="Duplicar alumno" onclick="event.stopPropagation();confirmDuplicateStudent(\'' + nameAttr + '\')">' + ICONS.copy + '</button>';
-        html += '<button class="btn-student-action btn-delete-student" title="Eliminar alumno" aria-label="Eliminar alumno" onclick="event.stopPropagation();confirmDeleteStudent(\'' + nameAttr + '\')">' + ICONS.trash + '</button>';
+        html += '<button class="btn-student-action btn-duplicate-student" title="Duplicar alumno" aria-label="Duplicar alumno" onclick="event.stopPropagation();confirmDuplicateStudent(' + nameArg + ')">' + ICONS.copy + '</button>';
+        html += '<button class="btn-student-action btn-delete-student" title="Eliminar alumno" aria-label="Eliminar alumno" onclick="event.stopPropagation();confirmDeleteStudent(' + nameArg + ')">' + ICONS.trash + '</button>';
         html += '</div>';
         html += '</div>';
       });
@@ -1814,6 +1835,7 @@
       });
       if (!newName) return;
       showToast('Duplicando ficha...', 'info');
+      var dupYearId = state.activeYearId;
       google.script.run
         .withSuccessHandler(function(data) {
           if (!data) { showToast('No se encontró la ficha original', 'error'); return; }
@@ -1827,14 +1849,16 @@
                 area: (data.areas || []).map(function(a) { return a.name; }).join(', '),
                 docentes: (data.docentes || []).slice()
               });
-              document.getElementById('studentItems').innerHTML = renderStudentItems(getFilteredStudents());
+              if (dupYearId !== state.activeYearId) return;
+              var itemsEl = document.getElementById('studentItems');
+              if (itemsEl) itemsEl.innerHTML = renderStudentItems(getFilteredStudents());
               showToast('Alumno duplicado como "' + newName + '"', 'success');
             })
             .withFailureHandler(function(err) { showToast('Error al guardar: ' + err.message, 'error'); })
-            .saveStudentData(JSON.stringify(Object.assign({}, data, { yearId: state.activeYearId })));
+            .saveStudentData(JSON.stringify(Object.assign({}, data, { yearId: dupYearId })));
         })
         .withFailureHandler(function(err) { showToast('Error al leer: ' + err.message, 'error'); })
-        .getStudentData(oldName, state.activeYearId);
+        .getStudentData(oldName, dupYearId);
     }
 
     async function confirmDeleteStudent(name) {
@@ -1900,6 +1924,7 @@
       redoStack = [];
       lastCoalescedPushAt = 0;
       updateUndoRedoButtons();
+      var seq = ++navSeq;
       state.selectedStudent = name;
       state.isNew = false;
       state.dirty = false;
@@ -1910,6 +1935,7 @@
 
       google.script.run
         .withSuccessHandler(async function(data) {
+          if (seq !== navSeq) return;
           if (data) {
             state.studentName = data.studentName;
             state.course = data.course;
@@ -1956,6 +1982,7 @@
           state.view = 'form';
           setBaselineFromCurrent();
           var recovered = await offerDraftRecovery(name);
+          if (seq !== navSeq) return;
           if (!recovered) setBaselineFromCurrent();
           renderFormView();
           updateBadge();
@@ -1967,6 +1994,7 @@
           startPresence(state.studentName);
         })
         .withFailureHandler(function(err) {
+          if (seq !== navSeq) return;
           showToast('Error al cargar: ' + err.message, 'error');
           renderListView();
         })
@@ -1974,8 +2002,9 @@
     }
 
     async function newStudent() {
-      stopPresence();
       if (state.dirty && !(await confirmDialog('Tienes cambios sin guardar. Si continúas, se perderán.', { title: 'Cambios sin guardar', confirmText: 'Descartar y continuar', cancelText: 'Seguir editando', danger: true }))) return;
+      stopPresence();
+      navSeq++;
       flushDraftTimer();
       draftLastSavedAt = null;
       undoStack = [];
@@ -2151,7 +2180,7 @@
       AREAS.forEach(function(a) {
         var checked = selectedAreaNames.indexOf(a) >= 0;
         html += '<label class="area-check' + (checked ? ' is-checked' : '') + '">';
-        html += '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleArea(\'' + escAttr(a) + '\')">';
+        html += '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleArea(' + jsArg(a) + ')">';
         html += escHtml(a) + '</label>';
       });
       html += '</div></div>';
@@ -2227,7 +2256,7 @@
         + (openable ? ' onclick="toggleDocentesPopup(event)"' : '') + '>';
       selected.forEach(function(d) {
         html += '<span class="docente-chip">' + escHtml(d)
-          + '<button type="button" class="docente-chip-x" title="Quitar" onclick="event.stopPropagation();removeDocente(\'' + escAttr(d) + '\')">×</button>'
+          + '<button type="button" class="docente-chip-x" title="Quitar" onclick="event.stopPropagation();removeDocente(' + jsArg(d) + ')">×</button>'
           + '</span>';
       });
       if (openable) {
@@ -2291,6 +2320,7 @@
     function addDocente(name) {
       if (!name) return;
       if ((state.docentes || []).indexOf(name) === -1) {
+        pushUndo();
         state.docentes = (state.docentes || []).slice();
         state.docentes.push(name);
         markDirty();
@@ -2300,6 +2330,7 @@
     }
 
     function removeDocente(name) {
+      pushUndo();
       state.docentes = (state.docentes || []).filter(function(d) { return d !== name; });
       markDirty();
       closeDocentesPopup();
@@ -2778,6 +2809,7 @@
         return JSON.stringify({
           studentName: state.studentName || '',
           course: state.course || '',
+          docentes: (state.docentes || []).slice(),
           areas: (state.areas || []).map(function(a) {
             return {
               name: a.name,
@@ -3232,6 +3264,14 @@
       // Detección de renombrado: enviamos el nombre original tal y como lo
       // teníamos antes de editar para que el backend pueda renombrar la pestaña.
       var originalStudentName = (!state.isNew && state.selectedStudent) ? state.selectedStudent : '';
+      // Contexto del envío: si el usuario sigue editando o cambia de alumno mientras
+      // se guarda, no debemos marcar como guardado lo que no se ha enviado.
+      var saveSeq = navSeq;
+      var sentName = state.studentName;
+      var sentCourse = state.course;
+      var sentAreaStr = state.areas.map(function(a) { return a.name; }).join(', ');
+      var sentDocentes = (state.docentes || []).slice();
+      var sentKey = currentSnapshotKey();
       var payload = JSON.stringify({
         yearId: state.activeYearId,
         studentName: state.studentName,
@@ -3243,10 +3283,16 @@
         seguimiento1T: state.seguimiento1T,
         seguimiento2T: state.seguimiento2T,
         seguimiento3T: state.seguimiento3T,
-        informeFamilias: {
-          indicadores: state.informeFamilias.indicadores.filter(function(i) { return i.text.trim(); }),
-          evaluaciones: state.informeFamilias.evaluaciones
-        },
+        informeFamilias: (function() {
+          // Filtrar indicadores vacíos manteniendo alineadas sus valoraciones (el backend las empareja por índice)
+          var inds = [], evs = [];
+          state.informeFamilias.indicadores.forEach(function(ind, i) {
+            if (!ind.text.trim()) return;
+            inds.push(ind);
+            evs.push(state.informeFamilias.evaluaciones[i] || {});
+          });
+          return { indicadores: inds, evaluaciones: evs };
+        })(),
         areas: state.areas.map(function(area) {
           return {
             name: area.name,
@@ -3269,41 +3315,48 @@
         .withSuccessHandler(function(result) {
           clearTimeout(slowSaveTimer);
           state.saving = false;
-          var prevSelected = state.selectedStudent;
-          var renamed = !!(originalStudentName && originalStudentName !== state.studentName);
-          state.selectedStudent = state.studentName;
-          state.isNew = false;
-          if (result && result.updatedAt) state.expectedUpdatedAt = result.updatedAt;
-          setBaselineFromCurrent();
-          clearDraft(state.studentName);
-          if (renamed) clearDraft(originalStudentName);
-
-          // Update local students list
-          var areaStr = state.areas.map(function(a) { return a.name; }).join(', ');
-          var docentesArr = (state.docentes || []).slice();
-          if (renamed) {
-            // Quitar la entrada con el nombre antiguo
-            state.students = state.students.filter(function(s) { return s.name !== originalStudentName; });
-          }
-          var existing = state.students.find(function(s) { return s.name === state.studentName; });
-          if (!existing) {
-            state.students.push({ name: state.studentName, course: state.course, program: 'PE', area: areaStr, docentes: docentesArr });
-          } else {
-            existing.course = state.course;
-            existing.program = 'PE';
-            existing.area = areaStr;
-            existing.docentes = docentesArr;
-          }
-
           btn.disabled = false;
           btn.innerHTML = svgIcon('save') + ' Guardar';
+          var renamed = !!(originalStudentName && originalStudentName !== sentName);
+
+          // Actualizar la lista local de alumnos
+          if (renamed) {
+            state.students = state.students.filter(function(s) { return s.name !== originalStudentName; });
+          }
+          var existing = state.students.find(function(s) { return s.name === sentName; });
+          if (!existing) {
+            state.students.push({ name: sentName, course: sentCourse, program: 'PE', area: sentAreaStr, docentes: sentDocentes });
+          } else {
+            existing.course = sentCourse;
+            existing.program = 'PE';
+            existing.area = sentAreaStr;
+            existing.docentes = sentDocentes;
+          }
+
+          if (saveSeq !== navSeq) {
+            // El usuario ya está en otra vista/alumno: solo informamos.
+            if (renamed) clearDraft(originalStudentName);
+            if (state.view === 'list') renderListView();
+            showToast('Datos de "' + sentName + '" guardados en Google Sheets', 'success');
+            return;
+          }
+
+          state.selectedStudent = sentName;
+          state.isNew = false;
+          if (result && result.updatedAt) state.expectedUpdatedAt = result.updatedAt;
+          // La referencia "guardada" es lo que se envió; si se editó durante el guardado, sigue sucio.
+          state.baseline = sentKey;
+          recomputeDirty();
+          clearDraft(sentName);
+          if (renamed) clearDraft(originalStudentName);
+          if (state.dirty) scheduleDraftSave();
           updateBadge();
           // Reiniciar la presencia al nuevo nombre si hubo renombrado, o registrarla si era nuevo
           if (renamed || !presenceCurrent.tabName) {
             stopPresence();
-            startPresence(state.studentName);
+            startPresence(sentName);
           }
-          showToast(renamed ? ('Alumno renombrado a "' + state.studentName + '" y guardado') : 'Datos guardados en Google Sheets', 'success');
+          showToast(renamed ? ('Alumno renombrado a "' + sentName + '" y guardado') : 'Datos guardados en Google Sheets', 'success');
         })
         .withFailureHandler(function(err) {
           clearTimeout(slowSaveTimer);
@@ -3392,7 +3445,7 @@
       html += '</div></div>';
       html += '</div>';
       html += '<div class="settings-footer">';
-      html += '<button class="btn btn-secondary" onclick="closePrintOptions()">Cancelar</button>';
+      html += '<button class="btn btn-ghost" onclick="closePrintOptions()">Cancelar</button>';
       html += '<button class="btn btn-primary" onclick="confirmPrintOptions()">Generar vista</button>';
       html += '</div></div></div>';
 
@@ -3452,7 +3505,7 @@
 
       // Toolbar
       html += '<div class="print-toolbar">';
-      html += '<button class="btn btn-secondary" onclick="closePrint()" style="font-size:13px;padding:8px 16px">' + ICONS.x + ' Volver</button>';
+      html += '<button class="btn btn-ghost" onclick="closePrint()" style="font-size:13px;padding:8px 16px">' + ICONS.x + ' Volver</button>';
       html += '<span style="font-weight:800;font-size:15px;color:#1b4332">Vista previa para imprimir</span>';
       html += '<button class="btn btn-primary" onclick="window.print()" style="font-size:13px;padding:8px 16px">' + svgIcon('printer') + ' Imprimir</button>';
       html += '</div>';
@@ -3681,7 +3734,7 @@
 
       html += '</div>';
       html += '<div class="settings-footer">';
-      html += '<button class="btn btn-secondary" onclick="closeSettings()">Cancelar</button>';
+      html += '<button class="btn btn-ghost" onclick="closeSettings()">Cancelar</button>';
       html += '<button class="btn btn-primary" id="btnSaveConfig" onclick="saveConfigFromUI()">Guardar</button>';
       html += '</div></div></div>';
 
@@ -3753,11 +3806,11 @@
         html += '<div class="year-actions">';
         if (y.url) html += '<a class="year-link" href="' + escAttr(y.url) + '" target="_blank" rel="noopener" title="Abrir en Google Sheets">↗</a>';
         if (y.archived) {
-          html += '<button type="button" class="btn-year-action" onclick="toggleArchiveYear(\'' + escAttr(y.id) + '\', false)">Desarchivar</button>';
+          html += '<button type="button" class="btn-year-action" onclick="toggleArchiveYear(' + jsArg(y.id) + ', false)">Desarchivar</button>';
         } else {
-          html += '<button type="button" class="btn-year-action" onclick="toggleArchiveYear(\'' + escAttr(y.id) + '\', true)">Archivar</button>';
+          html += '<button type="button" class="btn-year-action" onclick="toggleArchiveYear(' + jsArg(y.id) + ', true)">Archivar</button>';
         }
-        html += '<button type="button" class="btn-year-action btn-year-delete" onclick="confirmDeleteYear(\'' + escAttr(y.id) + '\', \'' + escAttr(y.label) + '\')">Borrar</button>';
+        html += '<button type="button" class="btn-year-action btn-year-delete" onclick="confirmDeleteYear(' + jsArg(y.id) + ', ' + jsArg(y.label) + ')">Borrar</button>';
         html += '</div>';
         html += '</div>';
       });
@@ -3942,18 +3995,45 @@
       return (tmp.textContent || '').trim().length > 0;
     }
     function escAttr(str) { return escHtml(str); }
+    // Argumento de texto seguro para handlers inline (onclick="fn(' + jsArg(v) + ')"):
+    // JSON.stringify genera un literal JS válido y escAttr lo protege dentro del atributo.
+    function jsArg(str) { return escAttr(JSON.stringify(String(str == null ? '' : str))); }
 
+    // Saneado por lista blanca: solo se conservan las etiquetas de formato que genera
+    // el editor (negrita, cursiva, listas, saltos) y se eliminan todos los atributos.
+    var RICH_ALLOWED_TAGS = { B: 1, STRONG: 1, I: 1, EM: 1, U: 1, S: 1, UL: 1, OL: 1, LI: 1, BR: 1, DIV: 1, P: 1, SPAN: 1 };
+    var RICH_DROP_TAGS = { SCRIPT: 1, STYLE: 1, IFRAME: 1, OBJECT: 1, EMBED: 1, FORM: 1, LINK: 1, META: 1, SVG: 1, MATH: 1, TEMPLATE: 1, NOSCRIPT: 1, TEXTAREA: 1, SELECT: 1, BUTTON: 1, INPUT: 1, IMG: 1, VIDEO: 1, AUDIO: 1, SOURCE: 1, BASE: 1, FRAME: 1, FRAMESET: 1 };
     function sanitizeRich(html) {
       if (!html) return '';
-      return String(html)
-        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-        .replace(/<(iframe|object|embed|form|style|link|meta)\b[\s\S]*?<\/\1>/gi, '')
-        .replace(/<(iframe|object|embed|form|style|link|meta)\b[^>]*\/?>/gi, '')
-        .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
-        .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
-        .replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
-        .replace(/(href|src)\s*=\s*"\s*javascript:[^"]*"/gi, '$1=""')
-        .replace(/(href|src)\s*=\s*'\s*javascript:[^']*'/gi, '$1=""');
+      var doc;
+      try { doc = new DOMParser().parseFromString('<div>' + String(html) + '</div>', 'text/html'); }
+      catch (e) { return escHtml(String(html)); }
+      var root = doc.body.firstChild;
+      if (!root) return '';
+      (function clean(node) {
+        var child = node.firstChild;
+        while (child) {
+          var next = child.nextSibling;
+          if (child.nodeType === 1) {
+            var tag = child.tagName.toUpperCase();
+            if (RICH_DROP_TAGS[tag]) {
+              node.removeChild(child);
+            } else {
+              clean(child);
+              if (RICH_ALLOWED_TAGS[tag]) {
+                while (child.attributes.length) child.removeAttribute(child.attributes[0].name);
+              } else {
+                while (child.firstChild) node.insertBefore(child.firstChild, child);
+                node.removeChild(child);
+              }
+            }
+          } else if (child.nodeType !== 3) {
+            node.removeChild(child);
+          }
+          child = next;
+        }
+      })(root);
+      return root.innerHTML;
     }
 
     function getCurrentSchoolYear() {
@@ -3971,12 +4051,13 @@
       var cancelText = opts.cancelText || 'Cancelar';
       var danger = opts.danger === true;
       return new Promise(function(resolve) {
+        var prevFocus = document.activeElement;
         var overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
         overlay.innerHTML =
-          '<div class="modal-box" role="dialog" aria-modal="true">' +
-            '<div class="modal-title">' + escHtml(title) + '</div>' +
-            '<div class="modal-message">' + escHtml(message) + '</div>' +
+          '<div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="confirmDialogTitle" aria-describedby="confirmDialogMsg">' +
+            '<div class="modal-title" id="confirmDialogTitle">' + escHtml(title) + '</div>' +
+            '<div class="modal-message" id="confirmDialogMsg">' + escHtml(message) + '</div>' +
             '<div class="modal-actions">' +
               '<button class="modal-btn modal-btn-cancel" data-cancel>' + escHtml(cancelText) + '</button>' +
               '<button class="modal-btn ' + (danger ? 'modal-btn-danger' : 'modal-btn-confirm') + '" data-confirm>' + escHtml(confirmText) + '</button>' +
@@ -3985,11 +4066,24 @@
         function close(result) {
           document.removeEventListener('keydown', onKey);
           overlay.remove();
+          if (prevFocus && typeof prevFocus.focus === 'function' && document.body.contains(prevFocus)) prevFocus.focus();
           resolve(result);
         }
         function onKey(e) {
           if (e.key === 'Escape') { e.preventDefault(); close(false); }
-          else if (e.key === 'Enter') { e.preventDefault(); close(true); }
+          else if (e.key === 'Enter') {
+            // Enter activa el botón enfocado; nunca confirma si el foco está en Cancelar
+            e.preventDefault();
+            close(document.activeElement === overlay.querySelector('[data-confirm]'));
+          }
+          else if (e.key === 'Tab') {
+            // Mantener el foco dentro del diálogo
+            var btns = overlay.querySelectorAll('button');
+            var first = btns[0], last = btns[btns.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+            else if (!overlay.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+          }
         }
         overlay.addEventListener('click', function(e) { if (e.target === overlay) close(false); });
         overlay.querySelector('[data-cancel]').addEventListener('click', function() { close(false); });
@@ -3997,7 +4091,8 @@
         document.addEventListener('keydown', onKey);
         document.body.appendChild(overlay);
         setTimeout(function() {
-          var btn = overlay.querySelector('[data-confirm]');
+          // En acciones destructivas, el foco inicial va a Cancelar
+          var btn = overlay.querySelector(danger ? '[data-cancel]' : '[data-confirm]');
           if (btn) btn.focus();
         }, 10);
       });
