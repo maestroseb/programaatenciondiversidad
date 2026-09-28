@@ -2,7 +2,6 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sofia+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -80,8 +79,6 @@
     .icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .icon svg { display: block; width: 1em; height: 1em; }
     .icon-18 svg { width: 18px; height: 18px; }
-    .icon-16 svg { width: 16px; height: 16px; }
-    .icon-14 svg { width: 14px; height: 14px; }
 
     /* ─── Header ─── */
     .header {
@@ -242,8 +239,6 @@
     }
     .field-select { appearance: auto; cursor: pointer; }
     .field-input:read-only { background: var(--gris-100); color: var(--gris-500); }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    @media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
     .grid-student-info { display: grid; grid-template-columns: minmax(180px, 1.4fr) minmax(120px, 0.7fr) minmax(280px, 2.4fr); gap: 12px; align-items: start; }
     @media (max-width: 880px) { .grid-student-info { grid-template-columns: 1.4fr 1fr; } .grid-student-info > div:nth-child(3) { grid-column: 1 / -1; } }
     @media (max-width: 560px) { .grid-student-info { grid-template-columns: 1fr; } .grid-student-info > div:nth-child(3) { grid-column: auto; } }
@@ -276,13 +271,9 @@
       padding: 8px 10px; border-radius: 6px; cursor: pointer;
       font-size: 14px; color: var(--verde-oscuro);
     }
-    .docentes-popup-item:hover, .docentes-popup-item.is-active {
+    .docentes-popup-item:hover {
       background: var(--verde-tint); color: var(--verde-oscuro);
     }
-    .docentes-popup-empty {
-      padding: 8px 10px; color: var(--gris-500); font-size: 13px; font-style: italic;
-    }
-    .docentes-empty { color: var(--gris-400); font-size: 13px; font-style: italic; }
     .docente-chip {
       display: inline-flex; align-items: center; gap: 4px;
       background: #d1fae5; color: #064e3b; border: 1px solid #6ee7b7;
@@ -294,8 +285,6 @@
       font-size: 14px; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
     }
     .docente-chip-x:hover { background: rgba(0,0,0,0.18); }
-    .docentes-add { margin-top: 6px; }
-    .docentes-hint { font-size: 12px; color: var(--gris-500); margin-top: 6px; }
     .docentes-empty-box {
       padding: 11px 14px; min-height: 42px;
       border: 1px dashed var(--gris-300); border-radius: var(--radio);
@@ -312,15 +301,6 @@
     }
     .presence-icon { font-size: 16px; line-height: 1; }
 
-    .program-tag {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 9px 14px; background: var(--verde-tint);
-      border: 1px solid var(--verde-tint-dark);
-      border-radius: var(--radio);
-      font-weight: 700; color: var(--verde-medio);
-      font-size: 14px; letter-spacing: 0.02em;
-    }
-    .program-tag .tag { font-weight: 800; font-size: 12px; letter-spacing: 0.06em; background: var(--verde-medio); color: #fff; padding: 3px 10px; border-radius: var(--radio-pill); }
 
     .area-check {
       display: flex; align-items: center; gap: 10px; padding: 11px 14px;
@@ -679,13 +659,6 @@
       letter-spacing: 0.06em;
     }
     .followup-header .followup-badge svg { width: 13px; height: 13px; }
-    .followup-body { padding: 16px 18px; }
-    .followup-textarea {
-      width: 100%; padding: 11px 14px; border-radius: var(--radio); border: 1px solid var(--gris-300);
-      font-size: 15px; font-family: inherit; line-height: 1.6;
-      resize: none; overflow: hidden; min-height: 64px;
-      color: var(--verde-oscuro); background: var(--gris-0);
-    }
 
     /* ─── Rich text editor (flat, integrated into followup card) ─── */
     .richtext-wrap { display: flex; flex-direction: column; }
@@ -829,16 +802,6 @@
       animation: popIn 0.2s ease;
       position: relative;
     }
-    .modal-close {
-      position: absolute; top: 14px; right: 14px;
-      background: none; border: none; cursor: pointer;
-      color: var(--gris-400);
-      width: 28px; height: 28px; border-radius: 6px;
-      display: inline-flex; align-items: center; justify-content: center;
-      transition: color var(--trans), transform var(--trans), background var(--trans);
-    }
-    .modal-close:hover { color: var(--verde-oscuro); background: var(--gris-100); transform: rotate(90deg); }
-    .modal-close svg { width: 16px; height: 16px; }
     .modal-title {
       font-weight: 700; font-size: 18px; color: var(--verde-oscuro);
       margin-bottom: 10px; padding-right: 32px;
@@ -996,9 +959,8 @@
       display: flex; flex-direction: column;
       animation: popIn 0.2s ease;
     }
-    .settings-header { flex-shrink: 0; }
-    .settings-footer { flex-shrink: 0; }
     .settings-header {
+      flex-shrink: 0;
       padding: 18px 22px;
       background: var(--verde-oscuro);
       color: #fff; font-weight: 700; font-size: 17px;
@@ -1019,7 +981,7 @@
     .settings-body { padding: 22px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; flex: 1 1 auto; }
     .settings-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
     @media (max-width: 600px) { .settings-grid-2 { grid-template-columns: 1fr; } }
-    .settings-footer { padding: 14px 22px; border-top: 1px solid var(--gris-200); display: flex; justify-content: flex-end; gap: 8px; background: var(--gris-50); }
+    .settings-footer { flex-shrink: 0; padding: 14px 22px; border-top: 1px solid var(--gris-200); display: flex; justify-content: flex-end; gap: 8px; background: var(--gris-50); }
     .settings-section-title {
       font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
       color: var(--gris-500); padding-top: 6px; border-top: 1px solid var(--gris-200);
@@ -1114,12 +1076,6 @@
       font-size: 13px; font-weight: 600; cursor: pointer; max-width: 220px;
     }
     .year-select option { color: #111; }
-    .year-archived-toggle {
-      display: inline-flex; align-items: center; gap: 4px;
-      color: rgba(255,255,255,0.85); font-size: 11px; font-weight: 600;
-      cursor: pointer; user-select: none;
-    }
-    .year-archived-toggle input { accent-color: #fff; cursor: pointer; }
 
     /* ─── Loading ─── */
     .loading { text-align: center; padding: 48px 20px; color: var(--gris-500); font-size: 15px; }
@@ -1177,9 +1133,6 @@
     .print-floating-close svg { width: 20px; height: 20px; }
     .print-content { padding: 32px; }
     .print-content h2 { font-size: 19px; text-align: center; margin-bottom: 4px; color: var(--verde-oscuro); }
-    .print-content .print-subtitle { text-align: center; color: var(--gris-500); font-size: 14px; margin-bottom: 24px; }
-    .print-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; margin-bottom: 24px; font-size: 14px; }
-    .print-meta span { font-weight: 700; color: var(--verde-oscuro); }
 
     .print-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
     .print-table th { background: var(--gris-200); padding: 8px 10px; border: 1px solid var(--gris-400); font-weight: 700; text-align: left; color: var(--verde-oscuro); }
@@ -1203,12 +1156,15 @@
     @media print {
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
       body { background: #fff !important; }
-      .header, .print-toolbar, .print-floating-close, .content, .content-with-nav { display: none !important; }
+      .header, .print-toolbar, .print-floating-close, .content, .content-with-nav,
+      .toast, .modal-overlay, .settings-overlay { display: none !important; }
       .print-overlay { position: static; background: none; padding: 0; backdrop-filter: none; }
       .print-container { max-height: none; box-shadow: none; border-radius: 0; }
       .print-content { padding: 20px; }
-      .print-table { page-break-inside: avoid; }
+      /* Las tablas largas pueden partirse entre páginas, pero nunca una fila */
+      .print-table tr { page-break-inside: avoid; break-inside: avoid; }
     }
+    @page { margin: 15mm; }
   </style>
 </head>
 <body>
@@ -1224,7 +1180,7 @@
         <div class="header-tools">
           <button class="btn-back" id="btnBack" style="display:none" onclick="goBack()"><span class="icon" id="iconBack"></span> Alumnos</button>
           <select class="year-select" id="yearSelect" onchange="onYearChange()" title="Curso académico activo" style="display:none"></select>
-          <button class="btn-settings" id="btnSettings" onclick="openSettings()" title="Ajustes del centro" aria-label="Ajustes del centro"><span class="icon" id="iconSettings"></span></button>
+          <button class="btn-settings" onclick="openSettings()" title="Ajustes del centro" aria-label="Ajustes del centro"><span class="icon" id="iconSettings"></span></button>
         </div>
       </div>
       <div class="header-toolbar" id="formToolbar" style="display:none">
@@ -1254,7 +1210,7 @@
   </div>
 
   <!-- ═══════ TOAST ═══════ -->
-  <div id="toast" class="toast" style="display:none"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" style="display:none"></div>
 
   <script>
     /* ═══════════════════════════════════════════
@@ -2359,11 +2315,6 @@
       el.style.height = el.scrollHeight + 'px';
     }
 
-    function updateFollowup(key, value) {
-      state[key] = value;
-      markDirty();
-    }
-
     function richExec(command) {
       document.execCommand(command, false, null);
     }
@@ -2681,10 +2632,9 @@
       markDirty();
     }
 
-    function getPlaceholder(listType) {
-      if (listType === 'indicators') return 'Ej: Mantiene la atención durante 10-15 min...';
-      if (listType === 'contents') return 'Ej: Resolución de problemas, numeración...';
-      return 'Ej: Subrayado guiado de datos relevantes...';
+    // Las listas dinámicas solo se usan para indicadores (contenidos y actividades son texto enriquecido).
+    function getPlaceholder() {
+      return 'Ej: Mantiene la atención durante 10-15 min...';
     }
 
     function renderObjProgress(obj) {
@@ -3058,7 +3008,7 @@
       if (arr.length <= 1) list.classList.add('has-one');
       if (listType === 'indicators') refreshObjProgress(found.obj);
 
-      var label = listType === 'indicators' ? 'Indicador' : listType === 'contents' ? 'Contenido' : 'Actividad';
+      var label = 'Indicador';
       showToast(label + ' eliminado', 'info', { action: 'Deshacer', onAction: undo, duration: 6000 });
     }
 
@@ -3238,8 +3188,10 @@
         state.seguimiento2T = '';
         state.seguimiento3T = '';
         state.informeFamilias = { indicadores: [], evaluaciones: [] };
+        state.docentes = [];
       }
-      state.dirty = false;
+      // Los objetivos borrados de un alumno existente quedan pendientes de guardar
+      markDirty();
       renderFormView();
       showToast('Formulario limpiado', 'info');
     }
@@ -3727,6 +3679,7 @@
        SETTINGS PANEL
     ═══════════════════════════════════════════ */
     function openSettings() {
+      closeSettings();
       var c = state.config;
       var html = '<div class="settings-overlay" id="settingsOverlay" onclick="if(event.target===this)closeSettings()">';
       html += '<div class="settings-panel">';

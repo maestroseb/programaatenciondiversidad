@@ -112,13 +112,7 @@ function saveAllowedUsers(payload) {
   if (!lock.tryLock(15000)) throw new Error('Otro usuario está guardando. Reintenta.');
   try {
     const ss = getMasterSS_();
-    let cfg = ss.getSheetByName(CONFIG_TAB);
-    if (!cfg) {
-      cfg = ss.insertSheet(CONFIG_TAB);
-      cfg.appendRow(['CLAVE', 'VALOR']);
-      cfg.getRange(1, 1, 1, 2).setFontWeight('bold');
-      cfg.setFrozenRows(1);
-    }
+    const cfg = getOrCreateConfigIn_(ss);
     setMultiKV_(cfg, USERS_KEY, users);
     CacheService.getScriptCache().remove(USERS_CACHE_KEY);
   } finally {
@@ -162,6 +156,18 @@ function readKeyValueSheet_(sheet) {
     }
   }
   return out;
+}
+
+// Pestaña Config (CLAVE/VALOR) de un spreadsheet; la crea con cabecera si no existe.
+function getOrCreateConfigIn_(ss) {
+  let sheet = ss.getSheetByName(CONFIG_TAB);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG_TAB);
+    sheet.appendRow(['CLAVE', 'VALOR']);
+    sheet.getRange(1, 1, 1, 2).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
 }
 
 /* ───────── Cursos registry (en maestro) ───────── */
@@ -423,13 +429,7 @@ function saveConfig(payload) {
   if (!lock.tryLock(15000)) throw new Error('Otro usuario está guardando. Reintenta.');
   try {
     const ss = getMasterSS_();
-    let mCfg = ss.getSheetByName(CONFIG_TAB);
-    if (!mCfg) {
-      mCfg = ss.insertSheet(CONFIG_TAB);
-      mCfg.appendRow(['CLAVE', 'VALOR']);
-      mCfg.getRange(1, 1, 1, 2).setFontWeight('bold');
-      mCfg.setFrozenRows(1);
-    }
+    const mCfg = getOrCreateConfigIn_(ss);
     upsertKV_(mCfg, 'centro', data.centro != null ? String(data.centro) : '');
     upsertKV_(mCfg, 'localidad', data.localidad != null ? String(data.localidad) : '');
 
@@ -439,13 +439,7 @@ function saveConfig(payload) {
       if (data.yearId) assertKnownYear_(data.yearId);
       if (yearId) {
         const yearSS = SpreadsheetApp.openById(yearId);
-        let yCfg = yearSS.getSheetByName(CONFIG_TAB);
-        if (!yCfg) {
-          yCfg = yearSS.insertSheet(CONFIG_TAB);
-          yCfg.appendRow(['CLAVE', 'VALOR']);
-          yCfg.getRange(1, 1, 1, 2).setFontWeight('bold');
-          yCfg.setFrozenRows(1);
-        }
+        const yCfg = getOrCreateConfigIn_(yearSS);
         upsertKV_(yCfg, 'cursoEscolar', String(data.cursoEscolar).trim());
       }
     }
@@ -497,13 +491,7 @@ function saveYearLists(payload) {
   if (!lock.tryLock(15000)) throw new Error('Otro usuario está guardando. Reintenta.');
   try {
     const yearSS = SpreadsheetApp.openById(yearId);
-    let cfg = yearSS.getSheetByName(CONFIG_TAB);
-    if (!cfg) {
-      cfg = yearSS.insertSheet(CONFIG_TAB);
-      cfg.appendRow(['CLAVE', 'VALOR']);
-      cfg.getRange(1, 1, 1, 2).setFontWeight('bold');
-      cfg.setFrozenRows(1);
-    }
+    const cfg = getOrCreateConfigIn_(yearSS);
     if (Array.isArray(data.courses)) setMultiKV_(cfg, 'course', data.courses);
     if (Array.isArray(data.docentes)) setMultiKV_(cfg, 'docente', data.docentes);
   } finally {
@@ -968,13 +956,7 @@ function cloneSchoolYear(payload) {
     const newSS = SpreadsheetApp.openById(newId);
 
     // Actualizar cursoEscolar en la Config del nuevo año (mantiene courses/docentes heredados)
-    let newCfg = newSS.getSheetByName(CONFIG_TAB);
-    if (!newCfg) {
-      newCfg = newSS.insertSheet(CONFIG_TAB);
-      newCfg.appendRow(['CLAVE', 'VALOR']);
-      newCfg.getRange(1, 1, 1, 2).setFontWeight('bold');
-      newCfg.setFrozenRows(1);
-    }
+    const newCfg = getOrCreateConfigIn_(newSS);
     upsertKV_(newCfg, 'cursoEscolar', newLabel);
 
     // Limpiar evaluaciones, observaciones, valoración, seguimientos e informes
