@@ -1619,6 +1619,7 @@
               courses: cfg.courses || [],
               docentes: cfg.docentes || []
             };
+            state.isAdmin = !!cfg.isAdmin;
             state.years = cfg.years || [];
             state.activeYearId = cfg.activeYearId || '';
           }
@@ -3732,6 +3733,14 @@
       html += '<div class="list-hint">Sugerencia: incluye el rol entre paréntesis. Ej: <i>Ana López (PT)</i></div></div>';
       html += '</div>';
 
+      if (state.isAdmin) {
+        html += '<div class="settings-section-title">Usuarios autorizados</div>';
+        html += '<div class="list-hint" id="usersAdminHint">Cargando…</div>';
+        html += '<div class="list-editor" id="usersEditor"></div>';
+        html += '<button type="button" class="btn-add-list" onclick="addCfgListItem(\'usersEditor\', \'\')">+ Añadir correo</button>';
+        html += '<div class="list-hint">Solo estas cuentas (y el administrador) podrán abrir la aplicación. Si la lista está vacía, puede acceder cualquier cuenta del dominio.</div>';
+      }
+
       html += '</div>';
       html += '<div class="settings-footer">';
       html += '<button class="btn btn-ghost" onclick="closeSettings()">Cancelar</button>';
@@ -3747,6 +3756,23 @@
       var coursesList = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES.slice();
       coursesList.forEach(function(v) { addCfgListItem('coursesEditor', v); });
       (state.config.docentes || []).forEach(function(v) { addCfgListItem('docentesEditor', v); });
+
+      state.usersLoaded = false;
+      if (state.isAdmin) {
+        google.script.run
+          .withSuccessHandler(function(res) {
+            var hint = document.getElementById('usersAdminHint');
+            if (!hint || !res) return;
+            hint.innerHTML = 'Administrador: <b>' + escHtml(res.admin || '') + '</b> (siempre tiene acceso)';
+            (res.users || []).forEach(function(v) { addCfgListItem('usersEditor', v); });
+            state.usersLoaded = true;
+          })
+          .withFailureHandler(function(err) {
+            var hint = document.getElementById('usersAdminHint');
+            if (hint) hint.textContent = 'No se pudo cargar la lista: ' + (err && err.message ? err.message : err);
+          })
+          .getAllowedUsers();
+      }
     }
 
     function addCfgListItem(containerId, value) {
@@ -3937,6 +3963,14 @@
         courses: readCfgListEditor('coursesEditor'),
         docentes: readCfgListEditor('docentesEditor')
       };
+      // Usuarios autorizados (solo administrador y solo si la lista se cargó)
+      var usersPayload = null;
+      if (state.isAdmin && state.usersLoaded) {
+        var users = readCfgListEditor('usersEditor').map(function(u) { return u.toLowerCase(); });
+        var bad = users.filter(function(u) { return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(u); });
+        if (bad.length) { showToast('Correo no válido: ' + bad[0], 'error'); return; }
+        usersPayload = { users: users };
+      }
       var btn = document.getElementById('btnSaveConfig');
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span> Guardando...';
@@ -3957,8 +3991,15 @@
               state.config.courses = listsPayload.courses;
               state.config.docentes = listsPayload.docentes;
               updateHeaderSubtitle();
-              closeSettings();
-              showToast('Ajustes guardados', 'success');
+              var done = function() {
+                closeSettings();
+                showToast('Ajustes guardados', 'success');
+              };
+              if (!usersPayload) { done(); return; }
+              google.script.run
+                .withSuccessHandler(done)
+                .withFailureHandler(onError)
+                .saveAllowedUsers(JSON.stringify(usersPayload));
             })
             .withFailureHandler(onError)
             .saveYearLists(JSON.stringify(listsPayload));

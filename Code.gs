@@ -20,10 +20,111 @@ const PRESENCE_TTL_MS = 5 * 60 * 1000;
 /* ───────── Web App entry point ───────── */
 
 function doGet() {
+  if (!isAuthorized_()) {
+    const email = getCurrentUserEmail_();
+    return HtmlService.createHtmlOutput(
+      '<div style="font-family:sans-serif;max-width:520px;margin:15vh auto;padding:0 16px;color:#1b4332">' +
+      '<h2>Acceso no autorizado</h2>' +
+      '<p>La cuenta <b>' + escapeHtml_(email || 'desconocida') + '</b> no está en la lista de usuarios autorizados.</p>' +
+      '<p>Pide al administrador de la aplicación que te añada desde Ajustes.</p></div>')
+      .setTitle('Acceso no autorizado')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('Programas de Atención a la Diversidad')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+/* ───────── Autorización (lista de usuarios) ───────── */
+//  - Administrador: la cuenta que despliega el script (Session.getEffectiveUser).
+//  - Usuarios autorizados: claves "usuario" en la pestaña Config del maestro.
+//  - Si la lista está vacía, se permite el acceso a todo el dominio (comportamiento previo).
+
+const USERS_KEY = 'usuario';
+const USERS_CACHE_KEY = 'allowedUsers.v1';
+
+function escapeHtml_(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function normEmail_(e) {
+  return String(e || '').trim().toLowerCase();
+}
+
+function getAdminEmail_() {
+  try { return normEmail_(Session.getEffectiveUser().getEmail()); } catch (e) { return ''; }
+}
+
+function getAllowedUsers_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(USERS_CACHE_KEY);
+  if (cached !== null) {
+    try { return JSON.parse(cached); } catch (e) { /* recalcular */ }
+  }
+  const ss = getMasterSS_();
+  const cfg = readKeyValueSheet_(ss.getSheetByName(CONFIG_TAB));
+  const raw = cfg[USERS_KEY];
+  const list = (Array.isArray(raw) ? raw : (raw ? [raw] : [])).map(normEmail_).filter(function(e) { return e; });
+  cache.put(USERS_CACHE_KEY, JSON.stringify(list), 300);
+  return list;
+}
+
+function isAdmin_() {
+  const admin = getAdminEmail_();
+  return !!admin && normEmail_(getCurrentUserEmail_()) === admin;
+}
+
+function isAuthorized_() {
+  if (isAdmin_()) return true;
+  const list = getAllowedUsers_();
+  if (!list.length) return true;
+  const me = normEmail_(getCurrentUserEmail_());
+  return !!me && list.indexOf(me) !== -1;
+}
+
+function assertAuthorized_() {
+  if (!isAuthorized_()) {
+    throw new Error('ACCESO_DENEGADO: tu cuenta no está autorizada para usar esta aplicación.');
+  }
+}
+
+function assertAdmin_() {
+  if (!isAdmin_()) throw new Error('Solo el administrador puede realizar esta acción.');
+}
+
+function getAllowedUsers() {
+  assertAdmin_();
+  return { admin: getAdminEmail_(), users: getAllowedUsers_() };
+}
+
+function saveAllowedUsers(payload) {
+  assertAdmin_();
+  const data = JSON.parse(payload);
+  const seen = {};
+  const users = [];
+  (data.users || []).forEach(function(u) {
+    const e = normEmail_(u);
+    if (!e) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw new Error('Correo no válido: ' + e);
+    if (!seen[e]) { seen[e] = true; users.push(e); }
+  });
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) throw new Error('Otro usuario está guardando. Reintenta.');
+  try {
+    const ss = getMasterSS_();
+    let cfg = ss.getSheetByName(CONFIG_TAB);
+    if (!cfg) {
+      cfg = ss.insertSheet(CONFIG_TAB);
+      cfg.appendRow(['CLAVE', 'VALOR']);
+      cfg.getRange(1, 1, 1, 2).setFontWeight('bold');
+      cfg.setFrozenRows(1);
+    }
+    setMultiKV_(cfg, USERS_KEY, users);
+    CacheService.getScriptCache().remove(USERS_CACHE_KEY);
+  } finally {
+    lock.releaseLock();
+  }
+  return { success: true, users: users };
 }
 
 /* ───────── Helpers: Spreadsheets ───────── */
@@ -228,6 +329,7 @@ function migrateMasterIfNeeded_() {
 /* ───────── CONFIG: datos del centro y del año ───────── */
 
 function getConfig(yearId) {
+  assertAuthorized_();
   migrateMasterIfNeeded_();
 
   // Maestro: centro/localidad + lista de años
@@ -261,11 +363,13 @@ function getConfig(yearId) {
     activeYearId: resolvedId || '',
     years: years,
     courses: courses,
-    docentes: docentes
+    docentes: docentes,
+    isAdmin: isAdmin_()
   };
 }
 
 function saveConfig(payload) {
+  assertAuthorized_();
   migrateMasterIfNeeded_();
   const data = JSON.parse(payload);
 
@@ -331,6 +435,7 @@ function setMultiKV_(sheet, key, values) {
 }
 
 function saveYearLists(payload) {
+  assertAuthorized_();
   migrateMasterIfNeeded_();
   const data = JSON.parse(payload);
   const yearId = data.yearId || getActiveYearId_();
@@ -376,6 +481,7 @@ function getOrCreateIndiceIn_(ss) {
 }
 
 function getStudentList(yearId) {
+  assertAuthorized_();
   migrateMasterIfNeeded_();
   const ss = getYearSS_(yearId);
   const sheet = getOrCreateIndiceIn_(ss);
@@ -409,6 +515,7 @@ function serializeDocentes_(arr) {
 /* ───────── READ: datos de un alumno ───────── */
 
 function getStudentData(studentName, yearId) {
+  assertAuthorized_();
   migrateMasterIfNeeded_();
   assertValidStudentName_(studentName);
   const ss = getYearSS_(yearId);
@@ -513,6 +620,7 @@ function getStudentData(studentName, yearId) {
 /* ───────── WRITE: guardar datos de un alumno ───────── */
 
 function saveStudentData(payload) {
+  assertAuthorized_();
   migrateMasterIfNeeded_();
   const data = JSON.parse(payload);
   const yearId = data.yearId || getActiveYearId_();
@@ -670,6 +778,7 @@ function getCurrentUserEmail_() {
 /* ───────── DELETE: eliminar alumno ───────── */
 
 function deleteStudent(studentName, yearId) {
+  assertAuthorized_();
   migrateMasterIfNeeded_();
   studentName = String(studentName || '').trim();
   if (!studentName) throw new Error('Falta el nombre del alumno.');
@@ -776,6 +885,7 @@ function formatStudentSheet_(sheet, rowsData) {
 /* ───────── Gestión de cursos académicos ───────── */
 
 function cloneSchoolYear(payload) {
+  assertAuthorized_();
   migrateMasterIfNeeded_();
   const data = JSON.parse(payload);
   const sourceId = data.sourceYearId || getActiveYearId_();
@@ -864,6 +974,7 @@ function cleanStudentSheet_(sh) {
 }
 
 function archiveYear(yearId, archived) {
+  assertAuthorized_();
   migrateMasterIfNeeded_();
   if (!yearId) throw new Error('Falta el id del curso académico.');
   const lock = LockService.getScriptLock();
@@ -884,6 +995,7 @@ function archiveYear(yearId, archived) {
 }
 
 function deleteYear(yearId, confirmLabel) {
+  assertAuthorized_();
   migrateMasterIfNeeded_();
   if (!yearId) throw new Error('Falta el id del curso académico.');
   const lock = LockService.getScriptLock();
@@ -981,14 +1093,17 @@ function updatePresence_(yearId, tabName, doRegister) {
 }
 
 function acquirePresence(yearId, tabName) {
+  assertAuthorized_();
   return updatePresence_(yearId, tabName, true);
 }
 
 function heartbeatPresence(yearId, tabName) {
+  assertAuthorized_();
   return updatePresence_(yearId, tabName, true);
 }
 
 function releasePresence(yearId, tabName) {
+  assertAuthorized_();
   return updatePresence_(yearId, tabName, false);
 }
 
