@@ -51,8 +51,37 @@ function normEmail_(e) {
   return String(e || '').trim().toLowerCase();
 }
 
+// Administradores (siempre tienen acceso y gestionan la lista):
+//  1) Propiedad del script ADMIN_EMAILS (correos separados por comas), si existe.
+//  2) La cuenta que despliega (Session.getEffectiveUser), si Apps Script la devuelve.
+//  3) El propietario de la hoja maestra en Drive (respaldo: getEffectiveUser puede venir vacío).
+// Se cachea 6 h para no consultar Drive en cada llamada.
+const ADMINS_CACHE_KEY = 'adminEmails.v1';
+
+function getAdminEmails_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(ADMINS_CACHE_KEY);
+  if (cached !== null) {
+    try { return JSON.parse(cached); } catch (e) { /* recalcular */ }
+  }
+  const set = {};
+  const add = function(e) { e = normEmail_(e); if (e) set[e] = true; };
+  try {
+    String(PropertiesService.getScriptProperties().getProperty('ADMIN_EMAILS') || '')
+      .split(',').forEach(add);
+  } catch (e) { /* sin propiedad */ }
+  try { add(Session.getEffectiveUser().getEmail()); } catch (e) { /* vacío */ }
+  try {
+    const owner = DriveApp.getFileById(SS_ID).getOwner();
+    if (owner) add(owner.getEmail());
+  } catch (e) { /* unidad compartida o sin permiso */ }
+  const list = Object.keys(set);
+  if (list.length) cache.put(ADMINS_CACHE_KEY, JSON.stringify(list), 21600);
+  return list;
+}
+
 function getAdminEmail_() {
-  try { return normEmail_(Session.getEffectiveUser().getEmail()); } catch (e) { return ''; }
+  return getAdminEmails_().join(', ');
 }
 
 function getAllowedUsers_() {
@@ -70,8 +99,8 @@ function getAllowedUsers_() {
 }
 
 function isAdmin_() {
-  const admin = getAdminEmail_();
-  return !!admin && normEmail_(getCurrentUserEmail_()) === admin;
+  const me = normEmail_(getCurrentUserEmail_());
+  return !!me && getAdminEmails_().indexOf(me) !== -1;
 }
 
 function isAuthorized_() {
