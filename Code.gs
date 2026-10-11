@@ -597,9 +597,21 @@ const PE_FIELDS = [
   ['UNIDAD', 'unidad'],
   ['FECHA ELABORACIÓN', 'fechaElaboracion'],
   ['FIN VIGENCIA', 'fechaFinVigencia'],
-  ['PROFESIONALES', 'profesionales'],
-  ['SESIONES', 'sesiones']
+  ['PROFESIONALES', 'profesionales']
 ];
+
+// Organización y recursos de cada ámbito, los mismos dos campos que tiene Séneca
+// (filas TIPO/TEXTO tras sus objetivos)
+const ORG_FIELDS = [
+  ['ORGANIZACIÓN', 'organizacion'],
+  ['RECURSOS', 'recursos']
+];
+
+function emptyOrg_() {
+  const o = {};
+  ORG_FIELDS.forEach(function(f) { o[f[1]] = ''; });
+  return o;
+}
 
 function parseDocentesString_(s) {
   if (!s) return [];
@@ -659,11 +671,14 @@ function readStudentData_(ss, studentName) {
     seguimiento2T: '',
     seguimiento3T: '',
     areas: [],
-    pe: { unidad: '', fechaElaboracion: '', fechaFinVigencia: '', profesionales: '', sesiones: '' },
+    pe: { unidad: '', fechaElaboracion: '', fechaFinVigencia: '', profesionales: '' },
     informeFamilias: { indicadores: [], evaluaciones: [] }
   };
   const peByTipo = {};
   PE_FIELDS.forEach(function(f) { peByTipo[f[0]] = f[1]; });
+  const orgByTipo = {};
+  ORG_FIELDS.forEach(function(f) { orgByTipo[f[0]] = f[1]; });
+  let legacySesiones = '';
 
   // Find the header row (contains 'TIPO') then read data after it
   let headerIndex = -1;
@@ -690,7 +705,7 @@ function readStudentData_(ss, studentName) {
     if (!tipo && !texto) continue;
 
     if (tipo === 'ÁREA' || tipo === 'AREA') {
-      currentArea = { name: texto, programa: col6, objectives: [] };
+      currentArea = { name: texto, programa: col6, org: emptyOrg_(), objectives: [] };
       result.areas.push(currentArea);
       currentObj = null;
     } else if (tipo === 'OBJETIVO' && currentArea) {
@@ -698,7 +713,8 @@ function readStudentData_(ss, studentName) {
         title: texto,
         indicators: [],
         contents: [],
-        activities: ''
+        activities: '',
+        competencias: []
       };
       currentArea.objectives.push(currentObj);
     } else if (tipo === 'VALORACIÓN INICIAL') {
@@ -709,6 +725,10 @@ function readStudentData_(ss, studentName) {
       result.seguimiento2T = texto;
     } else if (tipo === 'SEGUIMIENTO 3T') {
       result.seguimiento3T = texto;
+    } else if (orgByTipo[tipo] && currentArea) {
+      currentArea.org[orgByTipo[tipo]] = texto;
+    } else if (tipo === 'SESIONES') {
+      legacySesiones = texto; // campo global antiguo: se reparte por ámbitos más abajo
     } else if (peByTipo[tipo]) {
       result.pe[peByTipo[tipo]] = dateCell_(row[2]);
     } else if (tipo === 'INFORME_INDICADOR') {
@@ -720,12 +740,19 @@ function readStudentData_(ss, studentName) {
         currentObj.indicators.push(item);
       } else if (tipo === 'CONTENIDO') {
         if (texto) currentObj.contents.push({ text: texto });
+      } else if (tipo === 'COMPETENCIAS') {
+        currentObj.competencias = texto.split('|').map(function(c) { return c.trim(); }).filter(function(c) { return c; });
       } else if (tipo === 'ACTIVIDAD') {
         currentObj.activities = currentObj.activities
           ? (currentObj.activities + (texto ? '<br>' + texto : ''))
           : texto;
       }
     }
+  }
+
+  // Migración: el antiguo «Sesiones y agrupamiento» global pasa a la organización de cada ámbito
+  if (legacySesiones && !result.areas.some(function(a) { return a.org.organizacion; })) {
+    result.areas.forEach(function(a) { a.org.organizacion = legacySesiones; });
   }
 
   return result;
@@ -832,7 +859,15 @@ function saveStudentData(payload) {
         if (activitiesHtml && activitiesHtml.trim()) {
           rows.push(pad([objLabel, 'ACTIVIDAD', activitiesHtml]));
         }
+
+        const comps = (obj.competencias || []).map(function(c) { return String(c || '').trim(); }).filter(function(c) { return c; });
+        if (comps.length) rows.push(pad([objLabel, 'COMPETENCIAS', comps.join(' | ')]));
       }
+
+      const org = area.org || {};
+      ORG_FIELDS.forEach(function(f) {
+        if (org[f[1]] && String(org[f[1]]).trim()) rows.push(pad(['', f[0], String(org[f[1]])]));
+      });
 
       if (a < areas.length - 1) {
         rows.push(pad(['']));
@@ -987,6 +1022,10 @@ function formatStudentSheet_(sheet, rowsData, isNewSheet) {
         bg = '#fce7f3';
       } else if (PE_FIELDS.some(function(f) { return f[0] === tipo; })) {
         bg = '#e0f2fe'; wrap = true;
+      } else if (ORG_FIELDS.some(function(f) { return f[0] === tipo; })) {
+        bg = '#f1f5f9'; wrap = true;
+      } else if (tipo === 'COMPETENCIAS') {
+        bg = '#ecfccb';
       }
     }
     const f = fillRow(bg, fc, fw, wrap);
