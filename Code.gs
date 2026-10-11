@@ -56,6 +56,7 @@ const USERS_KEY = 'usuario';
  *  - Los docentes asignables a una ficha son los miembros con nombre: «Nombre (Especialidad)».
  */
 const TEAM_TAB = 'Equipo';
+const TEAM_TAB_ALT = 'Equipo (app)';
 const TEAM_CACHE_KEY = 'team.v1';
 
 function teamLabel_(m) {
@@ -88,14 +89,28 @@ function writeTeamRows_(sheet, team) {
 
 // Crea la pestaña Equipo la primera vez, a partir de los docentes del año activo
 // («Nombre (PT)») y de la antigua lista de usuarios autorizados (solo correo).
+// Busca la pestaña del equipo sin distinguir mayúsculas/espacios. Una pestaña «Equipo» que
+// no sea de la app (otra cabecera) no se toca nunca: en ese caso se usa «Equipo (app)».
+function findTeamSheet_(ss) {
+  const sheets = ss.getSheets();
+  for (let i = 0; i < sheets.length; i++) {
+    const n = sheets[i].getName().trim().toLowerCase();
+    if (n !== TEAM_TAB.toLowerCase() && n !== TEAM_TAB_ALT.toLowerCase()) continue;
+    const a1 = sheets[i].getLastRow() ? String(sheets[i].getRange(1, 1).getValue()).trim().toUpperCase() : '';
+    if (!a1 || a1 === 'NOMBRE') return sheets[i];
+  }
+  return null;
+}
+
 function getOrCreateTeamSheet_() {
   const ss = getMasterSS_();
-  let sheet = ss.getSheetByName(TEAM_TAB);
+  let sheet = findTeamSheet_(ss);
   if (sheet) return sheet;
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(15000)) throw new Error('Otro usuario está guardando. Reintenta.');
   try {
-    sheet = ss.getSheetByName(TEAM_TAB);
+    SpreadsheetApp.flush();
+    sheet = findTeamSheet_(ss);
     if (sheet) return sheet;
     const team = [];
     try {
@@ -113,12 +128,28 @@ function getOrCreateTeamSheet_() {
     const raw = cfg[USERS_KEY];
     (Array.isArray(raw) ? raw : (raw ? [raw] : [])).map(normEmail_).filter(function(e) { return e; })
       .forEach(function(e) { team.push({ nombre: '', rol: '', email: e, admin: true }); });
-    sheet = ss.insertSheet(TEAM_TAB);
-    writeTeamRows_(sheet, team);
+    sheet = insertTeamSheet_(ss);
+    // Solo se escribe en una pestaña recién creada y vacía: nunca sobre datos existentes
+    if (!sheet.getLastRow()) writeTeamRows_(sheet, team);
     return sheet;
   } finally {
     lock.releaseLock();
   }
+}
+
+function insertTeamSheet_(ss) {
+  const names = [TEAM_TAB, TEAM_TAB_ALT];
+  for (let i = 0; i < names.length; i++) {
+    try {
+      return ss.insertSheet(names[i]);
+    } catch (e) {
+      // El nombre ya existe (otra ejecución acaba de crearla o es una pestaña ajena): reintentar
+      SpreadsheetApp.flush();
+      const found = findTeamSheet_(ss);
+      if (found) return found;
+    }
+  }
+  throw new Error('No se pudo crear la pestaña del equipo en la hoja maestra.');
 }
 
 function getTeam_() {
