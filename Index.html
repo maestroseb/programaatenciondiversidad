@@ -501,6 +501,21 @@
       transition: background var(--trans), border-color var(--trans);
     }
     .student-list-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .imp-sub { color: var(--gris-500); margin: 0 0 10px; font-size: var(--fs-md); }
+    .imp-banner { padding: 10px 12px; border-radius: var(--radio); margin-bottom: 10px; border: 1px solid; }
+    .imp-banner.warn { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
+    .imp-banner.ok { background: var(--success-bg); border-color: var(--chip-border); }
+    .imp-warn { margin: 6px 0; padding-left: 4px; list-style: none; color: var(--warn-text); background: var(--warn-bg); border-radius: var(--radio); }
+    .imp-warn li { padding: 4px 8px; }
+    .imp-area { margin-top: 16px; border-top: 1px solid var(--gris-200); padding-top: 10px; }
+    .imp-area-head { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .imp-count { color: var(--gris-500); font-size: var(--fs-md); }
+    .imp-obj { margin: 6px 0 6px 22px; padding: 6px 10px; border: 1px solid var(--gris-200); border-radius: var(--radio); }
+    .imp-obj.has-warn { border-color: var(--warn-border); }
+    .imp-obj summary { cursor: pointer; }
+    .imp-sec { font-weight: 600; margin-top: 8px; font-size: var(--fs-md); }
+    .imp-obj ol, .imp-obj ul { margin: 4px 0; padding-left: 22px; }
+    .imp-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
     .btn-new:hover { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
     .search-wrap {
       position: relative;
@@ -4906,11 +4921,11 @@
 
     // Convierte las líneas del PDF en { studentName, course, areas:[{name, objectives:[...]}] }
     function parseSenecaLines(lines) {
-      var out = { studentName: '', course: '', areas: [] };
-      var LABEL = /^(Objetivo|Indicador|Contenido|Actividad\/tarea)\s*\d+(?:\.\d+)?\s*:\s*(.*)$/i;
+      var out = { studentName: '', course: '', rawCourse: '', areas: [], unrecognized: [] };
+      var LABEL = /^(Objetivo|Indicador|Contenido|Actividad\/tarea)\s*(\d+(?:\.\d+)?)\s*:\s*(.*)$/i;
       var END = /^(Organización:|Competencias:|TEMPORALIZACIÓN|COORDINACIÓN ENTRE|AGRUPAMIENTOS|Recursos:|INFORMACIÓN Y COLABORACIÓN)/i;
       var AREA = /^desarrollo [a-z ]+$/;
-      var area = null, obj = null, cur = null, started = false, areaLine = -1;
+      var area = null, obj = null, cur = null, started = false, areaLine = -1, skip = false;
 
       function flush() {
         if (!cur || !obj) { cur = null; return; }
@@ -4922,8 +4937,8 @@
         }, '');
         if (text) {
           if (cur.kind === 'objetivo') obj.title = text;
-          else if (cur.kind === 'indicador') obj.indicators.push({ text: text });
-          else if (cur.kind === 'contenido') obj.contents.push({ text: rich });
+          else if (cur.kind === 'indicador') obj.indicators.push({ text: text, num: cur.num });
+          else if (cur.kind === 'contenido') obj.contents.push({ text: rich, num: cur.num });
           else if (cur.kind === 'actividad') obj.activities.push(rich);
         }
         cur = null;
@@ -4941,14 +4956,14 @@
       for (var i = 0; i < lines.length; i++) {
         var l = lines[i], m;
         if (!out.studentName && (m = l.match(/^Nombre:\s*(.+?)\s+Fecha de nacimiento/i))) { out.studentName = senecaStudentName(m[1]); continue; }
-        if (!out.course && (m = l.match(/^Curso:\s*(.+?)\s+Unidad:/i))) { out.course = senecaCourse(m[1]); continue; }
+        if (!out.course && (m = l.match(/^Curso:\s*(.+?)\s+Unidad:/i))) { out.rawCourse = m[1]; out.course = senecaCourse(m[1]); continue; }
         if (/^Propuesta de Áreas/i.test(l)) { started = true; continue; }
         if (!started) continue;
 
         if (isAreaHeading(i)) {
           // El título del programa puede parecer un ámbito ("DESARROLLO COMUNICACIÓN…"): se ignora
           if (area && !area.objectives.length && i - areaLine <= 4) continue;
-          flush(); obj = null; areaLine = i;
+          flush(); obj = null; areaLine = i; skip = false;
           area = { name: senecaAreaName(l), objectives: [] };
           out.areas.push(area);
           continue;
@@ -4958,16 +4973,19 @@
           flush();
           var kind = m[1].toLowerCase().replace('actividad/tarea', 'actividad');
           if (kind === 'objetivo') {
-            obj = { title: '', indicators: [], contents: [], activities: [] };
+            obj = { num: m[2], title: '', indicators: [], contents: [], activities: [] };
             area.objectives.push(obj);
           }
-          cur = { kind: kind, parts: m[2] ? [m[2]] : [] };
+          cur = { kind: kind, num: m[2], parts: m[3] ? [m[3]] : [] };
+          skip = false;
           continue;
         }
-        if (END.test(l)) { flush(); continue; }
+        if (END.test(l)) { flush(); skip = true; continue; }
         if (cur) cur.parts.push(l);
+        else if (obj && !skip) out.unrecognized.push(l);
       }
       flush();
+      out.emptyAreas = out.areas.filter(function(a) { return !a.objectives.length; }).map(function(a) { return a.name; });
       out.areas = out.areas.filter(function(a) { return a.objectives.length; });
       return out;
     }
@@ -5001,6 +5019,59 @@
       input.click();
     }
 
+    // Revisa lo extraído y anota avisos (global, por ámbito y por objetivo) para la pantalla de revisión
+    function validateSenecaImport(d) {
+      d.warnings = [];
+      if (!d.studentName) d.warnings.push('No se ha encontrado el nombre del alumno/a.');
+      var courseOptions = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES;
+      if (!d.course) d.warnings.push('No se ha encontrado el curso.');
+      else if (courseOptions.indexOf(d.course) === -1) d.warnings.push('El curso «' + (d.rawCourse || d.course) + '» no coincide con ninguno de la lista: selecciónalo.');
+      if (d.studentName && state.students.some(function(s) { return s.name.trim().toLowerCase() === d.studentName.toLowerCase(); })) {
+        d.warnings.push('Ya existe un alumno llamado «' + d.studentName + '»: cambia el nombre o no podrás guardar.');
+      }
+      (d.emptyAreas || []).forEach(function(n) { d.warnings.push('El ámbito «' + n + '» no tiene objetivos y no se importará.'); });
+      if (d.unrecognized.length) d.warnings.push(d.unrecognized.length + ' línea(s) de texto no se han podido asignar a ningún apartado: compara con el PDF.');
+
+      // Detecta números repetidos o saltos (p. ej. 3.1, 3.3, 3.4, 3.4)
+      function numbering(items, objNum, label) {
+        var seen = {}, issues = [];
+        items.forEach(function(it) {
+          var parts = String(it.num || '').split('.');
+          if (parts[0] !== String(objNum)) issues.push(label + ' ' + it.num + ' no corresponde al objetivo ' + objNum);
+          if (seen[it.num]) issues.push(label + ' ' + it.num + ' repetido');
+          seen[it.num] = true;
+        });
+        var max = items.reduce(function(mx, it) { return Math.max(mx, +(String(it.num).split('.')[1] || 0)); }, 0);
+        for (var k = 1; k <= max; k++) if (!seen[objNum + '.' + k]) issues.push('falta el ' + label.toLowerCase() + ' ' + objNum + '.' + k);
+        return issues;
+      }
+
+      d.areas.forEach(function(a) {
+        a.include = true;
+        a.warnings = [];
+        if (AREAS.indexOf(a.name) === -1) a.warnings.push('Ámbito no reconocido: se creará con el nombre «' + a.name + '».');
+        a.objectives.forEach(function(o, idx) {
+          o.warnings = [];
+          if (String(o.num) !== String(idx + 1)) o.warnings.push('Numeración del objetivo irregular en el PDF (Objetivo ' + o.num + ').');
+          if (!o.title) o.warnings.push('Objetivo sin texto.');
+          if (!o.indicators.length) o.warnings.push('Sin indicadores: no se podrá evaluar.');
+          if (!o.contents.length) o.warnings.push('Sin contenidos.');
+          if (!o.activities.length) o.warnings.push('Sin actividades.');
+          var num = numbering(o.indicators, o.num, 'Indicador').concat(numbering(o.contents, o.num, 'Contenido'));
+          if (num.length) o.warnings.push('Numeración irregular en Séneca (' + num.join('; ') + '). Comprueba que no falte nada.');
+          o.indicators.forEach(function(it) {
+            if (it.text.length > 300) o.warnings.push('El indicador ' + it.num + ' es muy largo: puede que se hayan unido dos.');
+          });
+        });
+      });
+      d.warningCount = d.warnings.length + d.areas.reduce(function(n, a) {
+        return n + a.warnings.length + a.objectives.reduce(function(m, o) { return m + o.warnings.length; }, 0);
+      }, 0);
+      return d;
+    }
+
+    var senecaImport = null;
+
     async function importSenecaPdf(file) {
       var parsed;
       try {
@@ -5021,14 +5092,94 @@
         showToast('No se han encontrado objetivos. ¿Es un Programa Específico de Séneca?', 'error');
         return;
       }
-      var exists = state.students.some(function(s) { return s.name.trim().toLowerCase() === parsed.studentName.toLowerCase(); });
-      if (exists && !(await confirmDialog('Ya existe un alumno llamado "' + parsed.studentName + '". Se abrirá como ficha nueva; cambia el nombre antes de guardar.', { title: 'Alumno existente', confirmText: 'Continuar', cancelText: 'Cancelar' }))) return;
+      parsed.fileName = file.name;
+      senecaImport = validateSenecaImport(parsed);
+      renderSenecaReview();
+    }
 
+    function senecaWarnList(list) {
+      if (!list || !list.length) return '';
+      return '<ul class="imp-warn">' + list.map(function(w) { return '<li>⚠️ ' + escHtml(w) + '</li>'; }).join('') + '</ul>';
+    }
+
+    // Pantalla de revisión: muestra todo lo extraído con avisos antes de crear la ficha
+    function renderSenecaReview() {
+      var d = senecaImport;
+      navSeq++; // evita que una recarga de la lista pise esta pantalla
+      state.view = 'import';
+      document.getElementById('btnBack').style.display = 'none';
+      document.getElementById('formToolbar').style.display = 'none';
+      var nObj = d.areas.reduce(function(n, a) { return n + a.objectives.length; }, 0);
+      var nInd = d.areas.reduce(function(n, a) { return n + a.objectives.reduce(function(m, o) { return m + o.indicators.length; }, 0); }, 0);
+      var courseOptions = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES;
+
+      var h = '<div class="card imp-review">';
+      h += '<div class="card-title">' + svgIcon('upload') + ' Revisión de la importación</div>';
+      h += '<p class="imp-sub">' + escHtml(d.fileName || '') + ' · ' + d.areas.length + ' ámbitos · ' + nObj + ' objetivos · ' + nInd + ' indicadores</p>';
+      h += d.warningCount
+        ? '<div class="imp-banner warn">Hay <strong>' + d.warningCount + '</strong> aviso(s). Revisa los apartados marcados con ⚠️ comparándolos con el PDF.</div>'
+        : '<div class="imp-banner ok">✓ No se han detectado problemas. Revisa igualmente los datos antes de continuar.</div>';
+      h += senecaWarnList(d.warnings);
+
+      h += '<div class="grid-student-info">';
+      h += '<div><label class="field-label" for="impName">Nombre del alumno/a</label><input class="field-input" id="impName" value="' + escAttr(d.studentName) + '"></div>';
+      h += '<div><label class="field-label" for="impCourse">Curso</label><select class="field-select" id="impCourse"><option value="">Selecciona curso</option>';
+      courseOptions.forEach(function(c) { h += '<option value="' + escAttr(c) + '"' + (d.course === c ? ' selected' : '') + '>' + escHtml(c) + '</option>'; });
+      h += '</select></div></div>';
+
+      d.areas.forEach(function(a, ai) {
+        var aw = a.warnings.length + a.objectives.reduce(function(m, o) { return m + o.warnings.length; }, 0);
+        h += '<div class="imp-area">';
+        h += '<label class="imp-area-head"><input type="checkbox" id="impArea_' + ai + '"' + (a.include ? ' checked' : '') + '> <strong>' + escHtml(a.name) + '</strong> <span class="imp-count">' + a.objectives.length + ' objetivos' + (aw ? ' · ⚠️ ' + aw : '') + '</span></label>';
+        h += senecaWarnList(a.warnings);
+        a.objectives.forEach(function(o, oi) {
+          h += '<details class="imp-obj' + (o.warnings.length ? ' has-warn' : '') + '"' + (o.warnings.length ? ' open' : '') + '>';
+          h += '<summary>' + (o.warnings.length ? '⚠️ ' : '✓ ') + '<strong>Obj. ' + (oi + 1) + '</strong> ' + escHtml(o.title || '(sin texto)') + '</summary>';
+          h += senecaWarnList(o.warnings);
+          h += '<div class="imp-sec">Indicadores (' + o.indicators.length + ')</div><ol>' + o.indicators.map(function(x) { return '<li>' + escHtml(x.text) + '</li>'; }).join('') + '</ol>';
+          h += '<div class="imp-sec">Contenidos (' + o.contents.length + ')</div><ul>' + o.contents.map(function(x) { return '<li>' + x.text + '</li>'; }).join('') + '</ul>';
+          h += '<div class="imp-sec">Actividades (' + o.activities.length + ')</div><ul>' + o.activities.map(function(x) { return '<li>' + x + '</li>'; }).join('') + '</ul>';
+          h += '</details>';
+        });
+        h += '</div>';
+      });
+      if (d.unrecognized.length) {
+        h += '<details class="imp-obj has-warn"><summary>⚠️ Texto no asignado (' + d.unrecognized.length + ' líneas)</summary><ul>' +
+          d.unrecognized.map(function(l) { return '<li>' + escHtml(l) + '</li>'; }).join('') + '</ul></details>';
+      }
+      h += '<div class="imp-actions">';
+      h += '<button class="btn-secondary" onclick="cancelSenecaImport()">Cancelar</button>';
+      h += '<button class="btn-primary" onclick="confirmSenecaImport()">' + svgIcon('check') + ' Crear ficha y seguir editando</button>';
+      h += '</div></div>';
+      var content = document.getElementById('content');
+      content.className = 'content';
+      content.innerHTML = h;
+      window.scrollTo(0, 0);
+    }
+
+    function cancelSenecaImport() {
+      senecaImport = null;
+      state.view = 'list';
+      renderListView();
+    }
+
+    async function confirmSenecaImport() {
+      var d = senecaImport;
+      if (!d) return;
+      var name = document.getElementById('impName').value.trim();
+      var course = document.getElementById('impCourse').value;
+      var areas = d.areas.filter(function(a, ai) { var cb = document.getElementById('impArea_' + ai); return !cb || cb.checked; });
+      if (!name) { markInvalid('impName', 'Introduce el nombre del alumno/a'); return; }
+      if (!areas.length) { showToast('Selecciona al menos un ámbito', 'error'); return; }
+      if (state.students.some(function(s) { return s.name.trim().toLowerCase() === name.toLowerCase(); }) &&
+          !(await confirmDialog('Ya existe un alumno llamado "' + name + '". Tendrás que cambiar el nombre antes de guardar.', { title: 'Alumno existente', confirmText: 'Continuar', cancelText: 'Volver' }))) return;
+
+      senecaImport = null;
       await newStudent({ skipDraft: true });
-      if (state.view !== 'form' || !state.isNew) return; // el usuario canceló (cambios sin guardar)
-      state.studentName = parsed.studentName;
-      state.course = parsed.course;
-      state.areas = parsed.areas.map(function(a) {
+      if (state.view !== 'form' || !state.isNew) return;
+      state.studentName = name;
+      state.course = course;
+      state.areas = areas.map(function(a) {
         return {
           name: a.name,
           objectives: a.objectives.map(function(o) {
@@ -5046,8 +5197,7 @@
       sortAreasCanonical();
       renderFormView();
       markDirty();
-      var nObj = parsed.areas.reduce(function(n, a) { return n + a.objectives.length; }, 0);
-      showToast('Importados ' + parsed.areas.length + ' ámbitos y ' + nObj + ' objetivos. Revisa los datos y guarda.', 'success', { duration: 6000 });
+      showToast('Ficha creada desde Séneca. Revisa y pulsa Guardar.', 'success', { duration: 6000 });
     }
   </script>
 </body>
