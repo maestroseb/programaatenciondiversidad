@@ -46,7 +46,91 @@ function doGet() {
 //  - Si la lista está vacía, se permite el acceso a todo el dominio (comportamiento previo).
 
 const USERS_KEY = 'usuario';
-const USERS_CACHE_KEY = 'allowedUsers.v1';
+
+/* ───────── Equipo (acceso + docentes asignables) ─────────
+ * Pestaña «Equipo» de la hoja maestra: NOMBRE | ESPECIALIDAD | CORREO | ADMIN.
+ *  - Solo entran los correos del equipo (y los administradores del script).
+ *    Si el equipo no tiene ningún correo, entra cualquier cuenta del dominio.
+ *  - Quien tenga ADMIN marcado gestiona Ajustes, el equipo y los cursos académicos,
+ *    así la app sigue funcionando aunque falte quien la desplegó.
+ *  - Los docentes asignables a una ficha son los miembros con nombre: «Nombre (Especialidad)».
+ */
+const TEAM_TAB = 'Equipo';
+const TEAM_CACHE_KEY = 'team.v1';
+
+function teamLabel_(m) {
+  return m.nombre + (m.rol ? ' (' + m.rol + ')' : '');
+}
+
+function readTeamRows_(sheet) {
+  const data = sheet.getDataRange().getValues();
+  const out = [];
+  for (let i = 1; i < data.length; i++) {
+    const nombre = String(data[i][0] || '').trim();
+    const rol = String(data[i][1] || '').trim();
+    const email = normEmail_(data[i][2]);
+    if (!nombre && !email) continue;
+    const adm = String(data[i][3] === undefined ? '' : data[i][3]).trim().toUpperCase();
+    out.push({ nombre: nombre, rol: rol, email: email, admin: !(adm === 'FALSE' || adm === 'NO' || adm === '0') });
+  }
+  return out;
+}
+
+function writeTeamRows_(sheet, team) {
+  const rows = [['NOMBRE', 'ESPECIALIDAD', 'CORREO', 'ADMIN']].concat(team.map(function(m) {
+    return [safeCell_(m.nombre), safeCell_(m.rol), m.email, m.admin ? 'SÍ' : 'NO'];
+  }));
+  sheet.clearContents();
+  sheet.getRange(1, 1, rows.length, 4).setValues(rows);
+  sheet.getRange(1, 1, 1, 4).setFontWeight('bold');
+  sheet.setFrozenRows(1);
+}
+
+// Crea la pestaña Equipo la primera vez, a partir de los docentes del año activo
+// («Nombre (PT)») y de la antigua lista de usuarios autorizados (solo correo).
+function getOrCreateTeamSheet_() {
+  const ss = getMasterSS_();
+  let sheet = ss.getSheetByName(TEAM_TAB);
+  if (sheet) return sheet;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) throw new Error('Otro usuario está guardando. Reintenta.');
+  try {
+    sheet = ss.getSheetByName(TEAM_TAB);
+    if (sheet) return sheet;
+    const team = [];
+    try {
+      const yearId = getActiveYearId_();
+      if (yearId) {
+        const yCfg = readKeyValueSheet_(SpreadsheetApp.openById(yearId).getSheetByName(CONFIG_TAB));
+        const docs = Array.isArray(yCfg.docente) ? yCfg.docente : (yCfg.docente ? [yCfg.docente] : []);
+        docs.forEach(function(d) {
+          const m = String(d).match(/^(.*?)\s*\(([^)]*)\)\s*$/);
+          team.push({ nombre: (m ? m[1] : String(d)).trim(), rol: m ? m[2].trim() : '', email: '', admin: true });
+        });
+      }
+    } catch (e) { /* sin año activo */ }
+    const cfg = readKeyValueSheet_(ss.getSheetByName(CONFIG_TAB));
+    const raw = cfg[USERS_KEY];
+    (Array.isArray(raw) ? raw : (raw ? [raw] : [])).map(normEmail_).filter(function(e) { return e; })
+      .forEach(function(e) { team.push({ nombre: '', rol: '', email: e, admin: true }); });
+    sheet = ss.insertSheet(TEAM_TAB);
+    writeTeamRows_(sheet, team);
+    return sheet;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function getTeam_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(TEAM_CACHE_KEY);
+  if (cached !== null) {
+    try { return JSON.parse(cached); } catch (e) { /* recalcular */ }
+  }
+  const team = readTeamRows_(getOrCreateTeamSheet_());
+  cache.put(TEAM_CACHE_KEY, JSON.stringify(team), 300);
+  return team;
+}
 
 function escapeHtml_(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -90,22 +174,18 @@ function getAdminEmail_() {
 }
 
 function getAllowedUsers_() {
-  const cache = CacheService.getScriptCache();
-  const cached = cache.get(USERS_CACHE_KEY);
-  if (cached !== null) {
-    try { return JSON.parse(cached); } catch (e) { /* recalcular */ }
-  }
-  const ss = getMasterSS_();
-  const cfg = readKeyValueSheet_(ss.getSheetByName(CONFIG_TAB));
-  const raw = cfg[USERS_KEY];
-  const list = (Array.isArray(raw) ? raw : (raw ? [raw] : [])).map(normEmail_).filter(function(e) { return e; });
-  cache.put(USERS_CACHE_KEY, JSON.stringify(list), 300);
-  return list;
+  return getTeam_().map(function(m) { return m.email; }).filter(function(e) { return e; });
+}
+
+function isScriptAdmin_() {
+  const me = normEmail_(getCurrentUserEmail_());
+  return !!me && getAdminEmails_().indexOf(me) !== -1;
 }
 
 function isAdmin_() {
+  if (isScriptAdmin_()) return true;
   const me = normEmail_(getCurrentUserEmail_());
-  return !!me && getAdminEmails_().indexOf(me) !== -1;
+  return !!me && getTeam_().some(function(m) { return m.admin && m.email === me; });
 }
 
 function isAuthorized_() {
@@ -126,33 +206,40 @@ function assertAdmin_() {
   if (!isAdmin_()) throw new Error('Solo el administrador puede realizar esta acción.');
 }
 
-function getAllowedUsers() {
-  assertAdmin_();
-  return { admin: getAdminEmail_(), users: getAllowedUsers_() };
+function getTeam() {
+  assertAuthorized_();
+  return { owner: getAdminEmail_(), team: getTeam_(), canEdit: isAdmin_() };
 }
 
-function saveAllowedUsers(payload) {
+function saveTeam(payload) {
   assertAdmin_();
   const data = JSON.parse(payload);
   const seen = {};
-  const users = [];
-  (data.users || []).forEach(function(u) {
-    const e = normEmail_(u);
-    if (!e) return;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw new Error('Correo no válido: ' + e);
-    if (!seen[e]) { seen[e] = true; users.push(e); }
+  const team = [];
+  (data.team || []).forEach(function(m) {
+    const nombre = String(m.nombre || '').trim();
+    const rol = String(m.rol || '').trim();
+    const email = normEmail_(m.email);
+    if (!nombre && !email) return;
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Correo no válido: ' + email);
+    if (email && seen[email]) throw new Error('Correo repetido: ' + email);
+    if (email) seen[email] = true;
+    team.push({ nombre: nombre, rol: rol, email: email, admin: m.admin !== false });
   });
+  // Evita que alguien se quede fuera a sí mismo (los administradores del script siempre entran)
+  const me = normEmail_(getCurrentUserEmail_());
+  if (!isScriptAdmin_() && !team.some(function(m) { return m.email === me && m.admin; })) {
+    throw new Error('No puedes quitarte a ti mismo del equipo ni tu permiso de administrador.');
+  }
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(15000)) throw new Error('Otro usuario está guardando. Reintenta.');
   try {
-    const ss = getMasterSS_();
-    const cfg = getOrCreateConfigIn_(ss);
-    setMultiKV_(cfg, USERS_KEY, users);
-    CacheService.getScriptCache().remove(USERS_CACHE_KEY);
+    writeTeamRows_(getOrCreateTeamSheet_(), team);
+    CacheService.getScriptCache().remove(TEAM_CACHE_KEY);
   } finally {
     lock.releaseLock();
   }
-  return { success: true, users: users };
+  return { success: true, team: team };
 }
 
 /* ───────── Helpers: Spreadsheets ───────── */
@@ -449,12 +536,18 @@ function buildConfig_(yearId) {
       activeYearId: resolvedId || '',
       years: years,
       courses: courses,
-      docentes: docentes,
+      docentes: teamDocentes_(docentes),
       isAdmin: isAdmin_(),
       adminEmail: getAdminEmail_(),
       currentUser: normEmail_(getCurrentUserEmail_())
     }
   };
+}
+
+// Docentes asignables: los del Equipo con nombre; si aún no hay ninguno, la lista antigua del año
+function teamDocentes_(legacy) {
+  const fromTeam = getTeam_().filter(function(m) { return m.nombre; }).map(teamLabel_);
+  return fromTeam.length ? fromTeam : legacy;
 }
 
 function saveConfig(payload) {
@@ -943,9 +1036,15 @@ function deleteStudent(studentName, yearId) {
 
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(15000)) throw new Error('Otro usuario está guardando. Reintenta.');
+  let trashName = '';
   try {
+    // No se borra nada: la pestaña pasa a la papelera (oculta y renombrada) y se puede restaurar
     const sheet = ss.getSheetByName(studentName);
-    if (sheet) ss.deleteSheet(sheet);
+    if (sheet) {
+      trashName = uniqueTrashName_(ss, studentName);
+      sheet.setName(trashName);
+      sheet.hideSheet();
+    }
 
     const indice = getOrCreateIndiceIn_(ss);
     const data = indice.getDataRange().getValues();
@@ -958,7 +1057,57 @@ function deleteStudent(studentName, yearId) {
   } finally {
     lock.releaseLock();
   }
-  return { success: true };
+  return { success: true, trashName: trashName };
+}
+
+/* ───────── Papelera de alumnos ───────── */
+const TRASH_PREFIX = '🗑 ';
+
+function isTrashName_(name) { return String(name).indexOf(TRASH_PREFIX) === 0; }
+
+// "🗑 Nombre · 2026-10-11 18:05" (único y dentro del límite de 100 caracteres de Sheets)
+function uniqueTrashName_(ss, studentName) {
+  const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  const base = TRASH_PREFIX + String(studentName).slice(0, 70) + ' · ' + stamp;
+  let name = base, n = 2;
+  while (ss.getSheetByName(name)) name = base + ' (' + (n++) + ')';
+  return name;
+}
+
+function trashOriginalName_(trashName) {
+  return String(trashName).slice(TRASH_PREFIX.length).replace(/ · \d{4}-\d{2}-\d{2} \d{2}:\d{2}( \(\d+\))?$/, '');
+}
+
+function listTrash(yearId) {
+  assertAuthorized_();
+  const ss = getYearSS_(yearId);
+  return ss.getSheets().map(function(sh) { return sh.getName(); }).filter(isTrashName_).map(function(n) {
+    return { trashName: n, name: trashOriginalName_(n), deletedAt: n.slice(n.lastIndexOf(' · ') + 3) };
+  }).reverse();
+}
+
+function restoreStudent(trashName, yearId) {
+  assertAuthorized_();
+  if (!isTrashName_(trashName)) throw new Error('No es un elemento de la papelera.');
+  const ss = getYearSS_(yearId);
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) throw new Error('Otro usuario está guardando. Reintenta.');
+  try {
+    const sheet = ss.getSheetByName(trashName);
+    if (!sheet) throw new Error('Ya no está en la papelera.');
+    const name = trashOriginalName_(trashName);
+    if (ss.getSheetByName(name)) throw new Error('Ya existe un alumno llamado "' + name + '". Cámbiale el nombre antes de restaurar.');
+    sheet.setName(name);
+    sheet.showSheet();
+    const data = readStudentData_(ss, name) || { course: '', areas: [], docentes: [], pe: {} };
+    const areaNames = (data.areas || []).map(function(a) { return a.name; }).join(', ');
+    const pe = data.pe || {};
+    updateIndiceIn_(ss, name, data.course, 'PE', areaNames, serializeDocentes_(data.docentes), pe.unidad, pe.fechaFinVigencia);
+    return { name: name, course: data.course || '', program: 'PE', area: areaNames, docentes: data.docentes || [],
+             unidad: pe.unidad || '', finVigencia: pe.fechaFinVigencia || '' };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /* ───────── Helpers: format & index ───────── */
@@ -1100,6 +1249,7 @@ function cleanYearSpreadsheet_(ss) {
   sheets.forEach(function(sh) {
     const name = sh.getName();
     if (name === CONFIG_TAB || name === INDICE_TAB) return;
+    if (isTrashName_(name)) { ss.deleteSheet(sh); return; } // la papelera no pasa al nuevo curso (sigue en el original)
     cleanStudentSheet_(sh);
   });
 }
@@ -1252,7 +1402,7 @@ function saveSettings(payload) {
   const data = JSON.parse(payload);
   if (data.config) saveConfig(JSON.stringify(data.config));
   if (data.lists) saveYearLists(JSON.stringify(data.lists));
-  if (data.users) saveAllowedUsers(JSON.stringify(data.users));
+  if (data.team) saveTeam(JSON.stringify(data.team));
   return { success: true };
 }
 
