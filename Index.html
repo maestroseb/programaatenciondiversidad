@@ -4727,9 +4727,10 @@
           var hint = document.getElementById('teamHint');
           if (!hint || !res) return;
           state.teamCanEdit = !!res.canEdit;
-          hint.innerHTML = res.canEdit
-            ? 'Propietario de la aplicación: <b>' + escHtml(res.owner || '') + '</b> (siempre tiene acceso).'
-            : 'Solo las personas marcadas como admin pueden modificar el equipo.';
+          var meTxt = res.me ? 'Has entrado como <b>' + escHtml(res.me) + '</b>. ' : 'Google no ha facilitado tu correo a la aplicación. ';
+          hint.innerHTML = meTxt + (res.canEdit
+            ? 'Propietario de la aplicación: <b>' + escHtml(res.owner || '—') + '</b> (siempre tiene acceso). Añade tu correo como admin para no depender de él.'
+            : 'Solo las personas del equipo marcadas como admin pueden modificarlo. Pide a una de ellas que añada tu correo como admin.');
           (res.team || []).forEach(addTeamRow);
           if (!(res.team || []).length && res.canEdit) addTeamRow({ admin: true });
           document.getElementById('btnAddTeam').style.display = res.canEdit ? '' : 'none';
@@ -4985,7 +4986,13 @@
           markSessionOk();
           state.config.centro = payload.centro;
           state.config.localidad = payload.localidad;
-          if (payload.cursoEscolar) state.config.cursoEscolar = payload.cursoEscolar;
+          if (payload.cursoEscolar) {
+            state.config.cursoEscolar = payload.cursoEscolar;
+            // El nombre del curso académico también cambia en el selector y la lista
+            (state.years || []).forEach(function(y) { if (y.id === state.activeYearId) y.label = payload.cursoEscolar; });
+            if (state.config.years) state.config.years = state.years;
+            if (typeof renderYearSelect === 'function') renderYearSelect();
+          }
           if (teamPayload) {
             var labels = teamPayload.team.filter(function(m) { return m.nombre; }).map(function(m) { return m.nombre + (m.rol ? ' (' + m.rol + ')' : ''); });
             if (labels.length) state.config.docentes = labels;
