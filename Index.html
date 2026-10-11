@@ -501,12 +501,25 @@
       transition: background var(--trans), border-color var(--trans);
     }
     .student-list-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .grid-pe { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .grid-pe-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+    @media (max-width: 640px) { .grid-pe, .grid-pe-2 { grid-template-columns: 1fr; } }
+    .pe-textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+    .vig-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-left: 6px; vertical-align: middle; }
+    .vig-soon { background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border); }
+    .vig-expired { background: var(--danger-bg); color: var(--rojo-dark); border: 1px solid var(--danger-border); }
+    .area-programa { flex: 1; min-width: 120px; margin: 0 10px; padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.12); color: inherit; font: inherit; font-size: 13px; }
+    .area-programa::placeholder { color: inherit; opacity: .6; }
+    .print-pe-box { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 11px; margin: 0 0 14px; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; }
     .imp-sub { color: var(--gris-500); margin: 0 0 10px; font-size: var(--fs-md); }
     .imp-banner { padding: 10px 12px; border-radius: var(--radio); margin-bottom: 10px; border: 1px solid; }
     .imp-banner.warn { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
     .imp-banner.ok { background: var(--success-bg); border-color: var(--chip-border); }
     .imp-warn { margin: 6px 0; padding-left: 4px; list-style: none; color: var(--warn-text); background: var(--warn-bg); border-radius: var(--radio); }
     .imp-warn li { padding: 4px 8px; }
+    .imp-pe { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 16px; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--gris-200); border-radius: var(--radio); font-size: var(--fs-md); }
+    .imp-pe-wide { grid-column: span 3; }
+    @media (max-width: 640px) { .imp-pe { grid-template-columns: 1fr; } .imp-pe-wide { grid-column: auto; } }
     .imp-area { margin-top: 16px; border-top: 1px solid var(--gris-200); padding-top: 10px; }
     .imp-area-head { display: flex; align-items: center; gap: 8px; cursor: pointer; }
     .imp-count { color: var(--gris-500); font-size: var(--fs-md); }
@@ -1601,8 +1614,12 @@
       showArchivedYears: false,
       courseFilter: 'Todos',
       // Informe a las familias
-      informeFamilias: { indicadores: [], evaluaciones: [] }
+      informeFamilias: { indicadores: [], evaluaciones: [] },
+      // Datos generales del PE (unidad, vigencia, profesionales, sesiones)
+      pe: emptyPe()
     };
+    function emptyPe() { return { unidad: '', fechaElaboracion: '', fechaFinVigencia: '', profesionales: '', sesiones: '' }; }
+    function copyPe(pe) { return Object.assign(emptyPe(), pe || {}); }
 
     const COURSES = [
       '1º Infantil','2º Infantil','3º Infantil',
@@ -1635,6 +1652,7 @@
         seguimiento1T: state.seguimiento1T,
         seguimiento2T: state.seguimiento2T,
         seguimiento3T: state.seguimiento3T,
+        pe: copyPe(state.pe),
         informeFamilias: JSON.parse(JSON.stringify(state.informeFamilias))
       };
     }
@@ -1648,6 +1666,7 @@
       state.seguimiento1T = snapshot.seguimiento1T;
       state.seguimiento2T = snapshot.seguimiento2T;
       state.seguimiento3T = snapshot.seguimiento3T;
+      state.pe = copyPe(snapshot.pe);
       state.informeFamilias = snapshot.informeFamilias;
     }
 
@@ -1729,6 +1748,7 @@
         seguimiento1T: state.seguimiento1T || '',
         seguimiento2T: state.seguimiento2T || '',
         seguimiento3T: state.seguimiento3T || '',
+        pe: copyPe(state.pe),
         informeFamilias: JSON.parse(JSON.stringify(state.informeFamilias || { indicadores: [], evaluaciones: [] }))
       };
     }
@@ -1795,9 +1815,11 @@
       state.seguimiento1T = draft.seguimiento1T || '';
       state.seguimiento2T = draft.seguimiento2T || '';
       state.seguimiento3T = draft.seguimiento3T || '';
+      state.pe = copyPe(draft.pe);
       state.areas = (draft.areas || []).map(function(a) {
         return {
           name: a.name,
+          programa: a.programa || '',
           objectives: (a.objectives || []).map(function(o) {
             return {
               id: uid(),
@@ -2315,7 +2337,9 @@
         html += '<div class="student-item" role="button" tabindex="0" onclick="selectStudent(' + nameArg + ')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();selectStudent(' + nameArg + ')}">';
         html += '<div class="student-main"><span class="student-avatar" aria-hidden="true">' + escHtml(initialsOf(s.name)) + '</span>';
         html += '<div class="student-text"><div class="name">' + escHtml(s.name) + '</div>';
-        html += '<div class="course">' + escHtml(s.course);
+        html += '<div class="course">' + escHtml(s.course) + (s.unidad ? ' · ' + escHtml(s.unidad) : '');
+        var vig = vigenciaInfo(s.finVigencia);
+        if (vig) html += ' <span class="vig-badge ' + vig.cls + '">' + escHtml(vig.label) + '</span>';
         if (s.docentes && s.docentes.length) {
           html += '<span class="course-sep">·</span><span class="docentes-inline">' + escHtml(s.docentes.join(', ')) + '</span>';
         }
@@ -2390,7 +2414,7 @@
         var docentes = s.docentes || [];
         var matchesDocente = (state.docenteFilter === 'Todos') || docentes.indexOf(state.docenteFilter) !== -1;
         var docentesText = docentes.join(' ').toLowerCase();
-        var matchesSearch = !q || s.name.toLowerCase().includes(q) || s.course.toLowerCase().includes(q) || s.program.toLowerCase().includes(q) || docentesText.includes(q);
+        var matchesSearch = !q || s.name.toLowerCase().includes(q) || s.course.toLowerCase().includes(q) || (s.unidad || '').toLowerCase().includes(q) || s.program.toLowerCase().includes(q) || docentesText.includes(q);
         return matchesCourse && matchesDocente && matchesSearch;
       });
     }
@@ -2432,9 +2456,11 @@
         state.seguimiento1T = data.seguimiento1T || '';
         state.seguimiento2T = data.seguimiento2T || '';
         state.seguimiento3T = data.seguimiento3T || '';
+        state.pe = copyPe(data.pe);
         state.areas = (data.areas || []).map(function(a) {
           return {
             name: a.name,
+            programa: a.programa || '',
             objectives: (a.objectives || []).map(function(o) {
               return {
                 id: uid(),
@@ -2464,6 +2490,7 @@
         state.seguimiento1T = '';
         state.seguimiento2T = '';
         state.seguimiento3T = '';
+        state.pe = emptyPe();
         state.informeFamilias = { indicadores: [], evaluaciones: [] };
       }
     }
@@ -2564,6 +2591,7 @@
       state.seguimiento1T = '';
       state.seguimiento2T = '';
       state.seguimiento3T = '';
+      state.pe = emptyPe();
       state.informeFamilias = { indicadores: [], evaluaciones: [] };
       state.view = 'form';
       setBaselineFromCurrent();
@@ -2732,6 +2760,9 @@
       });
       html += '</div></div>';
       html += '</div></div>';
+
+      // ─── Datos del programa (unidad, vigencia, profesionales, sesiones) ───
+      html += renderPeCard();
 
       // ─── Areas with their objectives ───
       state.areas.forEach(function(area, areaIdx) {
@@ -2940,6 +2971,7 @@
       var html = '<div class="area-wrap" id="area_' + areaIdx + '">';
       html += '<div class="area-header" style="--area-color:' + color.headerBg + '">';
       html += '<span class="area-title">' + escHtml(area.name) + ' <span class="area-count">(' + area.objectives.length + ' obj.)</span></span>';
+      html += '<input class="area-programa" value="' + escAttr(area.programa || '') + '" placeholder="Título del programa (opcional)" aria-label="Título del programa de ' + escAttr(area.name) + '" oninput="updateAreaPrograma(' + areaIdx + ',this.value)">';
       html += '<button class="btn-collapse-area" id="collapseArea_' + areaIdx + '" onclick="toggleAreaCollapse(' + areaIdx + ')" title="Colapsar o expandir todos los objetivos de este ámbito">Colapsar todo</button>';
       html += '</div>';
 
@@ -3333,6 +3365,52 @@
         el.addEventListener('change', clear);
       }
       showToast(msg, 'error');
+    }
+
+    function renderPeCard() {
+      var pe = state.pe || emptyPe();
+      var vig = vigenciaInfo(pe.fechaFinVigencia);
+      var h = '<div class="card" id="secPe"><div class="card-body">';
+      h += '<div class="card-title"><span class="card-icon">' + ICONS.clipboard + '</span> Datos del programa'
+        + (vig ? ' <span class="vig-badge ' + vig.cls + '">' + escHtml(vig.label) + '</span>' : '') + '</div>';
+      h += '<div class="grid-pe">';
+      h += '<div><label class="field-label" for="peUnidad">Unidad / grupo</label><input class="field-input" id="peUnidad" value="' + escAttr(pe.unidad) + '" placeholder="Ej.: 1ºB" oninput="onPeChange(\'unidad\',this.value)"></div>';
+      h += '<div><label class="field-label" for="peFechaElab">Fecha de elaboración</label><input class="field-input" type="date" id="peFechaElab" value="' + escAttr(pe.fechaElaboracion) + '" onchange="onPeChange(\'fechaElaboracion\',this.value)"></div>';
+      h += '<div><label class="field-label" for="peFechaFin">Fin de vigencia</label><input class="field-input" type="date" id="peFechaFin" value="' + escAttr(pe.fechaFinVigencia) + '" onchange="onPeChange(\'fechaFinVigencia\',this.value);renderFormView()"></div>';
+      h += '</div>';
+      h += '<div class="grid-pe-2">';
+      h += '<div><label class="field-label" for="peProf">Profesionales implicados</label><textarea class="field-input pe-textarea" id="peProf" rows="4" placeholder="Tutor/a: …&#10;PT: …&#10;EOE: …" oninput="onPeChange(\'profesionales\',this.value)">' + escHtml(pe.profesionales) + '</textarea></div>';
+      h += '<div><label class="field-label" for="peSes">Sesiones y agrupamiento</label><textarea class="field-input pe-textarea" id="peSes" rows="4" placeholder="Ej.: 5 sesiones semanales de PT dentro del aula ordinaria" oninput="onPeChange(\'sesiones\',this.value)">' + escHtml(pe.sesiones) + '</textarea></div>';
+      h += '</div></div></div>';
+      return h;
+    }
+
+    // Estado de vigencia del PE: vencido o a punto de vencer (≤ 30 días)
+    function vigenciaInfo(fecha) {
+      if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return null;
+      var p = fecha.split('-');
+      var fin = new Date(+p[0], +p[1] - 1, +p[2]);
+      var hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+      var dias = Math.round((fin - hoy) / 86400000);
+      if (dias < 0) return { cls: 'vig-expired', label: 'Vigencia vencida', dias: dias };
+      if (dias <= 30) return { cls: 'vig-soon', label: 'Vence en ' + dias + ' día' + (dias === 1 ? '' : 's'), dias: dias };
+      return null;
+    }
+
+    function onPeChange(key, value) {
+      if (!state.pe) state.pe = emptyPe();
+      if (state.pe[key] === value) return;
+      pushUndo({ coalesce: true });
+      state.pe[key] = value;
+      markDirty();
+    }
+
+    function updateAreaPrograma(areaIdx, value) {
+      var area = state.areas[areaIdx];
+      if (!area || area.programa === value) return;
+      pushUndo({ coalesce: true });
+      area.programa = value;
+      markDirty();
     }
 
     function onFieldChange() {
@@ -3860,6 +3938,7 @@
       var sentCourse = state.course;
       var sentAreaStr = state.areas.map(function(a) { return a.name; }).join(', ');
       var sentDocentes = (state.docentes || []).slice();
+      var sentPe = copyPe(state.pe);
       var sentKey = currentSnapshotKey();
       var payload = JSON.stringify({
         yearId: state.activeYearId,
@@ -3872,6 +3951,7 @@
         seguimiento1T: state.seguimiento1T,
         seguimiento2T: state.seguimiento2T,
         seguimiento3T: state.seguimiento3T,
+        pe: copyPe(state.pe),
         informeFamilias: (function() {
           // Filtrar indicadores vacíos manteniendo alineadas sus valoraciones (el backend las empareja por índice)
           var inds = [], evs = [];
@@ -3885,6 +3965,7 @@
         areas: state.areas.map(function(area) {
           return {
             name: area.name,
+            programa: area.programa || '',
             objectives: area.objectives.map(function(o) {
               return {
                 title: o.title,
@@ -3920,12 +4001,14 @@
           }
           var existing = state.students.find(function(s) { return s.name === sentName; });
           if (!existing) {
-            state.students.push({ name: sentName, course: sentCourse, program: 'PE', area: sentAreaStr, docentes: sentDocentes });
+            state.students.push({ name: sentName, course: sentCourse, program: 'PE', area: sentAreaStr, docentes: sentDocentes, unidad: sentPe.unidad, finVigencia: sentPe.fechaFinVigencia });
           } else {
             existing.course = sentCourse;
             existing.program = 'PE';
             existing.area = sentAreaStr;
             existing.docentes = sentDocentes;
+            existing.unidad = sentPe.unidad;
+            existing.finVigencia = sentPe.fechaFinVigencia;
           }
 
           saveBootCache();
@@ -4130,8 +4213,17 @@
       html += '<div>Curso escolar ' + escHtml(cursoEscolarLabel) + '</div></div>';
       html += '<div class="student-box">';
       html += '<div><span style="font-weight:800">ALUMNO/A:</span> ' + escHtml(state.studentName) + '</div>';
-      html += '<div><span style="font-weight:800">CURSO:</span> ' + escHtml(state.course) + '</div>';
+      html += '<div><span style="font-weight:800">CURSO:</span> ' + escHtml(state.course) + (state.pe && state.pe.unidad ? ' (' + escHtml(state.pe.unidad) + ')' : '') + '</div>';
+      if (state.pe && (state.pe.fechaElaboracion || state.pe.fechaFinVigencia)) {
+        html += '<div><span style="font-weight:800">VIGENCIA:</span> ' + escHtml(fmtDateEs(state.pe.fechaElaboracion) || '—') + ' – ' + escHtml(fmtDateEs(state.pe.fechaFinVigencia) || '—') + '</div>';
+      }
       html += '</div></div>';
+      if (state.pe && (state.pe.profesionales || state.pe.sesiones)) {
+        html += '<div class="print-pe-box">';
+        if (state.pe.profesionales) html += '<div><strong>Profesionales implicados:</strong><br>' + escHtml(state.pe.profesionales).replace(/\n/g, '<br>') + '</div>';
+        if (state.pe.sesiones) html += '<div><strong>Sesiones y agrupamiento:</strong><br>' + escHtml(state.pe.sesiones).replace(/\n/g, '<br>') + '</div>';
+        html += '</div>';
+      }
 
       // One page/section per area
       state.areas.forEach(function(area, areaIdx) {
@@ -4141,7 +4233,7 @@
 
         var areaColor = getAreaColor(area.name).headerBg;
         var areaTint = areaColor + '1f'; // ~12% alpha tint of the area color
-        html += '<div class="print-area-header" style="background:' + areaColor + ';margin-bottom:14px">PE: ' + escHtml(area.name) + '</div>';
+        html += '<div class="print-area-header" style="background:' + areaColor + ';margin-bottom:14px">PE: ' + escHtml(area.name) + (area.programa ? ' — ' + escHtml(area.programa) : '') + '</div>';
 
         // Table: Objetivos / Indicadores
         html += '<table class="print-table">';
@@ -4603,6 +4695,12 @@
     /* ═══════════════════════════════════════════
        UTILS
     ═══════════════════════════════════════════ */
+    // "2026-08-31" → "31/08/2026"
+    function fmtDateEs(iso) {
+      var m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      return m ? m[3] + '/' + m[2] + '/' + m[1] : String(iso || '');
+    }
+
     function escHtml(str) {
       if (!str) return '';
       return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -4921,7 +5019,22 @@
 
     // Convierte las líneas del PDF en { studentName, course, areas:[{name, objectives:[...]}] }
     function parseSenecaLines(lines) {
-      var out = { studentName: '', course: '', rawCourse: '', areas: [], unrecognized: [] };
+      var out = { studentName: '', course: '', rawCourse: '', unidad: '', fechaElaboracion: '', fechaFinVigencia: '',
+                  profesionales: [], sesiones: [], areas: [], unrecognized: [] };
+      var inProf = false, inSes = false, sesBuf = [];
+      function senecaDate(d) { // "12/10/25" → "2025-10-12"
+        var m = String(d || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+        if (!m) return '';
+        var y = m[3].length === 2 ? '20' + m[3] : m[3];
+        return y + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+      }
+      function endSes() {
+        if (inSes && sesBuf.length) {
+          var t = sesBuf.join(' ').replace(/\s+/g, ' ').trim();
+          if (t && !out.sesiones.some(function(x) { return x.text === t; })) out.sesiones.push({ area: area ? area.name : '', text: t });
+        }
+        inSes = false; sesBuf = [];
+      }
       var LABEL = /^(Objetivo|Indicador|Contenido|Actividad\/tarea)\s*(\d+(?:\.\d+)?)\s*:\s*(.*)$/i;
       var END = /^(Organización:|Competencias:|TEMPORALIZACIÓN|COORDINACIÓN ENTRE|AGRUPAMIENTOS|Recursos:|INFORMACIÓN Y COLABORACIÓN)/i;
       var AREA = /^desarrollo [a-z ]+$/;
@@ -4956,15 +5069,37 @@
       for (var i = 0; i < lines.length; i++) {
         var l = lines[i], m;
         if (!out.studentName && (m = l.match(/^Nombre:\s*(.+?)\s+Fecha de nacimiento/i))) { out.studentName = senecaStudentName(m[1]); continue; }
-        if (!out.course && (m = l.match(/^Curso:\s*(.+?)\s+Unidad:/i))) { out.rawCourse = m[1]; out.course = senecaCourse(m[1]); continue; }
-        if (/^Propuesta de Áreas/i.test(l)) { started = true; continue; }
+        if (!out.course && (m = l.match(/^Curso:\s*(.+?)\s+Unidad:\s*(.*)$/i))) { out.rawCourse = m[1]; out.course = senecaCourse(m[1]); out.unidad = m[2].trim(); continue; }
+        if (!out.fechaElaboracion && /FECHA DE ELABORACIÓN/i.test(l)) {
+          out.fechaElaboracion = senecaDate((l.match(/ELABORACIÓN:\s*([\d\/]+)/i) || [])[1]);
+          out.fechaFinVigencia = senecaDate((l.match(/VIGENCIA:\s*([\d\/]+)/i) || [])[1]);
+          continue;
+        }
+        if (/^Profesionales implicados en el PE/i.test(l)) { inProf = true; continue; }
+        if (/^Propuesta de Áreas/i.test(l)) { inProf = false; started = true; continue; }
+        if (inProf) {
+          // "Rol: Apellidos, Nombre" (el nombre puede continuar en la línea siguiente)
+          if ((m = l.match(/^(.+?):\s*(.+)$/))) out.profesionales.push({ rol: m[1].trim(), nombre: m[2].trim() });
+          else if (out.profesionales.length) out.profesionales[out.profesionales.length - 1].nombre += ' ' + l;
+          continue;
+        }
         if (!started) continue;
+        // Encabezado "AGRUPAMIENTOS Y ORGANIZACIÓN…" o línea "Agrupamientos: texto…"
+        if (/^AGRUPAMIENTOS/.test(l) || /^Agrupamientos:/.test(l)) {
+          flush(); endSes(); inSes = true; skip = true;
+          if ((m = l.match(/^Agrupamientos:\s*(.+)$/))) sesBuf.push(m[1]);
+          continue;
+        }
+        if (inSes) {
+          if (/^(Recursos:|Organización:)/i.test(l) || isAreaHeading(i) || LABEL.test(l)) endSes();
+          else { sesBuf.push(l); continue; }
+        }
 
         if (isAreaHeading(i)) {
           // El título del programa puede parecer un ámbito ("DESARROLLO COMUNICACIÓN…"): se ignora
-          if (area && !area.objectives.length && i - areaLine <= 4) continue;
+          if (area && !area.objectives.length && i - areaLine <= 4) { area.programa = (area.programa ? area.programa + ' ' : '') + l; continue; }
           flush(); obj = null; areaLine = i; skip = false;
-          area = { name: senecaAreaName(l), objectives: [] };
+          area = { name: senecaAreaName(l), programa: '', objectives: [] };
           out.areas.push(area);
           continue;
         }
@@ -4982,9 +5117,12 @@
         }
         if (END.test(l)) { flush(); skip = true; continue; }
         if (cur) cur.parts.push(l);
+        else if (area && !obj && i - areaLine <= 4) area.programa = (area.programa ? area.programa + ' ' : '') + l; // título del programa
         else if (obj && !skip) out.unrecognized.push(l);
       }
       flush();
+      endSes();
+      out.profesionales.forEach(function(p) { p.nombre = senecaStudentName(p.nombre.replace(/\s*-\s*\(.*$/, '')); });
       out.emptyAreas = out.areas.filter(function(a) { return !a.objectives.length; }).map(function(a) { return a.name; });
       out.areas = out.areas.filter(function(a) { return a.objectives.length; });
       return out;
@@ -5030,6 +5168,13 @@
         d.warnings.push('Ya existe un alumno llamado «' + d.studentName + '»: cambia el nombre o no podrás guardar.');
       }
       (d.emptyAreas || []).forEach(function(n) { d.warnings.push('El ámbito «' + n + '» no tiene objetivos y no se importará.'); });
+      if (!d.fechaElaboracion || !d.fechaFinVigencia) d.warnings.push('No se han encontrado las fechas de elaboración y/o fin de vigencia.');
+      var vig = vigenciaInfo(d.fechaFinVigencia);
+      if (vig && vig.dias < 0) d.warnings.push('La vigencia del programa ya ha vencido (' + fmtDateEs(d.fechaFinVigencia) + ').');
+      d.docentesMatch = matchSenecaDocentes(d.profesionales);
+      if (d.profesionales.length && (state.config.docentes || []).length && !d.docentesMatch.length) {
+        d.warnings.push('Ningún profesional del PDF coincide con los docentes de Ajustes: asígnalos a mano en la ficha.');
+      }
       if (d.unrecognized.length) d.warnings.push(d.unrecognized.length + ' línea(s) de texto no se han podido asignar a ningún apartado: compara con el PDF.');
 
       // Detecta números repetidos o saltos (p. ej. 3.1, 3.3, 3.4, 3.4)
@@ -5068,6 +5213,29 @@
         return n + a.warnings.length + a.objectives.reduce(function(m, o) { return m + o.warnings.length; }, 0);
       }, 0);
       return d;
+    }
+
+    // Busca en los docentes de Ajustes ("Ana López (PT)") los profesionales del PDF por nombre y apellidos
+    function matchSenecaDocentes(profesionales) {
+      var full = (profesionales || []).map(function(p) { return senecaNorm(p.nombre); });
+      return (state.config.docentes || []).filter(function(doc) {
+        var tokens = senecaNorm(String(doc).replace(/\(.*?\)/g, '')).split(' ').filter(function(t) { return t.length > 2; });
+        if (tokens.length < 2) return false;
+        return full.some(function(n) {
+          var words = n.split(' ');
+          return tokens.every(function(t) { return words.indexOf(t) !== -1; });
+        });
+      });
+    }
+
+    function senecaPeFrom(d) {
+      return {
+        unidad: d.unidad || '',
+        fechaElaboracion: d.fechaElaboracion || '',
+        fechaFinVigencia: d.fechaFinVigencia || '',
+        profesionales: (d.profesionales || []).map(function(p) { return p.rol + ': ' + p.nombre; }).join('\n'),
+        sesiones: (d.sesiones || []).map(function(x) { return (d.sesiones.length > 1 && x.area ? x.area + ': ' : '') + x.text; }).join('\n')
+      };
     }
 
     var senecaImport = null;
@@ -5127,10 +5295,19 @@
       courseOptions.forEach(function(c) { h += '<option value="' + escAttr(c) + '"' + (d.course === c ? ' selected' : '') + '>' + escHtml(c) + '</option>'; });
       h += '</select></div></div>';
 
+      var pe = senecaPeFrom(d);
+      h += '<div class="imp-pe">';
+      h += '<div><strong>Unidad:</strong> ' + escHtml(pe.unidad || '—') + '</div>';
+      h += '<div><strong>Vigencia:</strong> ' + escHtml(fmtDateEs(pe.fechaElaboracion) || '—') + ' – ' + escHtml(fmtDateEs(pe.fechaFinVigencia) || '—') + '</div>';
+      h += '<div><strong>Docentes asignados:</strong> ' + escHtml(d.docentesMatch.length ? d.docentesMatch.join(', ') : '—') + '</div>';
+      h += '<div class="imp-pe-wide"><strong>Profesionales implicados:</strong><br>' + (pe.profesionales ? escHtml(pe.profesionales).replace(/\n/g, '<br>') : '—') + '</div>';
+      h += '<div class="imp-pe-wide"><strong>Sesiones y agrupamiento:</strong><br>' + (pe.sesiones ? escHtml(pe.sesiones).replace(/\n/g, '<br>') : '—') + '</div>';
+      h += '</div>';
+
       d.areas.forEach(function(a, ai) {
         var aw = a.warnings.length + a.objectives.reduce(function(m, o) { return m + o.warnings.length; }, 0);
         h += '<div class="imp-area">';
-        h += '<label class="imp-area-head"><input type="checkbox" id="impArea_' + ai + '"' + (a.include ? ' checked' : '') + '> <strong>' + escHtml(a.name) + '</strong> <span class="imp-count">' + a.objectives.length + ' objetivos' + (aw ? ' · ⚠️ ' + aw : '') + '</span></label>';
+        h += '<label class="imp-area-head"><input type="checkbox" id="impArea_' + ai + '"' + (a.include ? ' checked' : '') + '> <strong>' + escHtml(a.name) + '</strong> <span class="imp-count">' + (a.programa ? escHtml(a.programa) + ' · ' : '') + a.objectives.length + ' objetivos' + (aw ? ' · ⚠️ ' + aw : '') + '</span></label>';
         h += senecaWarnList(a.warnings);
         a.objectives.forEach(function(o, oi) {
           h += '<details class="imp-obj' + (o.warnings.length ? ' has-warn' : '') + '"' + (o.warnings.length ? ' open' : '') + '>';
@@ -5179,9 +5356,12 @@
       if (state.view !== 'form' || !state.isNew) return;
       state.studentName = name;
       state.course = course;
+      state.pe = senecaPeFrom(d);
+      state.docentes = d.docentesMatch.slice();
       state.areas = areas.map(function(a) {
         return {
           name: a.name,
+          programa: a.programa || '',
           objectives: a.objectives.map(function(o) {
             return {
               id: uid(),
