@@ -1444,11 +1444,23 @@
     .obj-num { background: var(--verde-tint); color: var(--c-accent); }
     :root[data-theme="dark"] .side-nav a.nav-area { color: color-mix(in srgb, var(--area-color) 55%, #fff); }
 
+    /* Aviso de sesión caducada / sin conexión */
+    .session-banner {
+      position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 1000;
+      width: min(720px, calc(100% - 24px));
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 12px 14px; border-radius: var(--radio-lg);
+      background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border);
+      box-shadow: var(--sombra-lg); font-size: var(--fs-md); font-weight: 600;
+    }
+    .session-banner-text { flex: 1 1 260px; }
+    .session-banner-actions { display: flex; gap: 8px; margin-left: auto; }
+
     @media print {
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
       body { background: #fff !important; }
       .header, .print-toolbar, .print-floating-close, .content, .content-with-nav,
-      .toast, .modal-overlay, .settings-overlay { display: none !important; }
+      .toast, .modal-overlay, .settings-overlay, .session-banner { display: none !important; }
       .print-overlay { position: static; background: none; padding: 0; backdrop-filter: none; }
       .print-container { max-height: none; box-shadow: none; border-radius: 0; }
       .print-content { padding: 20px; }
@@ -1859,6 +1871,7 @@
         if (el) el.innerHTML = ICONS[iconMap[id]] || '';
       });
       updateThemeButton();
+      initSessionWatch();
       if (window.matchMedia) {
         var mq = matchMedia('(prefers-color-scheme: dark)');
         var onSys = function() { if (getThemePref() === 'auto') applyTheme('auto'); };
@@ -1873,6 +1886,110 @@
       }
       loadAll();
     });
+
+    /* ─── Control de sesión (por si la pestaña se queda abierta de un día para otro) ───
+       - Cada minuto se mira si hace más de 5 min de la última respuesta correcta del
+         servidor; si es así se hace un ping (si hay una ficha abierta, el latido de
+         presencia cada 2 min ya sirve de comprobación).
+       - Al volver a la pestaña o recuperar la conexión se comprueba al momento.
+       - Si la sesión ha caducado o no hay conexión: se guarda el borrador local y se
+         muestra un aviso fijo con "Reintentar" y "Recargar". */
+    var SESSION_IDLE_CHECK_MS = 5 * 60 * 1000;
+    var sessionState = { lost: false, denied: false, lastOkAt: Date.now(), pinging: false };
+
+    function markSessionOk() {
+      sessionState.lastOkAt = Date.now();
+      if (sessionState.lost) {
+        sessionState.lost = false;
+        renderSessionBanner();
+        showToast('Conexión con Google recuperada', 'success');
+      }
+    }
+
+    // Errores de sesión/red frente a errores normales de la aplicación
+    function isSessionError(msg) {
+      return /network|failed to fetch|authori[sz]|401|403|sign[ -]?in|login|timed? ?out|timeout|server error|error del servidor|se ha producido un error/i.test(msg || '');
+    }
+
+    function handleServerError(err) {
+      var msg = (err && err.message) ? err.message : String(err || '');
+      if (msg.indexOf('ACCESO_DENEGADO') !== -1) {
+        sessionState.denied = true;
+        clearBootCache();
+        markSessionLost();
+        return;
+      }
+      if (isSessionError(msg)) markSessionLost();
+    }
+
+    function markSessionLost() {
+      if (state.view === 'form' && state.dirty) { try { saveDraftNow(); } catch (e) {} }
+      if (sessionState.lost) return;
+      sessionState.lost = true;
+      renderSessionBanner();
+    }
+
+    function renderSessionBanner() {
+      var el = document.getElementById('sessionBanner');
+      if (!sessionState.lost) { if (el) el.remove(); return; }
+      var msg = sessionState.denied
+        ? 'Tu cuenta ya no está autorizada para usar esta aplicación. Lo que hayas escrito se ha guardado en este navegador.'
+        : 'Se ha perdido la conexión con Google o tu sesión ha caducado. Tus cambios están a salvo en este navegador (borrador local). Recarga para volver a entrar y recuperarlos.';
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'sessionBanner';
+        el.className = 'session-banner';
+        el.setAttribute('role', 'alert');
+        document.body.appendChild(el);
+      }
+      el.innerHTML = '<span class="session-banner-text">' + escHtml(msg) + '</span>' +
+        '<span class="session-banner-actions">' +
+          (sessionState.denied ? '' : '<button type="button" class="btn btn-ghost" onclick="checkSession(true)">Reintentar</button>') +
+          '<button type="button" class="btn btn-primary" onclick="reloadApp()">Recargar</button>' +
+        '</span>';
+    }
+
+    function checkSession(manual) {
+      if (sessionState.pinging) return;
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) { markSessionLost(); return; }
+      sessionState.pinging = true;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          sessionState.pinging = false;
+          // Si en esta pestaña se ha cambiado de cuenta de Google, avisar
+          if (res && res.user && state.currentUser && res.user !== state.currentUser) {
+            showToast('Ahora estás conectado como ' + res.user + '. Recarga la aplicación para trabajar con esa cuenta.', 'info', { duration: 10000 });
+          }
+          markSessionOk();
+          if (manual && !sessionState.lost) showToast('Conexión correcta', 'success', { duration: 2000 });
+        })
+        .withFailureHandler(function(err) {
+          sessionState.pinging = false;
+          handleServerError(err);
+          // Un fallo del ping es siempre un problema de sesión o de red
+          markSessionLost();
+        })
+        .ping();
+    }
+
+    function reloadApp() {
+      try { if (state.view === 'form' && state.dirty) saveDraftNow(); } catch (e) {}
+      if (state.appUrl) { window.open(state.appUrl, '_top'); return; }
+      location.reload();
+    }
+
+    function initSessionWatch() {
+      setInterval(function() {
+        if (document.hidden) return;
+        if (presenceCurrent.tabName && !sessionState.lost) return; // el latido de presencia ya comprueba
+        if (Date.now() - sessionState.lastOkAt > SESSION_IDLE_CHECK_MS || sessionState.lost) checkSession(false);
+      }, 60 * 1000);
+      document.addEventListener('visibilitychange', function() {
+        if (!document.hidden && Date.now() - sessionState.lastOkAt > 60 * 1000) checkSession(false);
+      });
+      window.addEventListener('online', function() { checkSession(false); });
+      window.addEventListener('offline', function() { markSessionLost(); });
+    }
 
     /* ─── Tema claro/oscuro ─── */
     var THEME_KEY = 'padd:theme';
@@ -1913,9 +2030,11 @@
           courses: cfg.courses || [],
           docentes: cfg.docentes || []
         };
+        state.rawConfig = cfg;
+        state.appUrl = cfg.appUrl || state.appUrl || '';
         state.isAdmin = !!cfg.isAdmin;
+        state.currentUser = cfg.currentUser || state.currentUser || '';
         state.adminEmail = cfg.adminEmail || '';
-        state.currentUser = cfg.currentUser || '';
         state.years = cfg.years || [];
         state.activeYearId = cfg.activeYearId || '';
       }
@@ -1923,25 +2042,75 @@
       renderYearSelect();
     }
 
+    /* ─── Caché de arranque (pintar al instante y actualizar en segundo plano) ─── */
+    var BOOT_KEY = 'padd:boot:v1';
+    var bootYearId = '';   // año que devuelve el servidor por defecto (el que se cachea)
+    var yearSeq = 0;       // cambia al elegir otro curso académico
+    function readBootCache() {
+      try { var raw = localStorage.getItem(BOOT_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+    }
+    function saveBootCache() {
+      if (!state.rawConfig || !bootYearId || state.activeYearId !== bootYearId) return;
+      try {
+        localStorage.setItem(BOOT_KEY, JSON.stringify({
+          config: Object.assign({}, state.rawConfig, { years: state.years, activeYearId: state.activeYearId }),
+          students: state.students,
+          savedAt: Date.now()
+        }));
+      } catch (e) { /* cuota o almacenamiento desactivado */ }
+    }
+    function clearBootCache() { try { localStorage.removeItem(BOOT_KEY); } catch (e) {} }
+
+    // Redibuja la lista conservando lo que el usuario está escribiendo en el buscador
+    function rerenderListPreserving() {
+      if (state.view !== 'list') return;
+      var search = document.getElementById('searchInput');
+      var val = search ? search.value : '';
+      var focused = search && document.activeElement === search;
+      var pos = search ? search.selectionStart : 0;
+      renderListView();
+      var s2 = document.getElementById('searchInput');
+      if (s2 && val) { s2.value = val; filterStudents(); }
+      if (s2 && focused) { s2.focus(); try { s2.setSelectionRange(pos, pos); } catch (e) {} }
+    }
+
     // Carga configuración + lista de alumnos en una sola llamada al servidor.
+    // Si hay caché de una visita anterior, la lista aparece al instante y se refresca después.
     function loadAll() {
       var seq = ++navSeq;
+      var mySeq = yearSeq;
+      var requested = state.activeYearId || '';
       state.view = 'list';
-      renderListView('<div class="loading"><div class="loading-icon">' + ICONS.loader + '</div>Cargando alumnos...</div>');
+      var cache = !requested ? readBootCache() : null;
+      if (cache && cache.config) {
+        applyConfig(cache.config);
+        state.students = cache.students || [];
+        renderListView();
+      } else {
+        renderListView('<div class="loading"><div class="loading-icon">' + ICONS.loader + '</div>Cargando alumnos...</div>');
+      }
       google.script.run
         .withSuccessHandler(function(res) {
-          if (seq !== navSeq) return;
-          applyConfig(res && res.config);
-          state.students = (res && res.students) || [];
-          renderListView();
+          markSessionOk();
+          if (mySeq !== yearSeq || !res) return;
+          if (!requested) bootYearId = (res.config && res.config.activeYearId) || '';
+          var changed = !cache || JSON.stringify(cache.config) !== JSON.stringify(res.config) ||
+                        JSON.stringify(cache.students) !== JSON.stringify(res.students);
+          applyConfig(res.config);
+          state.students = res.students || [];
+          saveBootCache();
+          if (changed && (seq === navSeq || state.view === 'list')) rerenderListPreserving();
         })
         .withFailureHandler(function(err) {
+          handleServerError(err);
           if (seq !== navSeq) return;
-          showToast('Error al cargar: ' + (err && err.message ? err.message : err), 'error');
-          state.students = [];
-          renderListView();
+          if (!cache) {
+            showToast('Error al cargar: ' + (err && err.message ? err.message : err), 'error');
+            state.students = [];
+            renderListView();
+          }
         })
-        .getBootstrap(state.activeYearId || '');
+        .getBootstrap(requested);
     }
 
     function renderYearSelect() {
@@ -1987,6 +2156,7 @@
         state.dirty = false;
       }
       navSeq++;
+      yearSeq++;
       state.activeYearId = newId;
       state.selectedStudent = null;
       stopPresence();
@@ -2008,22 +2178,23 @@
     // después de que el usuario haya cambiado de alumno, de curso o vuelto a la lista.
     var navSeq = 0;
 
+    // Vuelve a la lista: se pinta al momento con los datos en memoria y se refresca en segundo plano.
     function loadStudentList() {
-      var seq = ++navSeq;
+      ++navSeq;
+      var mySeq = yearSeq;
       state.view = 'list';
-      renderListView('<div class="loading"><div class="loading-icon">' + ICONS.loader + '</div>Cargando alumnos...</div>');
+      renderListView();
       google.script.run
         .withSuccessHandler(function(students) {
-          if (seq !== navSeq) return;
-          state.students = students || [];
-          renderListView();
+          markSessionOk();
+          if (mySeq !== yearSeq) return;
+          var fresh = students || [];
+          if (JSON.stringify(fresh) === JSON.stringify(state.students)) return;
+          state.students = fresh;
+          saveBootCache();
+          rerenderListPreserving();
         })
-        .withFailureHandler(function(err) {
-          if (seq !== navSeq) return;
-          showToast('Error al cargar alumnos: ' + err.message, 'error');
-          state.students = [];
-          renderListView();
-        })
+        .withFailureHandler(handleServerError)
         .getStudentList(state.activeYearId);
     }
 
@@ -2157,28 +2328,16 @@
       showToast('Duplicando ficha...', 'info');
       var dupYearId = state.activeYearId;
       google.script.run
-        .withSuccessHandler(function(data) {
-          if (!data) { showToast('No se encontró la ficha original', 'error'); return; }
-          data.studentName = newName;
-          google.script.run
-            .withSuccessHandler(function() {
-              state.students.push({
-                name: newName,
-                course: data.course || '',
-                program: 'PE',
-                area: (data.areas || []).map(function(a) { return a.name; }).join(', '),
-                docentes: (data.docentes || []).slice()
-              });
-              if (dupYearId !== state.activeYearId) return;
-              var itemsEl = document.getElementById('studentItems');
-              if (itemsEl) itemsEl.innerHTML = renderStudentItems(getFilteredStudents());
-              showToast('Alumno duplicado como "' + newName + '"', 'success');
-            })
-            .withFailureHandler(function(err) { showToast('Error al guardar: ' + err.message, 'error'); })
-            .saveStudentData(JSON.stringify(Object.assign({}, data, { yearId: dupYearId })));
+        .withSuccessHandler(function(res) {
+          if (dupYearId !== state.activeYearId || !res) return;
+          state.students.push({ name: res.name, course: res.course, program: 'PE', area: res.area, docentes: (res.docentes || []).slice() });
+          saveBootCache();
+          var itemsEl = document.getElementById('studentItems');
+          if (itemsEl) itemsEl.innerHTML = renderStudentItems(getFilteredStudents());
+          showToast('Alumno duplicado como "' + res.name + '"', 'success');
         })
-        .withFailureHandler(function(err) { showToast('Error al leer: ' + err.message, 'error'); })
-        .getStudentData(oldName, dupYearId);
+        .withFailureHandler(function(err) { showToast('Error al duplicar: ' + (err && err.message ? err.message : err), 'error'); })
+        .duplicateStudent(oldName, newName, dupYearId);
     }
 
     async function confirmDeleteStudent(name) {
@@ -2187,6 +2346,8 @@
       google.script.run
         .withSuccessHandler(function() {
           state.students = state.students.filter(function(s) { return s.name !== name; });
+          delete studentCache[studentCacheKey(name)];
+          saveBootCache();
           if (state.selectedStudent === name) {
             state.selectedStudent = null;
             state.dirty = false;
@@ -2236,6 +2397,57 @@
     /* ═══════════════════════════════════════════
        ACTIONS: Select / New
     ═══════════════════════════════════════════ */
+    // Caché en memoria de fichas ya leídas (clave año|alumno) → abrir de nuevo es instantáneo.
+    var studentCache = {};
+    function studentCacheKey(name) { return (state.activeYearId || '') + '|' + name; }
+
+    // Vuelca en el estado los datos de una ficha tal como los devuelve el servidor.
+    function applyStudentData(name, data) {
+      if (data) {
+        state.studentName = data.studentName;
+        state.course = data.course;
+        state.docentes = (data.docentes || []).slice();
+        state.expectedUpdatedAt = data.updatedAt || '';
+        state.valoracionInicial = data.valoracionInicial || '';
+        state.seguimiento1T = data.seguimiento1T || '';
+        state.seguimiento2T = data.seguimiento2T || '';
+        state.seguimiento3T = data.seguimiento3T || '';
+        state.areas = (data.areas || []).map(function(a) {
+          return {
+            name: a.name,
+            objectives: (a.objectives || []).map(function(o) {
+              return {
+                id: uid(),
+                title: o.title,
+                eval1T: o.eval1T || '', eval2T: o.eval2T || '', eval3T: o.eval3T || '',
+                indicators: (o.indicators || []).map(function(x) { return { id: uid(), text: x.text, eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '', observaciones: x.observaciones || '' }; }),
+                contents: normalizeContentsField(o.contents),
+                activities: normalizeRichField(o.activities)
+              };
+            })
+          };
+        });
+        sortAreasCanonical();
+        var inf = data.informeFamilias || { indicadores: [], evaluaciones: [] };
+        state.informeFamilias = {
+          indicadores: (inf.indicadores || []).map(function(x) { return { id: uid(), text: x.text || '' }; }),
+          evaluaciones: (inf.evaluaciones || []).map(function(x) { return { eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '' }; })
+        };
+      } else {
+        var s = state.students.find(function(st) { return st.name === name; });
+        state.studentName = name;
+        state.course = s ? s.course : '';
+        state.docentes = s && s.docentes ? s.docentes.slice() : [];
+        state.expectedUpdatedAt = '';
+        state.areas = [];
+        state.valoracionInicial = '';
+        state.seguimiento1T = '';
+        state.seguimiento2T = '';
+        state.seguimiento3T = '';
+        state.informeFamilias = { indicadores: [], evaluaciones: [] };
+      }
+    }
+
     async function selectStudent(name) {
       if (state.dirty && !(await confirmDialog('Tienes cambios sin guardar. Si continúas, se perderán.', { title: 'Cambios sin guardar', confirmText: 'Descartar y continuar', cancelText: 'Seguir editando', danger: true }))) return;
       flushDraftTimer();
@@ -2248,77 +2460,65 @@
       state.selectedStudent = name;
       state.isNew = false;
       state.dirty = false;
-
-      document.getElementById('content').innerHTML = '<div class="loading"><div class="loading-icon">' + ICONS.loader + '</div>Cargando datos de ' + escHtml(name) + '...</div>';
       document.getElementById('btnBack').style.display = '';
       document.getElementById('formToolbar').style.display = 'flex';
+
+      var key = studentCacheKey(name);
+      var cached = studentCache[key];
+      var shownFrom = null; // 'cache' | 'server'
+
+      // Pinta la ficha y ofrece recuperar borrador (solo la primera vez que se muestra)
+      async function show(data, from) {
+        applyStudentData(name, data);
+        state.view = 'form';
+        setBaselineFromCurrent();
+        var recovered = shownFrom ? false : await offerDraftRecovery(name);
+        if (seq !== navSeq) return;
+        if (!recovered) setBaselineFromCurrent();
+        renderFormView();
+        updateBadge();
+        shownFrom = from;
+        if (recovered) showToast('Borrador local recuperado · recuerda guardar en Google Sheets', 'info');
+      }
+
+      if (cached) {
+        await show(cached, 'cache');
+        if (seq !== navSeq) return;
+      } else {
+        document.getElementById('content').innerHTML = '<div class="loading"><div class="loading-icon">' + ICONS.loader + '</div>Cargando datos de ' + escHtml(name) + '...</div>';
+      }
 
       google.script.run
         .withSuccessHandler(async function(data) {
           if (seq !== navSeq) return;
-          if (data) {
-            state.studentName = data.studentName;
-            state.course = data.course;
-            state.docentes = (data.docentes || []).slice();
-            state.expectedUpdatedAt = data.updatedAt || '';
-            state.valoracionInicial = data.valoracionInicial || '';
-            state.seguimiento1T = data.seguimiento1T || '';
-            state.seguimiento2T = data.seguimiento2T || '';
-            state.seguimiento3T = data.seguimiento3T || '';
-            state.areas = (data.areas || []).map(function(a) {
-              return {
-                name: a.name,
-                objectives: a.objectives.map(function(o) {
-                  return {
-                    id: uid(),
-                    title: o.title,
-                    eval1T: o.eval1T || '', eval2T: o.eval2T || '', eval3T: o.eval3T || '',
-                    indicators: (o.indicators || []).map(function(x) { return { id: uid(), text: x.text, eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '', observaciones: x.observaciones || '' }; }),
-                    contents: normalizeContentsField(o.contents),
-                    activities: normalizeRichField(o.activities)
-                  };
-                })
-              };
-            });
-            sortAreasCanonical();
-            // Load informe familias
-            var inf = data.informeFamilias || { indicadores: [], evaluaciones: [] };
-            state.informeFamilias = {
-              indicadores: (inf.indicadores || []).map(function(x) { return { id: uid(), text: x.text || '' }; }),
-              evaluaciones: (inf.evaluaciones || []).map(function(x) { return { eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '' }; })
-            };
-          } else {
-            var s = state.students.find(function(st) { return st.name === name; });
-            state.studentName = name;
-            state.course = s ? s.course : '';
-            state.docentes = s && s.docentes ? s.docentes.slice() : [];
-            state.areas = [];
-            state.valoracionInicial = '';
-            state.seguimiento1T = '';
-            state.seguimiento2T = '';
-            state.seguimiento3T = '';
-            state.informeFamilias = { indicadores: [], evaluaciones: [] };
+          var others = (data && data.presence) || [];
+          if (data) { delete data.presence; studentCache[key] = data; }
+          if (!shownFrom) {
+            await show(data, 'server');
+            if (seq !== navSeq) return;
+          } else if (data && cached && data.updatedAt !== cached.updatedAt) {
+            // Otra persona guardó desde la última vez que se abrió esta ficha
+            if (!state.dirty) {
+              await show(data, 'server');
+              if (seq !== navSeq) return;
+              showToast('Ficha actualizada con los últimos cambios guardados', 'info');
+            } else {
+              showToast('Esta ficha se ha modificado en otro equipo. Recarga el alumno antes de guardar.', 'error', {
+                action: 'Recargar alumno', onAction: function() { state.dirty = false; selectStudent(name); }, duration: 12000
+              });
+            }
           }
-          state.view = 'form';
-          setBaselineFromCurrent();
-          var recovered = await offerDraftRecovery(name);
-          if (seq !== navSeq) return;
-          if (!recovered) setBaselineFromCurrent();
-          renderFormView();
-          updateBadge();
-          if (recovered) {
-            showToast('Borrador local recuperado · recuerda guardar en Google Sheets', 'info');
-          } else {
-            showToast('Datos de ' + name + ' cargados', 'success');
-          }
-          startPresence(state.studentName);
+          startPresence(state.studentName, data ? others : null);
         })
         .withFailureHandler(function(err) {
           if (seq !== navSeq) return;
-          showToast('Error al cargar: ' + err.message, 'error');
-          renderListView();
+          handleServerError(err);
+          if (!shownFrom) {
+            showToast('Error al cargar: ' + (err && err.message ? err.message : err), 'error');
+            renderListView();
+          }
         })
-        .getStudentData(name, state.activeYearId);
+        .getStudentData(name, state.activeYearId, true);
     }
 
     async function newStudent() {
@@ -2370,13 +2570,19 @@
     ═══════════════════════════════════════════ */
     var presenceTimer = null;
     var presenceCurrent = { yearId: '', tabName: '' };
-    var PRESENCE_HEARTBEAT_MS = 60000;
+    var PRESENCE_HEARTBEAT_MS = 120000; // la presencia caduca a los 5 min en el servidor
 
-    function startPresence(tabName) {
+    // initialOthers: presencia ya registrada por getStudentData (evita una llamada extra)
+    function startPresence(tabName, initialOthers) {
       stopPresence();
       if (!tabName) return;
       presenceCurrent = { yearId: state.activeYearId || '', tabName: tabName };
-      sendPresence(true);
+      if (Array.isArray(initialOthers)) {
+        state.presenceOthers = initialOthers;
+        renderPresenceBanner();
+      } else {
+        sendPresence(true);
+      }
       presenceTimer = setInterval(function() { sendPresence(false); }, PRESENCE_HEARTBEAT_MS);
     }
 
@@ -2401,10 +2607,11 @@
       var fn = initial ? 'acquirePresence' : 'heartbeatPresence';
       google.script.run
         .withSuccessHandler(function(others) {
+          markSessionOk();
           state.presenceOthers = others || [];
           renderPresenceBanner();
         })
-        .withFailureHandler(function() {})
+        .withFailureHandler(handleServerError)
         [fn](presenceCurrent.yearId, presenceCurrent.tabName);
     }
 
@@ -3628,6 +3835,7 @@
       // Contexto del envío: si el usuario sigue editando o cambia de alumno mientras
       // se guarda, no debemos marcar como guardado lo que no se ha enviado.
       var saveSeq = navSeq;
+      var sentYearId = state.activeYearId;
       var sentName = state.studentName;
       var sentCourse = state.course;
       var sentAreaStr = state.areas.map(function(a) { return a.name; }).join(', ');
@@ -3680,6 +3888,12 @@
           btn.innerHTML = svgIcon('save') + ' Guardar';
           var renamed = !!(originalStudentName && originalStudentName !== sentName);
 
+          markSessionOk();
+          // Caché de la ficha con lo que se acaba de guardar (abrirla de nuevo es instantáneo)
+          try {
+            if (renamed) delete studentCache[(sentYearId || '') + '|' + originalStudentName];
+            studentCache[(sentYearId || '') + '|' + sentName] = Object.assign(JSON.parse(payload), { updatedAt: result && result.updatedAt });
+          } catch (e) {}
           // Actualizar la lista local de alumnos
           if (renamed) {
             state.students = state.students.filter(function(s) { return s.name !== originalStudentName; });
@@ -3694,6 +3908,7 @@
             existing.docentes = sentDocentes;
           }
 
+          saveBootCache();
           if (saveSeq !== navSeq) {
             // El usuario ya está en otra vista/alumno: solo informamos.
             if (renamed) clearDraft(originalStudentName);
@@ -3720,6 +3935,7 @@
           showToast(renamed ? ('Alumno renombrado a "' + sentName + '" y guardado') : 'Datos guardados en Google Sheets', 'success');
         })
         .withFailureHandler(function(err) {
+          handleServerError(err);
           clearTimeout(slowSaveTimer);
           state.saving = false;
           btn.disabled = false;
@@ -4348,29 +4564,20 @@
 
       google.script.run
         .withSuccessHandler(function() {
-          google.script.run
-            .withSuccessHandler(function() {
-              state.config.centro = payload.centro;
-              state.config.localidad = payload.localidad;
-              if (payload.cursoEscolar) state.config.cursoEscolar = payload.cursoEscolar;
-              state.config.courses = listsPayload.courses;
-              state.config.docentes = listsPayload.docentes;
-              updateHeaderSubtitle();
-              var done = function() {
-                closeSettings();
-                showToast('Ajustes guardados', 'success');
-              };
-              if (!usersPayload) { done(); return; }
-              google.script.run
-                .withSuccessHandler(done)
-                .withFailureHandler(onError)
-                .saveAllowedUsers(JSON.stringify(usersPayload));
-            })
-            .withFailureHandler(onError)
-            .saveYearLists(JSON.stringify(listsPayload));
+          markSessionOk();
+          state.config.centro = payload.centro;
+          state.config.localidad = payload.localidad;
+          if (payload.cursoEscolar) state.config.cursoEscolar = payload.cursoEscolar;
+          state.config.courses = listsPayload.courses;
+          state.config.docentes = listsPayload.docentes;
+          if (state.rawConfig) Object.assign(state.rawConfig, state.config);
+          saveBootCache();
+          updateHeaderSubtitle();
+          closeSettings();
+          showToast('Ajustes guardados', 'success');
         })
-        .withFailureHandler(onError)
-        .saveConfig(JSON.stringify(payload));
+        .withFailureHandler(function(err) { handleServerError(err); onError(err); })
+        .saveSettings(JSON.stringify({ config: payload, lists: listsPayload, users: usersPayload }));
     }
 
     /* ═══════════════════════════════════════════

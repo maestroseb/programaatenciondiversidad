@@ -402,6 +402,7 @@ function getBootstrap(yearId) {
   assertAuthorized_();
   migrateMasterIfNeeded_();
   const built = buildConfig_(yearId);
+  built.config.appUrl = ScriptApp.getService().getUrl();
   return {
     config: built.config,
     students: built.yearSS ? listStudentsIn_(built.yearSS) : []
@@ -587,11 +588,21 @@ function serializeDocentes_(arr) {
 
 /* ───────── READ: datos de un alumno ───────── */
 
-function getStudentData(studentName, yearId) {
+// withPresence: además registra la presencia del usuario en esa ficha y devuelve quién
+// más la está editando (ahorra la llamada acquirePresence al abrir un alumno).
+function getStudentData(studentName, yearId, withPresence) {
   assertAuthorized_();
   migrateMasterIfNeeded_();
   assertValidStudentName_(studentName);
   const ss = getYearSS_(yearId);
+  const data = readStudentData_(ss, studentName);
+  if (data && withPresence) {
+    data.presence = updatePresence_(String(yearId || ss.getId()), String(studentName), true);
+  }
+  return data;
+}
+
+function readStudentData_(ss, studentName) {
   const sheet = ss.getSheetByName(studentName);
   if (!sheet) return null;
 
@@ -1147,6 +1158,45 @@ function updatePresence_(yearId, tabName, doRegister) {
 function acquirePresence(yearId, tabName) {
   assertAuthorized_();
   return updatePresence_(yearId, tabName, true);
+}
+
+// Comprobación ligera de sesión (el cliente la llama periódicamente y al volver a la pestaña).
+function ping() {
+  assertAuthorized_();
+  return { ok: true, user: normEmail_(getCurrentUserEmail_()), ts: Date.now() };
+}
+
+// Guarda todos los Ajustes en una sola llamada (antes eran hasta tres).
+function saveSettings(payload) {
+  assertAuthorized_();
+  const data = JSON.parse(payload);
+  if (data.config) saveConfig(JSON.stringify(data.config));
+  if (data.lists) saveYearLists(JSON.stringify(data.lists));
+  if (data.users) saveAllowedUsers(JSON.stringify(data.users));
+  return { success: true };
+}
+
+// Duplica la ficha de un alumno en el servidor (antes: leer en el cliente y volver a enviar).
+function duplicateStudent(studentName, newName, yearId) {
+  assertAuthorized_();
+  migrateMasterIfNeeded_();
+  assertValidStudentName_(studentName);
+  const ss = getYearSS_(yearId);
+  const data = readStudentData_(ss, studentName);
+  if (!data) throw new Error('No se encontró la ficha original.');
+  data.studentName = String(newName || '').trim();
+  if (!data.studentName) throw new Error('Indica el nombre del nuevo alumno.');
+  if (ss.getSheetByName(data.studentName)) throw new Error('Ya existe un alumno con el nombre "' + data.studentName + '".');
+  data.yearId = yearId;
+  delete data.updatedAt;
+  delete data.updatedBy;
+  saveStudentData(JSON.stringify(data));
+  return {
+    name: data.studentName,
+    course: data.course || '',
+    area: (data.areas || []).map(function(a) { return a.name; }).join(', '),
+    docentes: data.docentes || []
+  };
 }
 
 function heartbeatPresence(yearId, tabName) {
