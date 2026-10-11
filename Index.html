@@ -511,22 +511,29 @@
     .area-programa { flex: 1; min-width: 120px; margin: 0 10px; padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.12); color: inherit; font: inherit; font-size: 13px; }
     .area-programa::placeholder { color: inherit; opacity: .6; }
     .print-pe-box { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 11px; margin: 0 0 14px; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; }
-    .imp-sub { color: var(--gris-500); margin: 0 0 10px; font-size: var(--fs-md); }
-    .imp-banner { padding: 10px 12px; border-radius: var(--radio); margin-bottom: 10px; border: 1px solid; }
+    .imp-sub { color: var(--gris-500); margin: 0 0 14px; font-size: var(--fs-md); }
+    .imp-hint { color: var(--gris-500); font-size: var(--fs-md); margin: 12px 0 4px; }
+    .imp-block { margin-top: 18px; padding: 18px 20px; border: 1px solid var(--gris-200); border-radius: var(--radio); }
+    .imp-block-title { font-weight: 700; margin-bottom: 12px; }
+    .imp-ta { width: 100%; resize: vertical; font-family: inherit; line-height: 1.5; min-height: 40px; box-sizing: border-box; }
+    .imp-docentes { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
+    .imp-check { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: var(--fs-md); }
+    .imp-programa { margin: 10px 0 8px 26px; }
+    .imp-obj-body { padding: 6px 4px 10px; }
+    .imp-item { display: flex; gap: 10px; align-items: flex-start; margin: 6px 0; }
+    .imp-num { flex: 0 0 24px; height: 24px; margin-top: 8px; border-radius: 50%; background: var(--gris-100); color: var(--gris-600); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .imp-banner { padding: 12px 14px; line-height: 1.5; border-radius: var(--radio); margin-bottom: 10px; border: 1px solid; }
     .imp-banner.warn { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
     .imp-banner.ok { background: var(--success-bg); border-color: var(--chip-border); }
     .imp-warn { margin: 6px 0; padding-left: 4px; list-style: none; color: var(--warn-text); background: var(--warn-bg); border-radius: var(--radio); }
-    .imp-warn li { padding: 4px 8px; }
-    .imp-pe { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 16px; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--gris-200); border-radius: var(--radio); font-size: var(--fs-md); }
-    .imp-pe-wide { grid-column: span 3; }
-    @media (max-width: 640px) { .imp-pe { grid-template-columns: 1fr; } .imp-pe-wide { grid-column: auto; } }
-    .imp-area { margin-top: 16px; border-top: 1px solid var(--gris-200); padding-top: 10px; }
+    .imp-warn li { padding: 6px 12px; line-height: 1.5; }
+    .imp-area { margin-top: 22px; border-top: 1px solid var(--gris-200); padding-top: 16px; }
     .imp-area-head { display: flex; align-items: center; gap: 8px; cursor: pointer; }
     .imp-count { color: var(--gris-500); font-size: var(--fs-md); }
-    .imp-obj { margin: 6px 0 6px 22px; padding: 6px 10px; border: 1px solid var(--gris-200); border-radius: var(--radio); }
+    .imp-obj { margin: 8px 0 8px 26px; padding: 10px 14px; border: 1px solid var(--gris-200); border-radius: var(--radio); }
     .imp-obj.has-warn { border-color: var(--warn-border); }
     .imp-obj summary { cursor: pointer; }
-    .imp-sec { font-weight: 600; margin-top: 8px; font-size: var(--fs-md); }
+    .imp-sec { font-weight: 700; margin-top: 14px; font-size: var(--fs-md); color: var(--gris-600); text-transform: uppercase; letter-spacing: .3px; }
     .imp-obj ol, .imp-obj ul { margin: 4px 0; padding-left: 22px; }
     .imp-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
     .btn-new:hover { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
@@ -1533,6 +1540,7 @@
           <button class="btn btn-undo" id="btnUndo" onclick="undo()" title="Deshacer (Ctrl+Z)" disabled><span class="icon" id="iconUndo"></span> Deshacer</button>
           <button class="btn btn-redo" id="btnRedo" onclick="redo()" title="Rehacer (Ctrl+Shift+Z)" disabled><span class="icon" id="iconRedo"></span> Rehacer</button>
           <button class="btn btn-secondary btn-clear" onclick="clearForm()" title="Vaciar los objetivos del formulario">Limpiar</button>
+          <button class="btn btn-print" onclick="copyForSeneca()" title="Copia el programa en un formato que podrá pegar en Séneca la extensión de Chrome"><span class="icon" id="iconCopySeneca"></span> Copiar para Séneca</button>
           <button class="btn btn-print" onclick="openPrintOptions()"><span class="icon" id="iconPrint"></span> Imprimir</button>
           <button class="btn btn-primary" id="btnSave" onclick="saveData()"><span class="icon" id="iconSave"></span> Guardar</button>
         </div>
@@ -1903,6 +1911,7 @@
         iconUndo: 'undo',
         iconRedo: 'redo',
         iconPrint: 'printer',
+        iconCopySeneca: 'copy',
         iconSave: 'save'
       };
       Object.keys(iconMap).forEach(function(id) {
@@ -5163,7 +5172,7 @@
       if (!d.studentName) d.warnings.push('No se ha encontrado el nombre del alumno/a.');
       var courseOptions = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES;
       if (!d.course) d.warnings.push('No se ha encontrado el curso.');
-      else if (courseOptions.indexOf(d.course) === -1) d.warnings.push('El curso «' + (d.rawCourse || d.course) + '» no coincide con ninguno de la lista: selecciónalo.');
+      else if (!matchCourseOption(d.course, courseOptions)) d.warnings.push('El curso «' + (d.rawCourse || d.course) + '» no coincide con ninguno de la lista: selecciónalo.');
       if (d.studentName && state.students.some(function(s) { return s.name.trim().toLowerCase() === d.studentName.toLowerCase(); })) {
         d.warnings.push('Ya existe un alumno llamado «' + d.studentName + '»: cambia el nombre o no podrás guardar.');
       }
@@ -5270,9 +5279,79 @@
       return '<ul class="imp-warn">' + list.map(function(w) { return '<li>⚠️ ' + escHtml(w) + '</li>'; }).join('') + '</ul>';
     }
 
-    // Pantalla de revisión: muestra todo lo extraído con avisos antes de crear la ficha
+    // "1º de Educ. Prima." / "1º Primaria" → la opción equivalente de la lista de cursos de Ajustes
+    function matchCourseOption(course, options) {
+      if (!course) return '';
+      if (options.indexOf(course) !== -1) return course;
+      var n = senecaNorm(course), num = (n.match(/\d/) || [])[0];
+      var stage = /inf/.test(n) ? 'inf' : (/prim|ep\b/.test(n) ? 'prim' : '');
+      if (!num || !stage) return '';
+      return options.find(function(o) {
+        var on = senecaNorm(o);
+        var oStage = /inf|\bei\b/.test(on) ? 'inf' : (/prim|\bep\b/.test(on) ? 'prim' : '');
+        return (on.match(/\d/) || [])[0] === num && oStage === stage;
+      }) || '';
+    }
+
+    function richToPlain(html) {
+      var t = document.createElement('textarea');
+      t.innerHTML = String(html || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
+      return t.value;
+    }
+    function plainToRich(text) { return escHtml(String(text || '').trim()).replace(/\n/g, '<br>'); }
+
+    // Modelo editable de la revisión: lo que se edite aquí es lo que se vuelca a la ficha
+    function buildSenecaEditModel(d) {
+      var courseOptions = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES;
+      return {
+        studentName: d.studentName,
+        course: matchCourseOption(d.course, courseOptions),
+        pe: senecaPeFrom(d),
+        docentes: d.docentesMatch.slice(),
+        areas: d.areas.map(function(a) {
+          return {
+            include: true, name: a.name, programa: a.programa || '', warnings: a.warnings,
+            objectives: a.objectives.map(function(o) {
+              return {
+                include: true, title: o.title, warnings: o.warnings,
+                indicators: o.indicators.map(function(x) { return x.text; }),
+                contents: o.contents.map(function(x) { return richToPlain(x.text); }),
+                activities: o.activities.map(richToPlain)
+              };
+            })
+          };
+        })
+      };
+    }
+
+    function impSet(path, value) {
+      var keys = path.split('.'), o = senecaImport.edit;
+      for (var k = 0; k < keys.length - 1; k++) o = o[keys[k]];
+      o[keys[keys.length - 1]] = value;
+    }
+    function impAutoGrow(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px'; }
+    function impInput(el) { impSet(el.getAttribute('data-path'), el.type === 'checkbox' ? el.checked : el.value); if (el.tagName === 'TEXTAREA') impAutoGrow(el); }
+    function impToggleDocente(el) {
+      var list = senecaImport.edit.docentes, v = el.value, idx = list.indexOf(v);
+      if (el.checked && idx === -1) list.push(v);
+      if (!el.checked && idx !== -1) list.splice(idx, 1);
+    }
+    function impField(path, value, rows, extra) {
+      return '<textarea class="field-input imp-ta" rows="' + (rows || 1) + '" data-path="' + path + '" oninput="impInput(this)"' + (extra || '') + '>' + escHtml(value || '') + '</textarea>';
+    }
+    function impList(basePath, items, label) {
+      var h = '<div class="imp-sec">' + label + ' <span class="imp-count">(' + items.length + ')</span></div>';
+      items.forEach(function(t, k) {
+        h += '<div class="imp-item"><span class="imp-num">' + (k + 1) + '</span>' + impField(basePath + '.' + k, t, 1) + '</div>';
+      });
+      return h;
+    }
+
+    // Pantalla de revisión: todo lo extraído, editable, con avisos antes de crear la ficha
     function renderSenecaReview() {
       var d = senecaImport;
+      if (!d.edit) d.edit = buildSenecaEditModel(d);
+      var e = d.edit;
       navSeq++; // evita que una recarga de la lista pise esta pantalla
       state.view = 'import';
       document.getElementById('btnBack').style.display = 'none';
@@ -5280,57 +5359,82 @@
       var nObj = d.areas.reduce(function(n, a) { return n + a.objectives.length; }, 0);
       var nInd = d.areas.reduce(function(n, a) { return n + a.objectives.reduce(function(m, o) { return m + o.indicators.length; }, 0); }, 0);
       var courseOptions = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES;
+      var globalWarn = d.warnings.filter(function(w) { return !(e.course && /^El curso/.test(w)); });
 
-      var h = '<div class="card imp-review">';
-      h += '<div class="card-title">' + svgIcon('upload') + ' Revisión de la importación</div>';
+      var h = '<div class="card imp-review"><div class="card-body">';
+      h += '<div class="card-title"><span class="card-icon">' + ICONS.upload + '</span> Revisión de la importación</div>';
       h += '<p class="imp-sub">' + escHtml(d.fileName || '') + ' · ' + d.areas.length + ' ámbitos · ' + nObj + ' objetivos · ' + nInd + ' indicadores</p>';
-      h += d.warningCount
-        ? '<div class="imp-banner warn">Hay <strong>' + d.warningCount + '</strong> aviso(s). Revisa los apartados marcados con ⚠️ comparándolos con el PDF.</div>'
+      var nWarn = d.warningCount - (d.warnings.length - globalWarn.length);
+      h += nWarn
+        ? '<div class="imp-banner warn">Hay <strong>' + nWarn + '</strong> aviso(s). Revisa los apartados marcados con ⚠️ comparándolos con el PDF.</div>'
         : '<div class="imp-banner ok">✓ No se han detectado problemas. Revisa igualmente los datos antes de continuar.</div>';
-      h += senecaWarnList(d.warnings);
+      h += senecaWarnList(globalWarn);
+      h += '<p class="imp-hint">Puedes corregir cualquier texto aquí mismo: se volcará tal cual a la ficha. Deja un campo vacío para descartarlo.</p>';
 
-      h += '<div class="grid-student-info">';
-      h += '<div><label class="field-label" for="impName">Nombre del alumno/a</label><input class="field-input" id="impName" value="' + escAttr(d.studentName) + '"></div>';
-      h += '<div><label class="field-label" for="impCourse">Curso</label><select class="field-select" id="impCourse"><option value="">Selecciona curso</option>';
-      courseOptions.forEach(function(c) { h += '<option value="' + escAttr(c) + '"' + (d.course === c ? ' selected' : '') + '>' + escHtml(c) + '</option>'; });
-      h += '</select></div></div>';
+      // Datos del alumno
+      h += '<div class="imp-block"><div class="imp-block-title">Alumno/a</div><div class="grid-pe">';
+      h += '<div><label class="field-label" for="impName">Nombre</label><input class="field-input" id="impName" data-path="studentName" value="' + escAttr(e.studentName) + '" oninput="impInput(this)"></div>';
+      h += '<div><label class="field-label" for="impCourse">Curso</label><select class="field-select" id="impCourse" data-path="course" onchange="impInput(this)"><option value="">Selecciona curso</option>';
+      courseOptions.forEach(function(c) { h += '<option value="' + escAttr(c) + '"' + (e.course === c ? ' selected' : '') + '>' + escHtml(c) + '</option>'; });
+      h += '</select></div>';
+      h += '<div><label class="field-label" for="impUnidad">Unidad / grupo</label><input class="field-input" id="impUnidad" data-path="pe.unidad" value="' + escAttr(e.pe.unidad) + '" oninput="impInput(this)"></div>';
+      h += '</div></div>';
 
-      var pe = senecaPeFrom(d);
-      h += '<div class="imp-pe">';
-      h += '<div><strong>Unidad:</strong> ' + escHtml(pe.unidad || '—') + '</div>';
-      h += '<div><strong>Vigencia:</strong> ' + escHtml(fmtDateEs(pe.fechaElaboracion) || '—') + ' – ' + escHtml(fmtDateEs(pe.fechaFinVigencia) || '—') + '</div>';
-      h += '<div><strong>Docentes asignados:</strong> ' + escHtml(d.docentesMatch.length ? d.docentesMatch.join(', ') : '—') + '</div>';
-      h += '<div class="imp-pe-wide"><strong>Profesionales implicados:</strong><br>' + (pe.profesionales ? escHtml(pe.profesionales).replace(/\n/g, '<br>') : '—') + '</div>';
-      h += '<div class="imp-pe-wide"><strong>Sesiones y agrupamiento:</strong><br>' + (pe.sesiones ? escHtml(pe.sesiones).replace(/\n/g, '<br>') : '—') + '</div>';
-      h += '</div>';
+      // Datos del programa
+      h += '<div class="imp-block"><div class="imp-block-title">Datos del programa</div><div class="grid-pe">';
+      h += '<div><label class="field-label">Fecha de elaboración</label><input class="field-input" type="date" data-path="pe.fechaElaboracion" value="' + escAttr(e.pe.fechaElaboracion) + '" onchange="impInput(this)"></div>';
+      h += '<div><label class="field-label">Fin de vigencia</label><input class="field-input" type="date" data-path="pe.fechaFinVigencia" value="' + escAttr(e.pe.fechaFinVigencia) + '" onchange="impInput(this)"></div>';
+      h += '<div><div class="field-label">Docentes asignados</div><div class="imp-docentes">';
+      var docs = state.config.docentes || [];
+      if (!docs.length) h += '<span class="imp-count">Añade docentes en Ajustes para asignarlos</span>';
+      docs.forEach(function(doc) {
+        h += '<label class="imp-check"><input type="checkbox" value="' + escAttr(doc) + '"' + (e.docentes.indexOf(doc) !== -1 ? ' checked' : '') + ' onchange="impToggleDocente(this)"> ' + escHtml(doc) + '</label>';
+      });
+      h += '</div></div></div>';
+      h += '<div class="grid-pe-2">';
+      h += '<div><label class="field-label">Profesionales implicados</label>' + impField('pe.profesionales', e.pe.profesionales, 4) + '</div>';
+      h += '<div><label class="field-label">Sesiones y agrupamiento</label>' + impField('pe.sesiones', e.pe.sesiones, 4) + '</div>';
+      h += '</div></div>';
 
-      d.areas.forEach(function(a, ai) {
+      // Ámbitos y objetivos
+      e.areas.forEach(function(a, ai) {
         var aw = a.warnings.length + a.objectives.reduce(function(m, o) { return m + o.warnings.length; }, 0);
+        var ap = 'areas.' + ai;
         h += '<div class="imp-area">';
-        h += '<label class="imp-area-head"><input type="checkbox" id="impArea_' + ai + '"' + (a.include ? ' checked' : '') + '> <strong>' + escHtml(a.name) + '</strong> <span class="imp-count">' + (a.programa ? escHtml(a.programa) + ' · ' : '') + a.objectives.length + ' objetivos' + (aw ? ' · ⚠️ ' + aw : '') + '</span></label>';
+        h += '<label class="imp-area-head"><input type="checkbox" data-path="' + ap + '.include"' + (a.include ? ' checked' : '') + ' onchange="impInput(this)"> <strong>' + escHtml(a.name) + '</strong> <span class="imp-count">' + a.objectives.length + ' objetivos' + (aw ? ' · ⚠️ ' + aw : '') + '</span></label>';
         h += senecaWarnList(a.warnings);
+        h += '<div class="imp-programa"><label class="field-label">Título del programa</label><input class="field-input" data-path="' + ap + '.programa" value="' + escAttr(a.programa) + '" oninput="impInput(this)"></div>';
         a.objectives.forEach(function(o, oi) {
+          var op = ap + '.objectives.' + oi;
           h += '<details class="imp-obj' + (o.warnings.length ? ' has-warn' : '') + '"' + (o.warnings.length ? ' open' : '') + '>';
           h += '<summary>' + (o.warnings.length ? '⚠️ ' : '✓ ') + '<strong>Obj. ' + (oi + 1) + '</strong> ' + escHtml(o.title || '(sin texto)') + '</summary>';
+          h += '<div class="imp-obj-body">';
           h += senecaWarnList(o.warnings);
-          h += '<div class="imp-sec">Indicadores (' + o.indicators.length + ')</div><ol>' + o.indicators.map(function(x) { return '<li>' + escHtml(x.text) + '</li>'; }).join('') + '</ol>';
-          h += '<div class="imp-sec">Contenidos (' + o.contents.length + ')</div><ul>' + o.contents.map(function(x) { return '<li>' + x.text + '</li>'; }).join('') + '</ul>';
-          h += '<div class="imp-sec">Actividades (' + o.activities.length + ')</div><ul>' + o.activities.map(function(x) { return '<li>' + x + '</li>'; }).join('') + '</ul>';
-          h += '</details>';
+          h += '<label class="imp-check"><input type="checkbox" data-path="' + op + '.include"' + (o.include ? ' checked' : '') + ' onchange="impInput(this)"> Importar este objetivo</label>';
+          h += '<div class="imp-sec">Objetivo</div>' + impField(op + '.title', o.title, 1);
+          h += impList(op + '.indicators', o.indicators, 'Indicadores');
+          h += impList(op + '.contents', o.contents, 'Contenidos');
+          h += impList(op + '.activities', o.activities, 'Actividades');
+          h += '</div></details>';
         });
         h += '</div>';
       });
       if (d.unrecognized.length) {
-        h += '<details class="imp-obj has-warn"><summary>⚠️ Texto no asignado (' + d.unrecognized.length + ' líneas)</summary><ul>' +
-          d.unrecognized.map(function(l) { return '<li>' + escHtml(l) + '</li>'; }).join('') + '</ul></details>';
+        h += '<details class="imp-obj has-warn"><summary>⚠️ Texto no asignado (' + d.unrecognized.length + ' líneas)</summary><div class="imp-obj-body"><ul>' +
+          d.unrecognized.map(function(l) { return '<li>' + escHtml(l) + '</li>'; }).join('') + '</ul></div></details>';
       }
       h += '<div class="imp-actions">';
       h += '<button class="btn-secondary" onclick="cancelSenecaImport()">Cancelar</button>';
       h += '<button class="btn-primary" onclick="confirmSenecaImport()">' + svgIcon('check') + ' Crear ficha y seguir editando</button>';
-      h += '</div></div>';
+      h += '</div></div></div>';
       var content = document.getElementById('content');
       content.className = 'content';
       content.innerHTML = h;
+      // Ajusta la altura de los textos al abrir cada objetivo (los cerrados miden 0)
+      content.querySelectorAll('textarea.imp-ta').forEach(impAutoGrow);
+      content.querySelectorAll('details.imp-obj').forEach(function(det) {
+        det.addEventListener('toggle', function() { det.querySelectorAll('textarea.imp-ta').forEach(impAutoGrow); });
+      });
       window.scrollTo(0, 0);
     }
 
@@ -5343,11 +5447,14 @@
     async function confirmSenecaImport() {
       var d = senecaImport;
       if (!d) return;
-      var name = document.getElementById('impName').value.trim();
-      var course = document.getElementById('impCourse').value;
-      var areas = d.areas.filter(function(a, ai) { var cb = document.getElementById('impArea_' + ai); return !cb || cb.checked; });
+      var e = d.edit;
+      var name = String(e.studentName || '').trim();
+      var nonEmpty = function(arr) { return arr.map(function(t) { return String(t || '').trim(); }).filter(Boolean); };
+      var areas = e.areas.filter(function(a) { return a.include; }).map(function(a) {
+        return { name: a.name, programa: String(a.programa || '').trim(), objectives: a.objectives.filter(function(o) { return o.include && String(o.title || '').trim(); }) };
+      }).filter(function(a) { return a.objectives.length; });
       if (!name) { markInvalid('impName', 'Introduce el nombre del alumno/a'); return; }
-      if (!areas.length) { showToast('Selecciona al menos un ámbito', 'error'); return; }
+      if (!areas.length) { showToast('Selecciona al menos un ámbito con objetivos', 'error'); return; }
       if (state.students.some(function(s) { return s.name.trim().toLowerCase() === name.toLowerCase(); }) &&
           !(await confirmDialog('Ya existe un alumno llamado "' + name + '". Tendrás que cambiar el nombre antes de guardar.', { title: 'Alumno existente', confirmText: 'Continuar', cancelText: 'Volver' }))) return;
 
@@ -5355,21 +5462,22 @@
       await newStudent({ skipDraft: true });
       if (state.view !== 'form' || !state.isNew) return;
       state.studentName = name;
-      state.course = course;
-      state.pe = senecaPeFrom(d);
-      state.docentes = d.docentesMatch.slice();
+      state.course = e.course;
+      state.pe = copyPe(e.pe);
+      state.docentes = e.docentes.slice();
       state.areas = areas.map(function(a) {
         return {
           name: a.name,
-          programa: a.programa || '',
+          programa: a.programa,
           objectives: a.objectives.map(function(o) {
+            var inds = nonEmpty(o.indicators);
             return {
               id: uid(),
-              title: o.title,
+              title: String(o.title).trim(),
               eval1T: '', eval2T: '', eval3T: '',
-              indicators: (o.indicators.length ? o.indicators : [{ text: '' }]).map(function(x) { return { id: uid(), text: x.text, eval1T: '', eval2T: '', eval3T: '', observaciones: '' }; }),
-              contents: normalizeContentsField(o.contents),
-              activities: normalizeRichField(o.activities.map(function(t) { return { text: t }; }))
+              indicators: (inds.length ? inds : ['']).map(function(t) { return { id: uid(), text: t, eval1T: '', eval2T: '', eval3T: '', observaciones: '' }; }),
+              contents: normalizeContentsField(nonEmpty(o.contents).map(function(t) { return { text: plainToRich(t) }; })),
+              activities: normalizeRichField(nonEmpty(o.activities).map(function(t) { return { text: plainToRich(t) }; }))
             };
           })
         };
@@ -5378,6 +5486,54 @@
       renderFormView();
       markDirty();
       showToast('Ficha creada desde Séneca. Revisa y pulsa Guardar.', 'success', { duration: 6000 });
+    }
+
+    /* ─── Copiar para Séneca ─── */
+    // Formato estable (versionado) que leerá la extensión de Chrome para rellenar Séneca
+    function buildSenecaExport() {
+      syncDomFieldsToState();
+      var plain = function(html) { return richToPlain(html).replace(/\n{3,}/g, '\n\n').trim(); };
+      return {
+        formato: 'pae-seneca',
+        version: 1,
+        alumno: state.studentName || '',
+        curso: state.course || '',
+        unidad: (state.pe && state.pe.unidad) || '',
+        fechaElaboracion: (state.pe && state.pe.fechaElaboracion) || '',
+        fechaFinVigencia: (state.pe && state.pe.fechaFinVigencia) || '',
+        ambitos: state.areas.map(function(a) {
+          return {
+            ambito: a.name,
+            programa: a.programa || '',
+            objetivos: a.objectives.filter(function(o) { return String(o.title || '').trim(); }).map(function(o) {
+              return {
+                objetivo: String(o.title).trim(),
+                indicadores: o.indicators.map(function(x) { return String(x.text || '').trim(); }).filter(Boolean),
+                contenidos: (o.contents || []).map(function(c) { return plain(c.text); }).filter(Boolean),
+                actividades: plain(o.activities || '').split('\n').map(function(t) { return t.trim(); }).filter(Boolean)
+              };
+            })
+          };
+        })
+      };
+    }
+
+    async function copyForSeneca() {
+      var text = JSON.stringify(buildSenecaExport(), null, 2);
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (e) {
+        // Fallback para navegadores/iframes sin permiso de portapapeles
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e2) {}
+        document.body.removeChild(ta);
+        if (!ok) { showToast('No se pudo copiar al portapapeles', 'error'); return; }
+      }
+      var nObj = state.areas.reduce(function(n, a) { return n + a.objectives.length; }, 0);
+      showToast('Copiado para Séneca: ' + state.areas.length + ' ámbitos y ' + nObj + ' objetivos', 'success');
     }
   </script>
 </body>
