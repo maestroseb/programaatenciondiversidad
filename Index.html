@@ -500,6 +500,7 @@
       display: inline-flex; align-items: center; gap: 6px;
       transition: background var(--trans), border-color var(--trans);
     }
+    .student-list-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .btn-new:hover { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
     .search-wrap {
       position: relative;
@@ -1534,6 +1535,7 @@
       redo:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>',
       copy:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
       trash:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+      upload:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
       plus:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
       search:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
       clipboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>',
@@ -2214,7 +2216,10 @@
       let html = '<div class="card">';
       html += '<div class="student-list-header">';
       html += '<h2>' + svgIcon('clipboard') + ' Alumnos <span class="count">(' + state.students.length + ')</span></h2>';
+      html += '<div class="student-list-actions">';
+      html += '<button class="btn-new" onclick="pickSenecaPdf()" title="Crear la ficha a partir del PDF del Programa Específico generado por Séneca">' + svgIcon('upload') + ' Importar PDF Séneca</button>';
       html += '<button class="btn-new" onclick="newStudent()">' + svgIcon('plus') + ' Nuevo alumno</button>';
+      html += '</div>';
       html += '</div>';
       html += '<div class="student-list-body">';
       html += '<div class="search-wrap">';
@@ -2521,7 +2526,7 @@
         .getStudentData(name, state.activeYearId, true);
     }
 
-    async function newStudent() {
+    async function newStudent(opts) {
       if (state.dirty && !(await confirmDialog('Tienes cambios sin guardar. Si continúas, se perderán.', { title: 'Cambios sin guardar', confirmText: 'Descartar y continuar', cancelText: 'Seguir editando', danger: true }))) return;
       stopPresence();
       navSeq++;
@@ -2547,7 +2552,7 @@
       state.informeFamilias = { indicadores: [], evaluaciones: [] };
       state.view = 'form';
       setBaselineFromCurrent();
-      var recovered = await offerDraftRecovery('');
+      var recovered = (opts && opts.skipDraft) ? false : await offerDraftRecovery('');
       if (!recovered) setBaselineFromCurrent();
       renderFormView();
       updateBadge();
@@ -4845,6 +4850,204 @@
         bar.style.transform = 'scaleX(0)';
       }
       toastTimer = setTimeout(function() { t.style.display = 'none'; }, duration);
+    }
+
+    /* ─── Importar PDF de Séneca (Programa Específico) ─── */
+    // Agrupa los fragmentos de texto de pdf.js en líneas (por coordenada Y) y descarta
+    // el texto girado del margen y las cabeceras/pies que Séneca repite en cada página.
+    function senecaPageLines(textContent) {
+      var rows = [];
+      textContent.items.forEach(function(it) {
+        if (!it.str || !it.str.trim()) return;
+        var t = it.transform;
+        if (Math.abs(t[1]) > 0.01 || Math.abs(t[2]) > 0.01) return; // texto vertical del margen
+        var y = t[5], x = t[4];
+        var row = rows.find(function(r) { return Math.abs(r.y - y) < 2.5; });
+        if (!row) { row = { y: y, items: [] }; rows.push(row); }
+        row.items.push({ x: x, str: it.str });
+      });
+      rows.sort(function(a, b) { return b.y - a.y; });
+      return rows.map(function(r) {
+        r.items.sort(function(a, b) { return a.x - b.x; });
+        return r.items.map(function(i) { return i.str; }).join(' ').replace(/\s+/g, ' ').trim();
+      }).filter(function(l) {
+        return l && !/^(Pág\.:|Ref\.Doc\.|Cód\.Centro|Fecha Generación|Consejería de )/.test(l);
+      });
+    }
+
+    function senecaNorm(s) {
+      return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+    }
+
+    // "Hernández Checa, José Carlos" → "José Carlos Hernández Checa"
+    function senecaStudentName(raw) {
+      var p = String(raw || '').split(',');
+      return p.length === 2 ? (p[1].trim() + ' ' + p[0].trim()) : String(raw || '').trim();
+    }
+
+    // "1º de Educ. Prima." → "1º Primaria"; "Cuatro Años" → "2º Infantil"
+    function senecaCourse(raw) {
+      var n = senecaNorm(raw);
+      var m = n.match(/^(\d)º.*prim/);
+      if (m) return m[1] + 'º Primaria';
+      var inf = { 'tres': 1, 'cuatro': 2, 'cinco': 3, '3': 1, '4': 2, '5': 3 };
+      m = n.match(/^(tres|cuatro|cinco|3|4|5)\s*anos/);
+      if (m) return inf[m[1]] + 'º Infantil';
+      m = n.match(/^(\d)º.*inf/);
+      if (m) return m[1] + 'º Infantil';
+      return String(raw || '').trim();
+    }
+
+    function senecaAreaName(raw) {
+      var n = senecaNorm(raw);
+      var hit = AREAS.find(function(a) { return senecaNorm(a) === n; });
+      return hit || String(raw).trim().replace(/^./, function(c) { return c.toUpperCase(); });
+    }
+
+    // Convierte las líneas del PDF en { studentName, course, areas:[{name, objectives:[...]}] }
+    function parseSenecaLines(lines) {
+      var out = { studentName: '', course: '', areas: [] };
+      var LABEL = /^(Objetivo|Indicador|Contenido|Actividad\/tarea)\s*\d+(?:\.\d+)?\s*:\s*(.*)$/i;
+      var END = /^(Organización:|Competencias:|TEMPORALIZACIÓN|COORDINACIÓN ENTRE|AGRUPAMIENTOS|Recursos:|INFORMACIÓN Y COLABORACIÓN)/i;
+      var AREA = /^desarrollo [a-z ]+$/;
+      var area = null, obj = null, cur = null, started = false, areaLine = -1;
+
+      function flush() {
+        if (!cur || !obj) { cur = null; return; }
+        var text = cur.parts.join(' ').replace(/^-\s*/, '').replace(/\s+/g, ' ').trim();
+        // Contenidos y actividades son texto enriquecido: se respetan las viñetas "- " internas
+        var rich = cur.parts.reduce(function(acc, p) {
+          var e = escHtml(p);
+          return !acc ? e.replace(/^-\s*/, '') : (/^-\s/.test(p) ? acc + '<br>' + e : acc + ' ' + e);
+        }, '');
+        if (text) {
+          if (cur.kind === 'objetivo') obj.title = text;
+          else if (cur.kind === 'indicador') obj.indicators.push({ text: text });
+          else if (cur.kind === 'contenido') obj.contents.push({ text: rich });
+          else if (cur.kind === 'actividad') obj.activities.push(rich);
+        }
+        cur = null;
+      }
+      // Un encabezado de ámbito es "Desarrollo …" seguido (en ≤4 líneas) de "Objetivo 1:"
+      function isAreaHeading(i) {
+        var n = senecaNorm(lines[i]);
+        if (!AREA.test(n) || n.length > 60) return false;
+        for (var k = i + 1; k < Math.min(lines.length, i + 5); k++) {
+          if (/^Objetivo\s*1\s*:/i.test(lines[k])) return true;
+        }
+        return false;
+      }
+
+      for (var i = 0; i < lines.length; i++) {
+        var l = lines[i], m;
+        if (!out.studentName && (m = l.match(/^Nombre:\s*(.+?)\s+Fecha de nacimiento/i))) { out.studentName = senecaStudentName(m[1]); continue; }
+        if (!out.course && (m = l.match(/^Curso:\s*(.+?)\s+Unidad:/i))) { out.course = senecaCourse(m[1]); continue; }
+        if (/^Propuesta de Áreas/i.test(l)) { started = true; continue; }
+        if (!started) continue;
+
+        if (isAreaHeading(i)) {
+          // El título del programa puede parecer un ámbito ("DESARROLLO COMUNICACIÓN…"): se ignora
+          if (area && !area.objectives.length && i - areaLine <= 4) continue;
+          flush(); obj = null; areaLine = i;
+          area = { name: senecaAreaName(l), objectives: [] };
+          out.areas.push(area);
+          continue;
+        }
+        if (!area) continue;
+        if ((m = l.match(LABEL))) {
+          flush();
+          var kind = m[1].toLowerCase().replace('actividad/tarea', 'actividad');
+          if (kind === 'objetivo') {
+            obj = { title: '', indicators: [], contents: [], activities: [] };
+            area.objectives.push(obj);
+          }
+          cur = { kind: kind, parts: m[2] ? [m[2]] : [] };
+          continue;
+        }
+        if (END.test(l)) { flush(); continue; }
+        if (cur) cur.parts.push(l);
+      }
+      flush();
+      out.areas = out.areas.filter(function(a) { return a.objectives.length; });
+      return out;
+    }
+
+    var pdfjsLoading = null;
+    function loadPdfJs() {
+      if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+      if (pdfjsLoading) return pdfjsLoading;
+      var base = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+      pdfjsLoading = new Promise(function(resolve, reject) {
+        var s = document.createElement('script');
+        s.src = base + 'pdf.min.js';
+        s.onload = function() {
+          // El worker se carga como Blob para evitar el bloqueo cross-origin dentro del iframe de Apps Script
+          fetch(base + 'pdf.worker.min.js').then(function(r) { return r.text(); }).then(function(code) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+            resolve(window.pdfjsLib);
+          }).catch(reject);
+        };
+        s.onerror = function() { reject(new Error('No se pudo cargar el lector de PDF')); };
+        document.head.appendChild(s);
+      }).catch(function(e) { pdfjsLoading = null; throw e; });
+      return pdfjsLoading;
+    }
+
+    function pickSenecaPdf() {
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/pdf,.pdf';
+      input.onchange = function() { if (input.files && input.files[0]) importSenecaPdf(input.files[0]); };
+      input.click();
+    }
+
+    async function importSenecaPdf(file) {
+      var parsed;
+      try {
+        showToast('Leyendo PDF de Séneca…', 'info');
+        var pdfjsLib = await loadPdfJs();
+        var doc = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+        var lines = [];
+        for (var p = 1; p <= doc.numPages; p++) {
+          var page = await doc.getPage(p);
+          lines = lines.concat(senecaPageLines(await page.getTextContent()));
+        }
+        parsed = parseSenecaLines(lines);
+      } catch (e) {
+        showToast('No se pudo leer el PDF: ' + (e && e.message ? e.message : e), 'error');
+        return;
+      }
+      if (!parsed.areas.length) {
+        showToast('No se han encontrado objetivos. ¿Es un Programa Específico de Séneca?', 'error');
+        return;
+      }
+      var exists = state.students.some(function(s) { return s.name.trim().toLowerCase() === parsed.studentName.toLowerCase(); });
+      if (exists && !(await confirmDialog('Ya existe un alumno llamado "' + parsed.studentName + '". Se abrirá como ficha nueva; cambia el nombre antes de guardar.', { title: 'Alumno existente', confirmText: 'Continuar', cancelText: 'Cancelar' }))) return;
+
+      await newStudent({ skipDraft: true });
+      if (state.view !== 'form' || !state.isNew) return; // el usuario canceló (cambios sin guardar)
+      state.studentName = parsed.studentName;
+      state.course = parsed.course;
+      state.areas = parsed.areas.map(function(a) {
+        return {
+          name: a.name,
+          objectives: a.objectives.map(function(o) {
+            return {
+              id: uid(),
+              title: o.title,
+              eval1T: '', eval2T: '', eval3T: '',
+              indicators: (o.indicators.length ? o.indicators : [{ text: '' }]).map(function(x) { return { id: uid(), text: x.text, eval1T: '', eval2T: '', eval3T: '', observaciones: '' }; }),
+              contents: normalizeContentsField(o.contents),
+              activities: normalizeRichField(o.activities.map(function(t) { return { text: t }; }))
+            };
+          })
+        };
+      });
+      sortAreasCanonical();
+      renderFormView();
+      markDirty();
+      var nObj = parsed.areas.reduce(function(n, a) { return n + a.objectives.length; }, 0);
+      showToast('Importados ' + parsed.areas.length + ' ámbitos y ' + nObj + ' objetivos. Revisa los datos y guarda.', 'success', { duration: 6000 });
     }
   </script>
 </body>
