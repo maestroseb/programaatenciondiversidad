@@ -216,7 +216,14 @@ function isScriptAdmin_() {
 function isAdmin_() {
   if (isScriptAdmin_()) return true;
   const me = normEmail_(getCurrentUserEmail_());
-  return !!me && getTeam_().some(function(m) { return m.admin && m.email === me; });
+  const team = getTeam_();
+  // Mientras ningún admin del equipo tenga correo (p. ej. justo tras la migración), cualquier
+  // usuario autorizado puede administrar: así nadie se queda sin poder configurar el equipo.
+  if (!team.some(function(m) { return m.admin && m.email; })) {
+    const emails = team.map(function(m) { return m.email; }).filter(function(e) { return e; });
+    return !emails.length || (!!me && emails.indexOf(me) !== -1);
+  }
+  return !!me && team.some(function(m) { return m.admin && m.email === me; });
 }
 
 function isAuthorized_() {
@@ -239,7 +246,7 @@ function assertAdmin_() {
 
 function getTeam() {
   assertAuthorized_();
-  return { owner: getAdminEmail_(), team: getTeam_(), canEdit: isAdmin_() };
+  return { owner: getAdminEmail_(), me: normEmail_(getCurrentUserEmail_()), team: getTeam_(), canEdit: isAdmin_() };
 }
 
 function saveTeam(payload) {
