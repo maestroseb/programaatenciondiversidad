@@ -501,6 +501,17 @@
       transition: background var(--trans), border-color var(--trans);
     }
     .student-list-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .trash-link-wrap { display: flex; justify-content: flex-end; margin-top: 10px; }
+    .trash-link { border: none; background: none; color: var(--gris-500); font: inherit; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+    .trash-link:hover { color: var(--c-accent); }
+    .trash-link .icon svg { width: 13px; height: 13px; }
+    .trash-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--gris-200); }
+    .team-table { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+    .team-row { display: grid; grid-template-columns: 1.4fr .8fr 1.6fr auto auto; gap: 8px; align-items: center; }
+    .team-admin { display: flex; align-items: center; gap: 4px; font-size: 13px; white-space: nowrap; cursor: pointer; }
+    .team-warn { grid-column: 1 / -1; font-size: 12px; color: var(--warn-text); margin-top: -4px; }
+    .team-warn:empty { display: none; }
+    @media (max-width: 640px) { .team-row { grid-template-columns: 1fr 1fr; } }
     .grid-pe { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
     .grid-pe-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
     @media (max-width: 640px) { .grid-pe, .grid-pe-2 { grid-template-columns: 1fr; } }
@@ -1666,11 +1677,45 @@
       'Conciencia y expresiones culturales'
     ];
 
+    // Curso = nivel (lista fija). El grupo concreto (1ºB, I4A…) va en «Unidad».
     const COURSES = [
-      '1º Infantil','2º Infantil','3º Infantil',
+      '3 años Infantil','4 años Infantil','5 años Infantil',
       '1º Primaria','2º Primaria','3º Primaria',
       '4º Primaria','5º Primaria','6º Primaria'
     ];
+
+    // Convierte cursos antiguos o libres ("Primaria 1A", "1º EP", "2º Infantil", "I4A"…) al nivel
+    // de COURSES y, si traían letra de grupo, propone la unidad ("1ºA", "I4A").
+    function normalizeCourse(course, unidad) {
+      var raw = String(course || '').trim();
+      var res = { course: raw, unidad: String(unidad || '').trim() };
+      if (!raw || COURSES.indexOf(raw) !== -1) return res;
+      var n = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      var isInf = /infantil|\bei\b|anos|^i\s*\d/.test(n);
+      var m, level = null, letter = '';
+      if (isInf) {
+        if ((m = n.match(/([345])\s*anos/))) level = +m[1];
+        else if ((m = n.match(/^i\s*([345])\s*([a-d])?$/))) { level = +m[1]; letter = m[2] || ''; }
+        else if ((m = n.match(/([1-5])\s*(º)?\s*([a-d])?\b/))) {
+          // "1º/2º/3º Infantil" son ordinales (1º = 3 años); "Infantil 4B" ya es la edad
+          var d = +m[1];
+          level = (m[2] && d <= 3) || d <= 2 ? d + 2 : d;
+          letter = m[3] || '';
+        }
+        if (!letter && (m = n.match(/\d\s*º?\s*([a-d])\b/))) letter = m[1];
+        if (!level) return res;
+        res.course = level + ' años Infantil';
+        if (letter && !res.unidad) res.unidad = 'I' + level + letter.toUpperCase();
+        return res;
+      }
+      var rest = n.replace(/primaria|educ\.?|prima\.?|\bep\b|\bde\b/g, ' ');
+      if (!(m = rest.match(/([1-6])\s*º?\s*([a-d])?\b/))) return res;
+      res.course = m[1] + 'º Primaria';
+      if (m[2] && !res.unidad) res.unidad = m[1] + 'º' + m[2].toUpperCase();
+      return res;
+    }
+    function courseOf(s) { return normalizeCourse(s.course, s.unidad).course; }
+    function unidadOf(s) { return normalizeCourse(s.course, s.unidad).unidad; }
 
     const AREAS = [
       'Desarrollo Cognitivo',
@@ -2317,12 +2362,14 @@
       // Course filter chips
       var coursesInUse = [];
       state.students.forEach(function(s) {
-        if (s.course && coursesInUse.indexOf(s.course) === -1) coursesInUse.push(s.course);
+        var c = courseOf(s);
+        if (c && coursesInUse.indexOf(c) === -1) coursesInUse.push(c);
       });
       if (coursesInUse.length > 1) {
         html += '<div class="course-filters" id="courseFilters">';
         html += '<button class="course-chip' + (state.courseFilter === 'Todos' ? ' active' : '') + '" onclick="setCourseFilter(\'Todos\')">Todos</button>';
-        coursesInUse.sort().forEach(function(c) {
+        var rank = function(c) { var i = COURSES.indexOf(c); return i === -1 ? 99 : i; };
+        coursesInUse.sort(function(a, b) { return rank(a) - rank(b) || a.localeCompare(b); }).forEach(function(c) {
           html += '<button class="course-chip' + (state.courseFilter === c ? ' active' : '') + '" onclick="setCourseFilter(' + jsArg(c) + ')">' + escHtml(c) + '</button>';
         });
         html += '</div>';
@@ -2352,6 +2399,7 @@
       html += '<div id="studentItems">';
       html += renderStudentItems(getFilteredStudents());
       html += '</div>';
+      html += '<div class="trash-link-wrap"><button type="button" class="trash-link" onclick="openTrash()">' + svgIcon('trash') + ' Papelera</button></div>';
       html += '</div></div>';
 
       document.getElementById('content').innerHTML = html;
@@ -2387,7 +2435,8 @@
         html += '<div class="student-item" role="button" tabindex="0" onclick="selectStudent(' + nameArg + ')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();selectStudent(' + nameArg + ')}">';
         html += '<div class="student-main"><span class="student-avatar" aria-hidden="true">' + escHtml(initialsOf(s.name)) + '</span>';
         html += '<div class="student-text"><div class="name">' + escHtml(s.name) + '</div>';
-        html += '<div class="course">' + escHtml(s.course) + (s.unidad ? ' · ' + escHtml(s.unidad) : '');
+        var sUnidad = unidadOf(s);
+        html += '<div class="course">' + escHtml(courseOf(s)) + (sUnidad ? ' · ' + escHtml(sUnidad) : '');
         var vig = vigenciaInfo(s.finVigencia);
         if (vig) html += ' <span class="vig-badge ' + vig.cls + '">' + escHtml(vig.label) + '</span>';
         if (s.docentes && s.docentes.length) {
@@ -2419,52 +2468,135 @@
         }
       });
       if (!newName) return;
-      showToast('Duplicando ficha...', 'info');
+      // En positivo: aparece ya en la lista; si el servidor falla, se retira y se avisa
       var dupYearId = state.activeYearId;
+      var src = state.students.find(function(s) { return s.name === oldName; }) || {};
+      var temp = Object.assign({}, src, { name: newName, docentes: (src.docentes || []).slice() });
+      state.students.push(temp);
+      refreshStudentItems();
       google.script.run
         .withSuccessHandler(function(res) {
+          markSessionOk();
           if (dupYearId !== state.activeYearId || !res) return;
-          state.students.push({ name: res.name, course: res.course, program: 'PE', area: res.area, docentes: (res.docentes || []).slice() });
+          Object.assign(temp, { name: res.name, course: res.course, program: 'PE', area: res.area, docentes: (res.docentes || []).slice(), unidad: res.unidad || '', finVigencia: res.finVigencia || '' });
           saveBootCache();
-          var itemsEl = document.getElementById('studentItems');
-          if (itemsEl) itemsEl.innerHTML = renderStudentItems(getFilteredStudents());
+          refreshStudentItems();
           showToast('Alumno duplicado como "' + res.name + '"', 'success');
         })
-        .withFailureHandler(function(err) { showToast('Error al duplicar: ' + (err && err.message ? err.message : err), 'error'); })
+        .withFailureHandler(function(err) {
+          handleServerError(err);
+          state.students = state.students.filter(function(s) { return s !== temp; });
+          refreshStudentItems();
+          showToast('No se pudo duplicar: ' + (err && err.message ? err.message : err), 'error');
+        })
         .duplicateStudent(oldName, newName, dupYearId);
     }
 
+    // Eliminar «en positivo»: la lista se actualiza al instante y la ficha va a la papelera
+    // (nunca se borra). Si el servidor falla, el alumno vuelve a la lista.
     async function confirmDeleteStudent(name) {
-      var ok = await confirmDialog('Se eliminará "' + name + '" y toda su ficha. Esta acción no se puede deshacer.', { title: 'Eliminar alumno', confirmText: 'Eliminar', cancelText: 'Cancelar', danger: true });
+      var ok = await confirmDialog('«' + name + '» se moverá a la papelera. Podrás restaurarlo cuando quieras.', { title: 'Eliminar alumno', confirmText: 'Mover a la papelera', cancelText: 'Cancelar', danger: true });
       if (!ok) return;
+      var yearId = state.activeYearId;
+      var idx = state.students.findIndex(function(s) { return s.name === name; });
+      var removed = idx >= 0 ? state.students[idx] : null;
+      state.students = state.students.filter(function(s) { return s.name !== name; });
+      var wasSelected = state.selectedStudent === name;
+      if (wasSelected) {
+        state.selectedStudent = null;
+        state.dirty = false;
+        stopPresence();
+      }
+      refreshStudentItems();
       google.script.run
-        .withSuccessHandler(function() {
-          state.students = state.students.filter(function(s) { return s.name !== name; });
-          delete studentCache[studentCacheKey(name)];
+        .withSuccessHandler(function(res) {
+          markSessionOk();
+          delete studentCache[(yearId || '') + '|' + name];
           saveBootCache();
-          if (state.selectedStudent === name) {
-            state.selectedStudent = null;
-            state.dirty = false;
-            stopPresence();
-            loadStudentList();
-          } else {
-            document.getElementById('studentItems').innerHTML = renderStudentItems(getFilteredStudents());
-          }
-          showToast('Alumno eliminado', 'success');
+          if (wasSelected) loadStudentList();
+          var trashName = res && res.trashName;
+          showToast('«' + name + '» movido a la papelera', 'success', trashName ? {
+            action: 'Deshacer', duration: 8000,
+            onAction: function() { restoreFromTrash(trashName, yearId); }
+          } : {});
         })
-        .withFailureHandler(function(err) { showToast('Error al eliminar: ' + err.message, 'error'); })
-        .deleteStudent(name, state.activeYearId);
+        .withFailureHandler(function(err) {
+          handleServerError(err);
+          if (removed && yearId === state.activeYearId && !state.students.some(function(s) { return s.name === name; })) {
+            state.students.splice(Math.min(idx, state.students.length), 0, removed);
+            refreshStudentItems();
+          }
+          showToast('No se pudo eliminar (sigue en la lista): ' + (err && err.message ? err.message : err), 'error');
+        })
+        .deleteStudent(name, yearId);
     }
+
+    function refreshStudentItems() {
+      if (state.view !== 'list') return;
+      var el = document.getElementById('studentItems');
+      if (el) el.innerHTML = renderStudentItems(getFilteredStudents());
+      else rerenderListPreserving();
+    }
+
+    function restoreFromTrash(trashName, yearId, onDone) {
+      google.script.run
+        .withSuccessHandler(function(st) {
+          markSessionOk();
+          if (st && yearId === state.activeYearId && !state.students.some(function(s) { return s.name === st.name; })) {
+            state.students.push(st);
+            saveBootCache();
+            rerenderListPreserving();
+          }
+          showToast('«' + (st && st.name) + '» restaurado', 'success');
+          if (onDone) onDone();
+        })
+        .withFailureHandler(function(err) {
+          handleServerError(err);
+          showToast('No se pudo restaurar: ' + (err && err.message ? err.message : err), 'error');
+        })
+        .restoreStudent(trashName, yearId);
+    }
+
+    // Papelera: fichas eliminadas del curso activo, con opción de restaurarlas
+    function openTrash() {
+      var yearId = state.activeYearId;
+      var existing = document.getElementById('trashWrapper');
+      if (existing) existing.remove();
+      var wrapper = document.createElement('div');
+      wrapper.id = 'trashWrapper';
+      wrapper.innerHTML = '<div class="settings-overlay" onclick="if(event.target===this)closeTrash()"><div class="settings-panel" style="max-width:520px">' +
+        '<div class="settings-header"><span class="settings-title">' + svgIcon('trash') + ' Papelera</span>' +
+        '<button class="settings-close" onclick="closeTrash()" title="Cerrar" aria-label="Cerrar">' + ICONS.x + '</button></div>' +
+        '<div class="settings-body" id="trashBody"><div class="list-hint">Cargando…</div></div></div></div>';
+      document.body.appendChild(wrapper);
+      google.script.run
+        .withSuccessHandler(function(items) {
+          var body = document.getElementById('trashBody');
+          if (!body) return;
+          if (!items || !items.length) { body.innerHTML = '<div class="list-hint">La papelera está vacía.</div>'; return; }
+          body.innerHTML = '<div class="list-hint">Las fichas eliminadas se conservan aquí (ocultas en la hoja de cálculo del curso).</div>' +
+            items.map(function(it) {
+              return '<div class="trash-row"><div><strong>' + escHtml(it.name) + '</strong><div class="list-hint">Eliminado el ' + escHtml(it.deletedAt) + '</div></div>' +
+                '<button class="btn btn-secondary" onclick="this.disabled=true;restoreFromTrash(' + jsArg(it.trashName) + ',' + jsArg(yearId) + ',openTrash)">Restaurar</button></div>';
+            }).join('');
+        })
+        .withFailureHandler(function(err) {
+          var body = document.getElementById('trashBody');
+          if (body) body.innerHTML = '<div class="list-hint">No se pudo cargar: ' + escHtml(err && err.message ? err.message : String(err)) + '</div>';
+        })
+        .listTrash(yearId);
+    }
+    function closeTrash() { var w = document.getElementById('trashWrapper'); if (w) w.remove(); }
 
     function getFilteredStudents() {
       var searchEl = document.getElementById('searchInput');
       var q = searchEl ? searchEl.value.toLowerCase() : '';
       return state.students.filter(function(s) {
-        var matchesCourse = (state.courseFilter === 'Todos') || (s.course === state.courseFilter);
+        var matchesCourse = (state.courseFilter === 'Todos') || (courseOf(s) === state.courseFilter);
         var docentes = s.docentes || [];
         var matchesDocente = (state.docenteFilter === 'Todos') || docentes.indexOf(state.docenteFilter) !== -1;
         var docentesText = docentes.join(' ').toLowerCase();
-        var matchesSearch = !q || s.name.toLowerCase().includes(q) || s.course.toLowerCase().includes(q) || (s.unidad || '').toLowerCase().includes(q) || s.program.toLowerCase().includes(q) || docentesText.includes(q);
+        var matchesSearch = !q || s.name.toLowerCase().includes(q) || courseOf(s).toLowerCase().includes(q) || unidadOf(s).toLowerCase().includes(q) || s.program.toLowerCase().includes(q) || docentesText.includes(q);
         return matchesCourse && matchesDocente && matchesSearch;
       });
     }
@@ -2507,6 +2639,9 @@
         state.seguimiento2T = data.seguimiento2T || '';
         state.seguimiento3T = data.seguimiento3T || '';
         state.pe = copyPe(data.pe);
+        var nc = normalizeCourse(state.course, state.pe.unidad);
+        state.course = nc.course;
+        state.pe.unidad = nc.unidad;
         state.areas = (data.areas || []).map(function(a) {
           return {
             name: a.name,
@@ -2789,7 +2924,7 @@
       html += '<input class="field-input" id="fName" value="' + escAttr(state.studentName) + '" placeholder="Nombre y apellidos" oninput="onFieldChange()"></div>';
       html += '<div><label class="field-label" for="fCourse">Curso *</label>';
       html += '<select class="field-select" id="fCourse" onchange="onFieldChange()"><option value="">Selecciona curso</option>';
-      var courseOptions = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES;
+      var courseOptions = COURSES;
       // Si el alumno tiene un curso que ya no está en la lista, lo añadimos para no perder el dato
       if (state.course && courseOptions.indexOf(state.course) === -1) {
         html += '<option value="' + escAttr(state.course) + '" selected>' + escHtml(state.course) + ' (no en lista)</option>';
@@ -4566,28 +4701,12 @@
       html += '<div><label class="field-label" for="cfgCurso">Curso escolar</label>';
       html += '<input class="field-input" id="cfgCurso" value="' + escAttr(c.cursoEscolar || '') + '" placeholder="Ej: 2025/2026 (vacío = automático)"></div>';
 
-      html += '<div class="settings-grid-2">';
-      html += '<div><div class="field-label">Cursos del año (1º A, 1º B, …)</div>';
-      html += '<div class="list-editor" id="coursesEditor"></div>';
-      html += '<button type="button" class="btn-add-list" onclick="addCfgListItem(\'coursesEditor\', \'\')">+ Añadir curso</button></div>';
-
-      html += '<div><div class="field-label">Docentes especialistas</div>';
-      html += '<div class="list-editor" id="docentesEditor"></div>';
-      html += '<button type="button" class="btn-add-list" onclick="addCfgListItem(\'docentesEditor\', \'\')">+ Añadir docente</button>';
-      html += '<div class="list-hint">Sugerencia: incluye el rol entre paréntesis. Ej: <i>Ana López (PT)</i></div></div>';
-      html += '</div>';
-
-      if (!state.isAdmin) {
-        // Visible siempre, para que quede claro quién puede gestionar el acceso
-        html += '<div class="settings-section-title">Usuarios autorizados</div>';
-        html += '<div class="list-hint">Solo el administrador de la aplicación' + (state.adminEmail ? ' (<b>' + escHtml(state.adminEmail) + '</b>)' : '') + ' puede añadir o quitar correos autorizados.' + (state.currentUser ? ' Has entrado como <b>' + escHtml(state.currentUser) + '</b>.' : '') + '</div>';
-      } else {
-        html += '<div class="settings-section-title">Usuarios autorizados</div>';
-        html += '<div class="list-hint" id="usersAdminHint">Cargando…</div>';
-        html += '<div class="list-editor" id="usersEditor"></div>';
-        html += '<button type="button" class="btn-add-list" onclick="addCfgListItem(\'usersEditor\', \'\')">+ Añadir correo</button>';
-        html += '<div class="list-hint">Solo estas cuentas (y el administrador) podrán abrir la aplicación. Si la lista está vacía, puede acceder cualquier cuenta del dominio.</div>';
-      }
+      html += '<div class="settings-section-title">Equipo</div>';
+      html += '<div class="list-hint" id="teamHint">Cargando…</div>';
+      html += '<div class="team-table" id="teamEditor"></div>';
+      html += '<button type="button" class="btn-add-list" id="btnAddTeam" style="display:none" onclick="addTeamRow({ admin: true })">+ Añadir persona</button>';
+      html += '<datalist id="teamRoles"><option value="PT"><option value="AL"><option value="EOE"><option value="Orientación"><option value="Tutor/a"><option value="PTIS"><option value="Dirección"></datalist>';
+      html += '<div class="list-hint">Solo pueden entrar los correos del equipo. Los marcados como <b>admin</b> pueden cambiar Ajustes y el equipo. Los que tienen nombre aparecen como docentes asignables en las fichas.</div>';
 
       html += '</div>';
       html += '<div class="settings-footer">';
@@ -4600,27 +4719,64 @@
       wrapper.innerHTML = html;
       document.body.appendChild(wrapper);
 
-      // Rellenar listas
-      var coursesList = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES.slice();
-      coursesList.forEach(function(v) { addCfgListItem('coursesEditor', v); });
-      (state.config.docentes || []).forEach(function(v) { addCfgListItem('docentesEditor', v); });
+      // Equipo (lo carga el servidor; solo los admin pueden editarlo)
+      state.teamLoaded = false;
+      state.teamCanEdit = false;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          var hint = document.getElementById('teamHint');
+          if (!hint || !res) return;
+          state.teamCanEdit = !!res.canEdit;
+          hint.innerHTML = res.canEdit
+            ? 'Propietario de la aplicación: <b>' + escHtml(res.owner || '') + '</b> (siempre tiene acceso).'
+            : 'Solo las personas marcadas como admin pueden modificar el equipo.';
+          (res.team || []).forEach(addTeamRow);
+          if (!(res.team || []).length && res.canEdit) addTeamRow({ admin: true });
+          document.getElementById('btnAddTeam').style.display = res.canEdit ? '' : 'none';
+          state.teamLoaded = true;
+        })
+        .withFailureHandler(function(err) {
+          var hint = document.getElementById('teamHint');
+          if (hint) hint.textContent = 'No se pudo cargar el equipo: ' + (err && err.message ? err.message : err);
+        })
+        .getTeam();
+    }
 
-      state.usersLoaded = false;
-      if (state.isAdmin) {
-        google.script.run
-          .withSuccessHandler(function(res) {
-            var hint = document.getElementById('usersAdminHint');
-            if (!hint || !res) return;
-            hint.innerHTML = 'Administrador: <b>' + escHtml(res.admin || '') + '</b> (siempre tiene acceso)';
-            (res.users || []).forEach(function(v) { addCfgListItem('usersEditor', v); });
-            state.usersLoaded = true;
-          })
-          .withFailureHandler(function(err) {
-            var hint = document.getElementById('usersAdminHint');
-            if (hint) hint.textContent = 'No se pudo cargar la lista: ' + (err && err.message ? err.message : err);
-          })
-          .getAllowedUsers();
-      }
+    function addTeamRow(m) {
+      var c = document.getElementById('teamEditor');
+      if (!c) return;
+      m = m || {};
+      var ro = state.teamCanEdit ? '' : ' disabled';
+      var row = document.createElement('div');
+      row.className = 'team-row';
+      row.innerHTML =
+        '<input class="field-input team-nombre" placeholder="Nombre (Ej: Mª Carmen Martín)" value="' + escAttr(m.nombre || '') + '"' + ro + '>' +
+        '<input class="field-input team-rol" list="teamRoles" placeholder="Especialidad" value="' + escAttr(m.rol || '') + '"' + ro + '>' +
+        '<input class="field-input team-email" type="email" placeholder="correo@…" value="' + escAttr(m.email || '') + '"' + ro + ' oninput="updateTeamRowWarn(this.parentNode)">' +
+        '<label class="team-admin" title="Puede cambiar Ajustes y el equipo"><input type="checkbox" class="team-isadmin"' + (m.admin !== false ? ' checked' : '') + ro + '> admin</label>' +
+        (state.teamCanEdit ? '<button type="button" class="list-btn-remove" title="Eliminar" onclick="this.parentNode.remove()">' + ICONS.trash + '</button>' : '') +
+        '<div class="team-warn"></div>';
+      c.appendChild(row);
+      updateTeamRowWarn(row);
+    }
+
+    function updateTeamRowWarn(row) {
+      var email = row.querySelector('.team-email').value.trim();
+      row.querySelector('.team-warn').textContent = email ? '' : 'Sin correo: no podrá entrar en la aplicación';
+    }
+
+    function readTeamEditor() {
+      var out = [];
+      document.querySelectorAll('#teamEditor .team-row').forEach(function(r) {
+        var m = {
+          nombre: r.querySelector('.team-nombre').value.trim(),
+          rol: r.querySelector('.team-rol').value.trim(),
+          email: r.querySelector('.team-email').value.trim().toLowerCase(),
+          admin: r.querySelector('.team-isadmin').checked
+        };
+        if (m.nombre || m.email) out.push(m);
+      });
+      return out;
     }
 
     function addCfgListItem(containerId, value) {
@@ -4806,18 +4962,13 @@
         localidad: document.getElementById('cfgLocalidad').value.trim(),
         cursoEscolar: document.getElementById('cfgCurso').value.trim()
       };
-      var listsPayload = {
-        yearId: state.activeYearId,
-        courses: readCfgListEditor('coursesEditor'),
-        docentes: readCfgListEditor('docentesEditor')
-      };
-      // Usuarios autorizados (solo administrador y solo si la lista se cargó)
-      var usersPayload = null;
-      if (state.isAdmin && state.usersLoaded) {
-        var users = readCfgListEditor('usersEditor').map(function(u) { return u.toLowerCase(); });
-        var bad = users.filter(function(u) { return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(u); });
-        if (bad.length) { showToast('Correo no válido: ' + bad[0], 'error'); return; }
-        usersPayload = { users: users };
+      // Equipo (solo admin y solo si se cargó)
+      var teamPayload = null;
+      if (state.teamCanEdit && state.teamLoaded) {
+        var team = readTeamEditor();
+        var bad = team.filter(function(m) { return m.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m.email); });
+        if (bad.length) { showToast('Correo no válido: ' + bad[0].email, 'error'); return; }
+        teamPayload = { team: team };
       }
       var btn = document.getElementById('btnSaveConfig');
       btn.disabled = true;
@@ -4835,8 +4986,10 @@
           state.config.centro = payload.centro;
           state.config.localidad = payload.localidad;
           if (payload.cursoEscolar) state.config.cursoEscolar = payload.cursoEscolar;
-          state.config.courses = listsPayload.courses;
-          state.config.docentes = listsPayload.docentes;
+          if (teamPayload) {
+            var labels = teamPayload.team.filter(function(m) { return m.nombre; }).map(function(m) { return m.nombre + (m.rol ? ' (' + m.rol + ')' : ''); });
+            if (labels.length) state.config.docentes = labels;
+          }
           if (state.rawConfig) Object.assign(state.rawConfig, state.config);
           saveBootCache();
           updateHeaderSubtitle();
@@ -4844,7 +4997,7 @@
           showToast('Ajustes guardados', 'success');
         })
         .withFailureHandler(function(err) { handleServerError(err); onError(err); })
-        .saveSettings(JSON.stringify({ config: payload, lists: listsPayload, users: usersPayload }));
+        .saveSettings(JSON.stringify({ config: payload, team: teamPayload }));
     }
 
     /* ═══════════════════════════════════════════
@@ -5158,12 +5311,10 @@
       var n = senecaNorm(raw);
       var m = n.match(/^(\d)º.*prim/);
       if (m) return m[1] + 'º Primaria';
-      var inf = { 'tres': 1, 'cuatro': 2, 'cinco': 3, '3': 1, '4': 2, '5': 3 };
+      var inf = { 'tres': 3, 'cuatro': 4, 'cinco': 5, '3': 3, '4': 4, '5': 5 };
       m = n.match(/^(tres|cuatro|cinco|3|4|5)\s*anos/);
-      if (m) return inf[m[1]] + 'º Infantil';
-      m = n.match(/^(\d)º.*inf/);
-      if (m) return m[1] + 'º Infantil';
-      return String(raw || '').trim();
+      if (m) return inf[m[1]] + ' años Infantil';
+      return normalizeCourse(raw, '').course;
     }
 
     function senecaAreaName(raw) {
@@ -5334,7 +5485,7 @@
     function validateSenecaImport(d) {
       d.warnings = [];
       if (!d.studentName) d.warnings.push('No se ha encontrado el nombre del alumno/a.');
-      var courseOptions = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES;
+      var courseOptions = COURSES;
       if (!d.course) d.warnings.push('No se ha encontrado el curso.');
       else if (!matchCourseOption(d.course, courseOptions)) d.warnings.push('El curso «' + (d.rawCourse || d.course) + '» no coincide con ninguno de la lista: selecciónalo.');
       if (d.studentName && state.students.some(function(s) { return s.name.trim().toLowerCase() === d.studentName.toLowerCase(); })) {
@@ -5465,7 +5616,7 @@
 
     // Modelo editable de la revisión: lo que se edite aquí es lo que se vuelca a la ficha
     function buildSenecaEditModel(d) {
-      var courseOptions = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES;
+      var courseOptions = COURSES;
       return {
         studentName: d.studentName,
         course: matchCourseOption(d.course, courseOptions),
@@ -5529,7 +5680,7 @@
       document.getElementById('formToolbar').style.display = 'none';
       var nObj = d.areas.reduce(function(n, a) { return n + a.objectives.length; }, 0);
       var nInd = d.areas.reduce(function(n, a) { return n + a.objectives.reduce(function(m, o) { return m + o.indicators.length; }, 0); }, 0);
-      var courseOptions = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES;
+      var courseOptions = COURSES;
       var globalWarn = d.warnings.filter(function(w) { return !(e.course && /^El curso/.test(w)); });
 
       var h = '<div class="card imp-review"><div class="card-body">';
