@@ -19,6 +19,9 @@ const PRESENCE_TTL_MS = 5 * 60 * 1000;
 
 /* ───────── Web App entry point ───────── */
 
+// Icono de la pestaña: pieza de puzle 🧩 (Twemoji, CC-BY 4.0)
+const FAVICON_URL = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f9e9.png';
+
 function doGet() {
   if (!isAuthorized_()) {
     const email = getCurrentUserEmail_();
@@ -28,10 +31,12 @@ function doGet() {
       '<p>La cuenta <b>' + escapeHtml_(email || 'desconocida') + '</b> no está en la lista de usuarios autorizados.</p>' +
       '<p>Pide al administrador de la aplicación que te añada desde Ajustes.</p></div>')
       .setTitle('Acceso no autorizado')
+      .setFaviconUrl(FAVICON_URL)
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
   }
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('Programas de Atención a la Diversidad')
+    .setFaviconUrl(FAVICON_URL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
