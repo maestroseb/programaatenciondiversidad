@@ -510,7 +510,18 @@
     .vig-expired { background: var(--danger-bg); color: var(--rojo-dark); border: 1px solid var(--danger-border); }
     .area-programa { flex: 1; min-width: 120px; margin: 0 10px; padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.12); color: inherit; font: inherit; font-size: 13px; }
     .area-programa::placeholder { color: inherit; opacity: .6; }
-    .print-pe-box { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 11px; margin: 0 0 14px; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; }
+    .area-org { margin: 0 18px 12px; border: 1px dashed var(--gris-300, #cbd5e1); border-radius: var(--radio); padding: 8px 14px; }
+    .area-org summary { cursor: pointer; font-weight: 600; font-size: var(--fs-md); color: var(--gris-600); padding: 4px 0; }
+    .area-org-count { font-weight: 500; color: var(--gris-500); margin-left: 6px; font-size: 12px; }
+    .area-org-body { display: flex; flex-direction: column; gap: 12px; padding: 10px 0 6px; }
+    .area-org-label { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .btn-org-copy { border: none; background: none; color: var(--c-accent); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px; }
+    .btn-org-copy .icon svg { width: 13px; height: 13px; }
+    .comp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .comp-chip { border: 1px solid var(--gris-200); background: var(--gris-0, #fff); color: var(--gris-600); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+    .comp-chip.is-on { background: var(--chip-bg); border-color: var(--chip-border); color: var(--chip-text); font-weight: 600; }
+    .type-org { background: #e2e8f0; }
+    .print-pe-box { display: grid; grid-template-columns: 1fr; gap: 12px; font-size: 11px; margin: 0 0 14px; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; }
     .imp-sub { color: var(--gris-500); margin: 0 0 14px; font-size: var(--fs-md); }
     .imp-hint { color: var(--gris-500); font-size: var(--fs-md); margin: 12px 0 4px; }
     .imp-block { margin-top: 18px; padding: 18px 20px; border: 1px solid var(--gris-200); border-radius: var(--radio); }
@@ -519,6 +530,7 @@
     .imp-docentes { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
     .imp-check { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: var(--fs-md); }
     .imp-programa { margin: 10px 0 8px 26px; }
+    .imp-comps { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
     .imp-obj-body { padding: 6px 4px 10px; }
     .imp-item { display: flex; gap: 10px; align-items: flex-start; margin: 6px 0; }
     .imp-num { flex: 0 0 24px; height: 24px; margin-top: 8px; border-radius: 50%; background: var(--gris-100); color: var(--gris-600); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
@@ -1623,11 +1635,36 @@
       courseFilter: 'Todos',
       // Informe a las familias
       informeFamilias: { indicadores: [], evaluaciones: [] },
-      // Datos generales del PE (unidad, vigencia, profesionales, sesiones)
+      // Datos generales del PE (unidad, vigencia, profesionales)
       pe: emptyPe()
     };
-    function emptyPe() { return { unidad: '', fechaElaboracion: '', fechaFinVigencia: '', profesionales: '', sesiones: '' }; }
-    function copyPe(pe) { return Object.assign(emptyPe(), pe || {}); }
+    function emptyPe() { return { unidad: '', fechaElaboracion: '', fechaFinVigencia: '', profesionales: '' }; }
+    function copyPe(pe) { var p = Object.assign(emptyPe(), pe || {}); delete p.sesiones; return p; }
+
+    // Organización y recursos de cada ámbito: los mismos dos campos que Séneca. Dentro de
+    // Organización van temporalización, coordinación, agrupamientos y sesiones.
+    var ORG_FIELDS = [
+      { key: 'organizacion', label: 'Organización', hint: 'Temporalización, coordinación, agrupamientos y sesiones…', rows: 6 },
+      { key: 'recursos', label: 'Recursos', hint: 'Personales, materiales, TIC…', rows: 4 }
+    ];
+    function emptyOrg() { var o = {}; ORG_FIELDS.forEach(function(f) { o[f.key] = ''; }); return o; }
+    function copyOrg(org) { var o = emptyOrg(); ORG_FIELDS.forEach(function(f) { o[f.key] = (org && org[f.key]) || ''; }); return o; }
+    // Borradores antiguos con «Sesiones y agrupamiento» global: pasa a la organización de cada ámbito
+    function migrateLegacySesiones(pe, areas) {
+      var ses = pe && pe.sesiones;
+      if (ses && !areas.some(function(a) { return a.org.organizacion; })) areas.forEach(function(a) { a.org.organizacion = ses; });
+    }
+
+    // Competencias clave tal como las lista Séneca en los Programas Específicos
+    var COMPETENCIAS = [
+      'Competencia en comunicación lingüística',
+      'Competencia matemática y competencias básicas en ciencia y tecnología',
+      'Competencia digital',
+      'Aprender a aprender',
+      'Competencias sociales y cívicas',
+      'Sentido de iniciativa y espíritu emprendedor',
+      'Conciencia y expresiones culturales'
+    ];
 
     const COURSES = [
       '1º Infantil','2º Infantil','3º Infantil',
@@ -1823,11 +1860,13 @@
       state.seguimiento1T = draft.seguimiento1T || '';
       state.seguimiento2T = draft.seguimiento2T || '';
       state.seguimiento3T = draft.seguimiento3T || '';
+      var draftPe = draft.pe;
       state.pe = copyPe(draft.pe);
       state.areas = (draft.areas || []).map(function(a) {
         return {
           name: a.name,
           programa: a.programa || '',
+          org: copyOrg(a.org),
           objectives: (a.objectives || []).map(function(o) {
             return {
               id: uid(),
@@ -1835,11 +1874,13 @@
               eval1T: o.eval1T || '', eval2T: o.eval2T || '', eval3T: o.eval3T || '',
               indicators: (o.indicators || []).map(function(x) { return { id: uid(), text: x.text || '', eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '', observaciones: x.observaciones || '' }; }),
               contents: normalizeContentsField(o.contents),
-              activities: normalizeRichField(o.activities)
+              activities: normalizeRichField(o.activities),
+              competencias: (o.competencias || []).slice()
             };
           })
         };
       });
+      migrateLegacySesiones(draftPe, state.areas);
       sortAreasCanonical();
       var inf = draft.informeFamilias || { indicadores: [], evaluaciones: [] };
       state.informeFamilias = {
@@ -2470,6 +2511,7 @@
           return {
             name: a.name,
             programa: a.programa || '',
+            org: copyOrg(a.org),
             objectives: (a.objectives || []).map(function(o) {
               return {
                 id: uid(),
@@ -2477,7 +2519,8 @@
                 eval1T: o.eval1T || '', eval2T: o.eval2T || '', eval3T: o.eval3T || '',
                 indicators: (o.indicators || []).map(function(x) { return { id: uid(), text: x.text, eval1T: x.eval1T || '', eval2T: x.eval2T || '', eval3T: x.eval3T || '', observaciones: x.observaciones || '' }; }),
                 contents: normalizeContentsField(o.contents),
-                activities: normalizeRichField(o.activities)
+                activities: normalizeRichField(o.activities),
+                competencias: (o.competencias || []).slice()
               };
             })
           };
@@ -2770,7 +2813,7 @@
       html += '</div></div>';
       html += '</div></div>';
 
-      // ─── Datos del programa (unidad, vigencia, profesionales, sesiones) ───
+      // ─── Datos del programa (unidad, vigencia, profesionales) ───
       html += renderPeCard();
 
       // ─── Areas with their objectives ───
@@ -2984,6 +3027,8 @@
       html += '<button class="btn-collapse-area" id="collapseArea_' + areaIdx + '" onclick="toggleAreaCollapse(' + areaIdx + ')" title="Colapsar o expandir todos los objetivos de este ámbito">Colapsar todo</button>';
       html += '</div>';
 
+      html += renderAreaOrg(area, areaIdx);
+
       area.objectives.forEach(function(obj, i) {
         html += renderObjectiveCard(obj, i, areaIdx, color);
       });
@@ -2991,6 +3036,73 @@
       html += '<button class="btn-add-obj" onclick="addObjective(' + areaIdx + ')">' + svgIcon('plus') + ' Añadir objetivo a ' + escHtml(area.name) + '</button>';
       html += '</div>';
       return html;
+    }
+
+    // Sección plegable «Organización y recursos» de cada ámbito
+    var orgOpen = {};
+    function renderAreaOrg(area, areaIdx) {
+      if (!area.org) area.org = emptyOrg();
+      var filled = ORG_FIELDS.filter(function(f) { return String(area.org[f.key] || '').trim(); }).length;
+      var multi = state.areas.length > 1;
+      var h = '<details class="area-org"' + (orgOpen[area.name] ? ' open' : '') + ' ontoggle="orgOpen[' + jsArg(area.name) + ']=this.open">';
+      h += '<summary>Organización y recursos <span class="area-org-count">' + filled + '/' + ORG_FIELDS.length + '</span></summary>';
+      h += '<div class="area-org-body">';
+      ORG_FIELDS.forEach(function(f) {
+        var id = 'org_' + areaIdx + '_' + f.key;
+        h += '<div class="area-org-field"><div class="area-org-label"><label class="field-label" for="' + id + '">' + escHtml(f.label) + '</label>';
+        if (multi) h += '<button type="button" class="btn-org-copy" onclick="copyOrgToAll(' + areaIdx + ',\'' + f.key + '\')" title="Copiar este texto a los demás ámbitos">' + svgIcon('copy') + ' Copiar a los demás ámbitos</button>';
+        h += '</div><textarea class="field-input pe-textarea" id="' + id + '" rows="' + f.rows + '" placeholder="' + escAttr(f.hint) + '" oninput="updateAreaOrg(' + areaIdx + ',\'' + f.key + '\',this.value)">' + escHtml(area.org[f.key] || '') + '</textarea></div>';
+      });
+      h += '</div></details>';
+      return h;
+    }
+
+    function updateAreaOrg(areaIdx, key, value) {
+      var area = state.areas[areaIdx];
+      if (!area) return;
+      if (!area.org) area.org = emptyOrg();
+      if (area.org[key] === value) return;
+      pushUndo({ coalesce: true });
+      area.org[key] = value;
+      markDirty();
+    }
+
+    async function copyOrgToAll(areaIdx, key) {
+      var src = state.areas[areaIdx];
+      if (!src) return;
+      var value = (src.org && src.org[key]) || '';
+      var label = (ORG_FIELDS.find(function(f) { return f.key === key; }) || {}).label || key;
+      var others = state.areas.filter(function(a, i) { return i !== areaIdx; });
+      var overwrite = others.some(function(a) { return a.org && a.org[key] && a.org[key] !== value; });
+      if (overwrite && !(await confirmDialog('Algunos ámbitos ya tienen texto en «' + label + '» y se sustituirá.', { title: 'Copiar a los demás ámbitos', confirmText: 'Sustituir', cancelText: 'Cancelar' }))) return;
+      pushUndo();
+      others.forEach(function(a) { if (!a.org) a.org = emptyOrg(); a.org[key] = value; orgOpen[a.name] = true; });
+      renderFormView();
+      markDirty();
+      showToast('«' + label + '» copiado a ' + others.length + ' ámbito(s)', 'success');
+    }
+
+    function toggleCompetencia(objId, comp) {
+      var found = findObjInAreas(objId);
+      if (!found) return;
+      pushUndo();
+      var list = found.obj.competencias || (found.obj.competencias = []);
+      var idx = list.indexOf(comp);
+      if (idx === -1) list.push(comp); else list.splice(idx, 1);
+      var el = document.getElementById('comps_' + objId);
+      if (el) el.outerHTML = renderCompetencias(found.obj);
+      markDirty();
+    }
+
+    function renderCompetencias(obj) {
+      var sel = obj.competencias || [];
+      var all = COMPETENCIAS.concat(sel.filter(function(c) { return COMPETENCIAS.indexOf(c) === -1; }));
+      var h = '<div class="comp-chips" id="comps_' + obj.id + '">';
+      all.forEach(function(c) {
+        var on = sel.indexOf(c) !== -1;
+        h += '<button type="button" class="comp-chip' + (on ? ' is-on' : '') + '" aria-pressed="' + on + '" onclick="toggleCompetencia(\'' + obj.id + '\',' + jsArg(c) + ')">' + (on ? '✓ ' : '') + escHtml(c) + '</button>';
+      });
+      return h + '</div>';
     }
 
     function renderObjectiveCard(obj, index, areaIdx, color) {
@@ -3051,6 +3163,12 @@
       html += '<div class="section section-activities">';
       html += '<div class="section-label">Actividades</div>';
       html += renderObjRichField(obj.id, 'activities', obj.activities, 'Ej: Subrayado guiado de datos relevantes...');
+      html += '</div>';
+
+      // Competencias clave (no se evalúan; se marcan como en Séneca)
+      html += '<div class="section section-competencias">';
+      html += '<div class="section-label">Competencias</div>';
+      html += renderCompetencias(obj);
       html += '</div>';
 
       html += '</div></div>';
@@ -3387,10 +3505,8 @@
       h += '<div><label class="field-label" for="peFechaElab">Fecha de elaboración</label><input class="field-input" type="date" id="peFechaElab" value="' + escAttr(pe.fechaElaboracion) + '" onchange="onPeChange(\'fechaElaboracion\',this.value)"></div>';
       h += '<div><label class="field-label" for="peFechaFin">Fin de vigencia</label><input class="field-input" type="date" id="peFechaFin" value="' + escAttr(pe.fechaFinVigencia) + '" onchange="onPeChange(\'fechaFinVigencia\',this.value);renderFormView()"></div>';
       h += '</div>';
-      h += '<div class="grid-pe-2">';
-      h += '<div><label class="field-label" for="peProf">Profesionales implicados</label><textarea class="field-input pe-textarea" id="peProf" rows="4" placeholder="Tutor/a: …&#10;PT: …&#10;EOE: …" oninput="onPeChange(\'profesionales\',this.value)">' + escHtml(pe.profesionales) + '</textarea></div>';
-      h += '<div><label class="field-label" for="peSes">Sesiones y agrupamiento</label><textarea class="field-input pe-textarea" id="peSes" rows="4" placeholder="Ej.: 5 sesiones semanales de PT dentro del aula ordinaria" oninput="onPeChange(\'sesiones\',this.value)">' + escHtml(pe.sesiones) + '</textarea></div>';
-      h += '</div></div></div>';
+      h += '<div style="margin-top:12px"><label class="field-label" for="peProf">Profesionales implicados</label><textarea class="field-input pe-textarea" id="peProf" rows="4" placeholder="Tutor/a: …&#10;PT: …&#10;EOE: …" oninput="onPeChange(\'profesionales\',this.value)">' + escHtml(pe.profesionales) + '</textarea></div>';
+      h += '</div></div>';
       return h;
     }
 
@@ -3444,7 +3560,7 @@
         state.areas.splice(idx, 1);
       } else {
         pushUndo();
-        state.areas.push({ name: areaName, objectives: [createEmptyObjective()] });
+        state.areas.push({ name: areaName, programa: '', org: emptyOrg(), objectives: [createEmptyObjective()] });
         sortAreasCanonical();
       }
       markDirty();
@@ -3731,7 +3847,8 @@
         eval1T: '', eval2T: '', eval3T: '',
         indicators: [{ id: uid(), text: '', observaciones: '' }],
         contents: [{ id: uid(), text: '' }],
-        activities: ''
+        activities: '',
+        competencias: []
       };
     }
 
@@ -3975,9 +4092,11 @@
           return {
             name: area.name,
             programa: area.programa || '',
+            org: copyOrg(area.org),
             objectives: area.objectives.map(function(o) {
               return {
                 title: o.title,
+                competencias: (o.competencias || []).slice(),
                 eval1T: o.eval1T || '', eval2T: o.eval2T || '', eval3T: o.eval3T || '',
                 indicators: o.indicators.filter(function(i) { return i.text.trim(); }).map(function(i) {
                   return { text: i.text, eval1T: i.eval1T || '', eval2T: i.eval2T || '', eval3T: i.eval3T || '', observaciones: i.observaciones || '' };
@@ -4084,7 +4203,9 @@
       seguimiento2T: true,
       seguimiento3T: true,
       contenidos: false,
-      actividades: false
+      actividades: false,
+      competencias: false,
+      organizacion: false
     };
 
     function loadPrintOptions() {
@@ -4131,6 +4252,8 @@
       html += '<div style="display:flex;flex-direction:column;gap:6px">';
       html += chk('optContenidos', 'Contenidos', opts.contenidos);
       html += chk('optActividades', 'Actividades', opts.actividades);
+      html += chk('optCompetencias', 'Competencias', opts.competencias);
+      html += chk('optOrganizacion', 'Organización y recursos', opts.organizacion);
       html += '</div></div>';
       html += '</div>';
       html += '<div class="settings-footer">';
@@ -4156,7 +4279,9 @@
         seguimiento2T: document.getElementById('optSeguimiento2T').checked,
         seguimiento3T: document.getElementById('optSeguimiento3T').checked,
         contenidos: document.getElementById('optContenidos').checked,
-        actividades: document.getElementById('optActividades').checked
+        actividades: document.getElementById('optActividades').checked,
+        competencias: document.getElementById('optCompetencias').checked,
+        organizacion: document.getElementById('optOrganizacion').checked
       };
       savePrintOptions(opts);
       closePrintOptions();
@@ -4227,11 +4352,8 @@
         html += '<div><span style="font-weight:800">VIGENCIA:</span> ' + escHtml(fmtDateEs(state.pe.fechaElaboracion) || '—') + ' – ' + escHtml(fmtDateEs(state.pe.fechaFinVigencia) || '—') + '</div>';
       }
       html += '</div></div>';
-      if (state.pe && (state.pe.profesionales || state.pe.sesiones)) {
-        html += '<div class="print-pe-box">';
-        if (state.pe.profesionales) html += '<div><strong>Profesionales implicados:</strong><br>' + escHtml(state.pe.profesionales).replace(/\n/g, '<br>') + '</div>';
-        if (state.pe.sesiones) html += '<div><strong>Sesiones y agrupamiento:</strong><br>' + escHtml(state.pe.sesiones).replace(/\n/g, '<br>') + '</div>';
-        html += '</div>';
+      if (state.pe && state.pe.profesionales) {
+        html += '<div class="print-pe-box"><div><strong>Profesionales implicados:</strong><br>' + escHtml(state.pe.profesionales).replace(/\n/g, '<br>') + '</div></div>';
       }
 
       // One page/section per area
@@ -4305,6 +4427,30 @@
             }
           });
           html += '</table>';
+        }
+
+        if (opts.competencias) {
+          var compRows = area.objectives.filter(function(o) { return (o.competencias || []).length; });
+          if (compRows.length) {
+            html += '<table class="print-table">';
+            html += '<tr><th colspan="4" class="type-org">COMPETENCIAS</th></tr>';
+            area.objectives.forEach(function(o, i) {
+              if ((o.competencias || []).length) html += '<tr><td colspan="4"><strong>Obj. ' + (i + 1) + ':</strong> ' + escHtml(o.competencias.join(' · ')) + '</td></tr>';
+            });
+            html += '</table>';
+          }
+        }
+
+        if (opts.organizacion && area.org) {
+          var orgRows = ORG_FIELDS.filter(function(f) { return String(area.org[f.key] || '').trim(); });
+          if (orgRows.length) {
+            html += '<table class="print-table">';
+            html += '<tr><th colspan="4" class="type-org">ORGANIZACIÓN Y RECURSOS</th></tr>';
+            orgRows.forEach(function(f) {
+              html += '<tr><td colspan="4"><strong>' + escHtml(f.label) + ':</strong><br>' + escHtml(area.org[f.key]).replace(/\n/g, '<br>') + '</td></tr>';
+            });
+            html += '</table>';
+          }
         }
       }); // end areas loop
 
@@ -5029,28 +5175,35 @@
     // Convierte las líneas del PDF en { studentName, course, areas:[{name, objectives:[...]}] }
     function parseSenecaLines(lines) {
       var out = { studentName: '', course: '', rawCourse: '', unidad: '', fechaElaboracion: '', fechaFinVigencia: '',
-                  profesionales: [], sesiones: [], areas: [], unrecognized: [] };
-      var inProf = false, inSes = false, sesBuf = [];
+                  profesionales: [], areas: [], unrecognized: [] };
+      var inProf = false, done = false;
       function senecaDate(d) { // "12/10/25" → "2025-10-12"
         var m = String(d || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
         if (!m) return '';
         var y = m[3].length === 2 ? '20' + m[3] : m[3];
         return y + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
       }
-      function endSes() {
-        if (inSes && sesBuf.length) {
-          var t = sesBuf.join(' ').replace(/\s+/g, ' ').trim();
-          if (t && !out.sesiones.some(function(x) { return x.text === t; })) out.sesiones.push({ area: area ? area.name : '', text: t });
-        }
-        inSes = false; sesBuf = [];
-      }
       var LABEL = /^(Objetivo|Indicador|Contenido|Actividad\/tarea)\s*(\d+(?:\.\d+)?)\s*:\s*(.*)$/i;
-      var END = /^(Organización:|Competencias:|TEMPORALIZACIÓN|COORDINACIÓN ENTRE|AGRUPAMIENTOS|Recursos:|INFORMACIÓN Y COLABORACIÓN)/i;
       var AREA = /^desarrollo [a-z ]+$/;
-      var area = null, obj = null, cur = null, started = false, areaLine = -1, skip = false;
+      // Campos de Séneca de cada ámbito. Los títulos en mayúsculas (TEMPORALIZACIÓN…) son texto de la maestra
+      var ORG_HEADERS = [
+        { key: 'organizacion', re: /^Organización:\s*(.*)$/ },
+        { key: 'recursos', re: /^Recursos:\s*(.*)$/ }
+      ];
+      var orgBreak = false;
+      var area = null, obj = null, cur = null, started = false, areaLine = -1, orgSec = null;
 
       function flush() {
         if (!cur || !obj) { cur = null; return; }
+        if (cur.kind === 'competencias') {
+          cur.parts.forEach(function(p) {
+            if (/^-\s*/.test(p)) obj.competencias.push(p.replace(/^-\s*/, '').trim());
+            else if (obj.competencias.length) obj.competencias[obj.competencias.length - 1] += ' ' + p.trim();
+          });
+          obj.competencias = obj.competencias.filter(function(c, k, arr) { return c && arr.indexOf(c) === k; });
+          cur = null;
+          return;
+        }
         var text = cur.parts.join(' ').replace(/^-\s*/, '').replace(/\s+/g, ' ').trim();
         // Contenidos y actividades son texto enriquecido: se respetan las viñetas "- " internas
         var rich = cur.parts.reduce(function(acc, p) {
@@ -5065,6 +5218,14 @@
         }
         cur = null;
       }
+      // Texto de organización: nueva línea para viñetas y para "Etiqueta: …"; si no, continúa el párrafo
+      function addOrg(l) {
+        var prev = area.org[orgSec];
+        var heading = /^[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ ,.\-]{5,}$/.test(l); // "TEMPORALIZACIÓN", "AGRUPAMIENTOS Y …"
+        var newLine = orgBreak || heading || /^-\s/.test(l) || /^[A-ZÁÉÍÓÚÑ][^:]{1,45}:\s/.test(l);
+        area.org[orgSec] = !prev ? l : prev + (newLine ? '\n' : ' ') + l;
+        orgBreak = heading;
+      }
       // Un encabezado de ámbito es "Desarrollo …" seguido (en ≤4 líneas) de "Objetivo 1:"
       function isAreaHeading(i) {
         var n = senecaNorm(lines[i]);
@@ -5077,6 +5238,7 @@
 
       for (var i = 0; i < lines.length; i++) {
         var l = lines[i], m;
+        if (done) break;
         if (!out.studentName && (m = l.match(/^Nombre:\s*(.+?)\s+Fecha de nacimiento/i))) { out.studentName = senecaStudentName(m[1]); continue; }
         if (!out.course && (m = l.match(/^Curso:\s*(.+?)\s+Unidad:\s*(.*)$/i))) { out.rawCourse = m[1]; out.course = senecaCourse(m[1]); out.unidad = m[2].trim(); continue; }
         if (!out.fechaElaboracion && /FECHA DE ELABORACIÓN/i.test(l)) {
@@ -5093,44 +5255,46 @@
           continue;
         }
         if (!started) continue;
-        // Encabezado "AGRUPAMIENTOS Y ORGANIZACIÓN…" o línea "Agrupamientos: texto…"
-        if (/^AGRUPAMIENTOS/.test(l) || /^Agrupamientos:/.test(l)) {
-          flush(); endSes(); inSes = true; skip = true;
-          if ((m = l.match(/^Agrupamientos:\s*(.+)$/))) sesBuf.push(m[1]);
-          continue;
-        }
-        if (inSes) {
-          if (/^(Recursos:|Organización:)/i.test(l) || isAreaHeading(i) || LABEL.test(l)) endSes();
-          else { sesBuf.push(l); continue; }
-        }
+        if (/^INFORMACIÓN Y COLABORACIÓN/i.test(l)) { flush(); done = true; continue; }
 
         if (isAreaHeading(i)) {
-          // El título del programa puede parecer un ámbito ("DESARROLLO COMUNICACIÓN…"): se ignora
+          // El título del programa puede parecer un ámbito ("DESARROLLO COMUNICACIÓN…"): va al título
           if (area && !area.objectives.length && i - areaLine <= 4) { area.programa = (area.programa ? area.programa + ' ' : '') + l; continue; }
-          flush(); obj = null; areaLine = i; skip = false;
-          area = { name: senecaAreaName(l), programa: '', objectives: [] };
+          flush(); obj = null; areaLine = i; orgSec = null;
+          area = { name: senecaAreaName(l), programa: '', org: emptyOrg(), objectives: [] };
           out.areas.push(area);
           continue;
         }
         if (!area) continue;
-        if ((m = l.match(LABEL))) {
+
+        var hdr = null;
+        for (var h = 0; h < ORG_HEADERS.length && !hdr; h++) {
+          if ((m = l.match(ORG_HEADERS[h].re))) hdr = { key: ORG_HEADERS[h].key, rest: (m[1] || '').trim() };
+        }
+        // "Recursos:" repetido o "Recursos TIC: …" dentro de recursos es contenido, no encabezado
+        if (hdr && !(hdr.key === 'recursos' && orgSec === 'recursos')) {
           flush();
+          orgSec = hdr.key; orgBreak = false;
+          if (hdr.rest) addOrg(hdr.rest);
+          continue;
+        }
+        if ((m = l.match(LABEL))) {
+          flush(); orgSec = null;
           var kind = m[1].toLowerCase().replace('actividad/tarea', 'actividad');
           if (kind === 'objetivo') {
-            obj = { num: m[2], title: '', indicators: [], contents: [], activities: [] };
+            obj = { num: m[2], title: '', indicators: [], contents: [], activities: [], competencias: [] };
             area.objectives.push(obj);
           }
           cur = { kind: kind, num: m[2], parts: m[3] ? [m[3]] : [] };
-          skip = false;
           continue;
         }
-        if (END.test(l)) { flush(); skip = true; continue; }
+        if (/^Competencias:/.test(l)) { flush(); orgSec = null; cur = { kind: 'competencias', parts: [] }; continue; }
+        if (orgSec) { if (l !== 'Recursos:') addOrg(l); continue; }
         if (cur) cur.parts.push(l);
-        else if (area && !obj && i - areaLine <= 4) area.programa = (area.programa ? area.programa + ' ' : '') + l; // título del programa
-        else if (obj && !skip) out.unrecognized.push(l);
+        else if (!obj && i - areaLine <= 4) area.programa = (area.programa ? area.programa + ' ' : '') + l; // título del programa
+        else if (obj) out.unrecognized.push(l);
       }
       flush();
-      endSes();
       out.profesionales.forEach(function(p) { p.nombre = senecaStudentName(p.nombre.replace(/\s*-\s*\(.*$/, '')); });
       out.emptyAreas = out.areas.filter(function(a) { return !a.objectives.length; }).map(function(a) { return a.name; });
       out.areas = out.areas.filter(function(a) { return a.objectives.length; });
@@ -5242,8 +5406,7 @@
         unidad: d.unidad || '',
         fechaElaboracion: d.fechaElaboracion || '',
         fechaFinVigencia: d.fechaFinVigencia || '',
-        profesionales: (d.profesionales || []).map(function(p) { return p.rol + ': ' + p.nombre; }).join('\n'),
-        sesiones: (d.sesiones || []).map(function(x) { return (d.sesiones.length > 1 && x.area ? x.area + ': ' : '') + x.text; }).join('\n')
+        profesionales: (d.profesionales || []).map(function(p) { return p.rol + ': ' + p.nombre; }).join('\n')
       };
     }
 
@@ -5310,13 +5473,14 @@
         docentes: d.docentesMatch.slice(),
         areas: d.areas.map(function(a) {
           return {
-            include: true, name: a.name, programa: a.programa || '', warnings: a.warnings,
+            include: true, name: a.name, programa: a.programa || '', org: copyOrg(a.org), warnings: a.warnings,
             objectives: a.objectives.map(function(o) {
               return {
                 include: true, title: o.title, warnings: o.warnings,
                 indicators: o.indicators.map(function(x) { return x.text; }),
                 contents: o.contents.map(function(x) { return richToPlain(x.text); }),
-                activities: o.activities.map(richToPlain)
+                activities: o.activities.map(richToPlain),
+                competencias: (o.competencias || []).slice()
               };
             })
           };
@@ -5335,6 +5499,13 @@
       var list = senecaImport.edit.docentes, v = el.value, idx = list.indexOf(v);
       if (el.checked && idx === -1) list.push(v);
       if (!el.checked && idx !== -1) list.splice(idx, 1);
+    }
+    function impToggleComp(objPath, comp, on) {
+      var keys = objPath.split('.'), o = senecaImport.edit;
+      keys.forEach(function(k) { o = o[k]; });
+      var idx = o.competencias.indexOf(comp);
+      if (on && idx === -1) o.competencias.push(comp);
+      if (!on && idx !== -1) o.competencias.splice(idx, 1);
     }
     function impField(path, value, rows, extra) {
       return '<textarea class="field-input imp-ta" rows="' + (rows || 1) + '" data-path="' + path + '" oninput="impInput(this)"' + (extra || '') + '>' + escHtml(value || '') + '</textarea>';
@@ -5391,10 +5562,8 @@
         h += '<label class="imp-check"><input type="checkbox" value="' + escAttr(doc) + '"' + (e.docentes.indexOf(doc) !== -1 ? ' checked' : '') + ' onchange="impToggleDocente(this)"> ' + escHtml(doc) + '</label>';
       });
       h += '</div></div></div>';
-      h += '<div class="grid-pe-2">';
-      h += '<div><label class="field-label">Profesionales implicados</label>' + impField('pe.profesionales', e.pe.profesionales, 4) + '</div>';
-      h += '<div><label class="field-label">Sesiones y agrupamiento</label>' + impField('pe.sesiones', e.pe.sesiones, 4) + '</div>';
-      h += '</div></div>';
+      h += '<div style="margin-top:12px"><label class="field-label">Profesionales implicados</label>' + impField('pe.profesionales', e.pe.profesionales, 4) + '</div>';
+      h += '</div>';
 
       // Ámbitos y objetivos
       e.areas.forEach(function(a, ai) {
@@ -5404,6 +5573,12 @@
         h += '<label class="imp-area-head"><input type="checkbox" data-path="' + ap + '.include"' + (a.include ? ' checked' : '') + ' onchange="impInput(this)"> <strong>' + escHtml(a.name) + '</strong> <span class="imp-count">' + a.objectives.length + ' objetivos' + (aw ? ' · ⚠️ ' + aw : '') + '</span></label>';
         h += senecaWarnList(a.warnings);
         h += '<div class="imp-programa"><label class="field-label">Título del programa</label><input class="field-input" data-path="' + ap + '.programa" value="' + escAttr(a.programa) + '" oninput="impInput(this)"></div>';
+        var orgN = ORG_FIELDS.filter(function(f) { return a.org[f.key]; }).length;
+        h += '<details class="imp-obj"><summary><strong>Organización y recursos</strong> <span class="imp-count">' + orgN + '/' + ORG_FIELDS.length + '</span></summary><div class="imp-obj-body">';
+        ORG_FIELDS.forEach(function(f) {
+          h += '<div class="imp-sec">' + escHtml(f.label) + '</div>' + impField(ap + '.org.' + f.key, a.org[f.key], 2);
+        });
+        h += '</div></details>';
         a.objectives.forEach(function(o, oi) {
           var op = ap + '.objectives.' + oi;
           h += '<details class="imp-obj' + (o.warnings.length ? ' has-warn' : '') + '"' + (o.warnings.length ? ' open' : '') + '>';
@@ -5415,6 +5590,11 @@
           h += impList(op + '.indicators', o.indicators, 'Indicadores');
           h += impList(op + '.contents', o.contents, 'Contenidos');
           h += impList(op + '.activities', o.activities, 'Actividades');
+          h += '<div class="imp-sec">Competencias</div><div class="imp-comps">';
+          COMPETENCIAS.concat(o.competencias.filter(function(c) { return COMPETENCIAS.indexOf(c) === -1; })).forEach(function(c) {
+            h += '<label class="imp-check"><input type="checkbox"' + (o.competencias.indexOf(c) !== -1 ? ' checked' : '') + ' onchange="impToggleComp(' + jsArg(op) + ',' + jsArg(c) + ',this.checked)"> ' + escHtml(c) + '</label>';
+          });
+          h += '</div>';
           h += '</div></details>';
         });
         h += '</div>';
@@ -5451,7 +5631,7 @@
       var name = String(e.studentName || '').trim();
       var nonEmpty = function(arr) { return arr.map(function(t) { return String(t || '').trim(); }).filter(Boolean); };
       var areas = e.areas.filter(function(a) { return a.include; }).map(function(a) {
-        return { name: a.name, programa: String(a.programa || '').trim(), objectives: a.objectives.filter(function(o) { return o.include && String(o.title || '').trim(); }) };
+        return { name: a.name, programa: String(a.programa || '').trim(), org: a.org, objectives: a.objectives.filter(function(o) { return o.include && String(o.title || '').trim(); }) };
       }).filter(function(a) { return a.objectives.length; });
       if (!name) { markInvalid('impName', 'Introduce el nombre del alumno/a'); return; }
       if (!areas.length) { showToast('Selecciona al menos un ámbito con objetivos', 'error'); return; }
@@ -5469,6 +5649,7 @@
         return {
           name: a.name,
           programa: a.programa,
+          org: (function() { var org = copyOrg(a.org); ORG_FIELDS.forEach(function(f) { org[f.key] = String(org[f.key]).trim(); }); return org; })(),
           objectives: a.objectives.map(function(o) {
             var inds = nonEmpty(o.indicators);
             return {
@@ -5477,7 +5658,8 @@
               eval1T: '', eval2T: '', eval3T: '',
               indicators: (inds.length ? inds : ['']).map(function(t) { return { id: uid(), text: t, eval1T: '', eval2T: '', eval3T: '', observaciones: '' }; }),
               contents: normalizeContentsField(nonEmpty(o.contents).map(function(t) { return { text: plainToRich(t) }; })),
-              activities: normalizeRichField(nonEmpty(o.activities).map(function(t) { return { text: plainToRich(t) }; }))
+              activities: normalizeRichField(nonEmpty(o.activities).map(function(t) { return { text: plainToRich(t) }; })),
+              competencias: o.competencias.slice()
             };
           })
         };
@@ -5505,12 +5687,14 @@
           return {
             ambito: a.name,
             programa: a.programa || '',
+            organizacion: copyOrg(a.org),
             objetivos: a.objectives.filter(function(o) { return String(o.title || '').trim(); }).map(function(o) {
               return {
                 objetivo: String(o.title).trim(),
                 indicadores: o.indicators.map(function(x) { return String(x.text || '').trim(); }).filter(Boolean),
                 contenidos: (o.contents || []).map(function(c) { return plain(c.text); }).filter(Boolean),
-                actividades: plain(o.activities || '').split('\n').map(function(t) { return t.trim(); }).filter(Boolean)
+                actividades: plain(o.activities || '').split('\n').map(function(t) { return t.trim(); }).filter(Boolean),
+                competencias: (o.competencias || []).slice()
               };
             })
           };
