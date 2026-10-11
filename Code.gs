@@ -538,8 +538,8 @@ function getOrCreateIndiceIn_(ss) {
   let sheet = ss.getSheetByName(INDICE_TAB);
   if (!sheet) {
     sheet = ss.insertSheet(INDICE_TAB, 0);
-    sheet.appendRow(['ALUMNO/A', 'CURSO', 'PROGRAMA', 'ÁREA/ÁMBITO', 'DOCENTES']);
-    sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+    sheet.appendRow(['ALUMNO/A', 'CURSO', 'PROGRAMA', 'ÁREA/ÁMBITO', 'DOCENTES', 'UNIDAD', 'FIN VIGENCIA']);
+    sheet.getRange(1, 1, 1, 7).setFontWeight('bold');
     sheet.setFrozenRows(1);
     return sheet;
   }
@@ -547,6 +547,9 @@ function getOrCreateIndiceIn_(ss) {
   const lastCol = sheet.getLastColumn();
   if (lastCol < 5) {
     sheet.getRange(1, 5).setValue('DOCENTES').setFontWeight('bold');
+  }
+  if (lastCol < 7) {
+    sheet.getRange(1, 6, 1, 2).setValues([['UNIDAD', 'FIN VIGENCIA']]).setFontWeight('bold');
   }
   return sheet;
 }
@@ -569,12 +572,29 @@ function listStudentsIn_(ss) {
         course: String(row[1] || '').trim(),
         program: String(row[2] || '').trim(),
         area: String(row[3] || '').trim(),
-        docentes: parseDocentesString_(String(row[4] || ''))
+        docentes: parseDocentesString_(String(row[4] || '')),
+        unidad: String(row[5] || '').trim(),
+        finVigencia: dateCell_(row[6])
       });
     }
   }
   return students;
 }
+
+// Sheets convierte "2026-08-31" en fecha: se devuelve siempre como texto yyyy-MM-dd
+function dateCell_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  return String(v || '').trim();
+}
+
+// Datos generales del PE que se guardan como filas TIPO/TEXTO al final de la pestaña
+const PE_FIELDS = [
+  ['UNIDAD', 'unidad'],
+  ['FECHA ELABORACIÓN', 'fechaElaboracion'],
+  ['FIN VIGENCIA', 'fechaFinVigencia'],
+  ['PROFESIONALES', 'profesionales'],
+  ['SESIONES', 'sesiones']
+];
 
 function parseDocentesString_(s) {
   if (!s) return [];
@@ -634,8 +654,11 @@ function readStudentData_(ss, studentName) {
     seguimiento2T: '',
     seguimiento3T: '',
     areas: [],
+    pe: { unidad: '', fechaElaboracion: '', fechaFinVigencia: '', profesionales: '', sesiones: '' },
     informeFamilias: { indicadores: [], evaluaciones: [] }
   };
+  const peByTipo = {};
+  PE_FIELDS.forEach(function(f) { peByTipo[f[0]] = f[1]; });
 
   // Find the header row (contains 'TIPO') then read data after it
   let headerIndex = -1;
@@ -662,7 +685,7 @@ function readStudentData_(ss, studentName) {
     if (!tipo && !texto) continue;
 
     if (tipo === 'ÁREA' || tipo === 'AREA') {
-      currentArea = { name: texto, objectives: [] };
+      currentArea = { name: texto, programa: col6, objectives: [] };
       result.areas.push(currentArea);
       currentObj = null;
     } else if (tipo === 'OBJETIVO' && currentArea) {
@@ -681,6 +704,8 @@ function readStudentData_(ss, studentName) {
       result.seguimiento2T = texto;
     } else if (tipo === 'SEGUIMIENTO 3T') {
       result.seguimiento3T = texto;
+    } else if (peByTipo[tipo]) {
+      result.pe[peByTipo[tipo]] = dateCell_(row[2]);
     } else if (tipo === 'INFORME_INDICADOR') {
       result.informeFamilias.indicadores.push({ text: texto });
       result.informeFamilias.evaluaciones.push({ eval1T, eval2T, eval3T });
@@ -771,7 +796,7 @@ function saveStudentData(payload) {
     const areas = data.areas || [];
     for (let a = 0; a < areas.length; a++) {
       const area = areas[a];
-      rows.push(pad(['', 'ÁREA', area.name]));
+      rows.push(pad(['', 'ÁREA', area.name, '', '', '', area.programa || '']));
 
       const objectives = area.objectives || [];
       for (let i = 0; i < objectives.length; i++) {
@@ -815,6 +840,15 @@ function saveStudentData(payload) {
     if (data.seguimiento2T) rows.push(pad(['', 'SEGUIMIENTO 2T', data.seguimiento2T]));
     if (data.seguimiento3T) rows.push(pad(['', 'SEGUIMIENTO 3T', data.seguimiento3T]));
 
+    const pe = data.pe || {};
+    if (PE_FIELDS.some(function(f) { return pe[f[1]]; })) {
+      rows.push(pad(['']));
+      PE_FIELDS.forEach(function(f) {
+        // El apóstrofo evita que Sheets convierta las fechas: se guardan como texto
+        if (pe[f[1]]) rows.push(pad(['', f[0], (/^fecha/.test(f[1]) ? "'" : '') + String(pe[f[1]])]));
+      });
+    }
+
     var informe = data.informeFamilias;
     if (informe && informe.indicadores && informe.indicadores.length > 0) {
       rows.push(pad(['']));
@@ -841,7 +875,7 @@ function saveStudentData(payload) {
     }
 
     formatStudentSheet_(sheet, rows, isNewSheet);
-    updateIndiceIn_(ss, data.studentName, data.course, 'PE', areaNames, docentesStr);
+    updateIndiceIn_(ss, data.studentName, data.course, 'PE', areaNames, docentesStr, pe.unidad, pe.fechaFinVigencia);
     return { success: true, message: 'Datos guardados correctamente', updatedAt: newUpdatedAt, updatedBy: userEmail };
   } finally {
     lock.releaseLock();
@@ -946,6 +980,8 @@ function formatStudentSheet_(sheet, rowsData, isNewSheet) {
         bg = '#f3f4f6'; fw = 'bold'; wrap = true;
       } else if (tipo === 'INFORME_INDICADOR') {
         bg = '#fce7f3';
+      } else if (PE_FIELDS.some(function(f) { return f[0] === tipo; })) {
+        bg = '#e0f2fe'; wrap = true;
       }
     }
     const f = fillRow(bg, fc, fw, wrap);
@@ -1195,7 +1231,9 @@ function duplicateStudent(studentName, newName, yearId) {
     name: data.studentName,
     course: data.course || '',
     area: (data.areas || []).map(function(a) { return a.name; }).join(', '),
-    docentes: data.docentes || []
+    docentes: data.docentes || [],
+    unidad: (data.pe && data.pe.unidad) || '',
+    finVigencia: (data.pe && data.pe.fechaFinVigencia) || ''
   };
 }
 
@@ -1209,15 +1247,15 @@ function releasePresence(yearId, tabName) {
   return updatePresence_(yearId, tabName, false);
 }
 
-function updateIndiceIn_(ss, name, course, program, area, docentesStr) {
+function updateIndiceIn_(ss, name, course, program, area, docentesStr, unidad, finVigencia) {
   const sheet = getOrCreateIndiceIn_(ss);
   const data = sheet.getDataRange().getValues();
-  const dStr = docentesStr || '';
+  const row = [name, course, program, area, docentesStr || '', unidad || ''].map(safeCell_).concat([finVigencia ? "'" + finVigencia : '']);
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]).trim() === name.trim()) {
-      sheet.getRange(i + 1, 1, 1, 5).setValues([[name, course, program, area, dStr].map(safeCell_)]);
+      sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
       return;
     }
   }
-  sheet.appendRow([name, course, program, area, dStr].map(safeCell_));
+  sheet.appendRow(row);
 }
