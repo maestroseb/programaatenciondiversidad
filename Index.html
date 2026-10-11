@@ -4986,7 +4986,13 @@
           markSessionOk();
           state.config.centro = payload.centro;
           state.config.localidad = payload.localidad;
-          if (payload.cursoEscolar) state.config.cursoEscolar = payload.cursoEscolar;
+          if (payload.cursoEscolar) {
+            state.config.cursoEscolar = payload.cursoEscolar;
+            // El nombre del curso académico también cambia en el selector y la lista
+            (state.years || []).forEach(function(y) { if (y.id === state.activeYearId) y.label = payload.cursoEscolar; });
+            if (state.config.years) state.config.years = state.years;
+            if (typeof renderYearSelect === 'function') renderYearSelect();
+          }
           if (teamPayload) {
             var labels = teamPayload.team.filter(function(m) { return m.nombre; }).map(function(m) { return m.nombre + (m.rol ? ' (' + m.rol + ')' : ''); });
             if (labels.length) state.config.docentes = labels;

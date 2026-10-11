@@ -606,15 +606,37 @@ function saveConfig(payload) {
       const yearId = data.yearId || getActiveYearId_();
       if (data.yearId) assertKnownYear_(data.yearId);
       if (yearId) {
+        const newLabel = String(data.cursoEscolar).trim();
         const yearSS = SpreadsheetApp.openById(yearId);
         const yCfg = getOrCreateConfigIn_(yearSS);
-        upsertKV_(yCfg, 'cursoEscolar', String(data.cursoEscolar).trim());
+        upsertKV_(yCfg, 'cursoEscolar', newLabel);
+        if (newLabel) renameYearLabel_(yearId, newLabel);
       }
     }
   } finally {
     lock.releaseLock();
   }
   return { success: true };
+}
+
+// Renombra el curso académico en la lista de cursos (selector) y el archivo de Drive
+function renameYearLabel_(yearId, newLabel) {
+  const sheet = getOrCreateCursos_();
+  const data = sheet.getDataRange().getValues();
+  let row = -1;
+  for (let i = 1; i < data.length; i++) {
+    const id = String(data[i][1]).trim();
+    if (id === String(yearId).trim()) row = i + 1;
+    else if (id && String(data[i][0]).trim().toLowerCase() === newLabel.toLowerCase()) {
+      throw new Error('Ya existe un curso académico llamado "' + newLabel + '".');
+    }
+  }
+  if (row < 0 || String(data[row - 1][0]).trim() === newLabel) return;
+  sheet.getRange(row, 1).setValue(safeCell_(newLabel));
+  invalidateCursosCache_();
+  try {
+    DriveApp.getFileById(yearId).setName('Programa Atención a la Diversidad — ' + newLabel.replace(/\//g, '-'));
+  } catch (e) { /* sin permiso para renombrar el archivo: no es imprescindible */ }
 }
 
 function upsertKV_(sheet, key, value) {
