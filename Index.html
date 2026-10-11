@@ -1666,11 +1666,45 @@
       'Conciencia y expresiones culturales'
     ];
 
+    // Curso = nivel (lista fija). El grupo concreto (1ºB, I4A…) va en «Unidad».
     const COURSES = [
-      '1º Infantil','2º Infantil','3º Infantil',
+      '3 años Infantil','4 años Infantil','5 años Infantil',
       '1º Primaria','2º Primaria','3º Primaria',
       '4º Primaria','5º Primaria','6º Primaria'
     ];
+
+    // Convierte cursos antiguos o libres ("Primaria 1A", "1º EP", "2º Infantil", "I4A"…) al nivel
+    // de COURSES y, si traían letra de grupo, propone la unidad ("1ºA", "I4A").
+    function normalizeCourse(course, unidad) {
+      var raw = String(course || '').trim();
+      var res = { course: raw, unidad: String(unidad || '').trim() };
+      if (!raw || COURSES.indexOf(raw) !== -1) return res;
+      var n = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      var isInf = /infantil|\bei\b|anos|^i\s*\d/.test(n);
+      var m, level = null, letter = '';
+      if (isInf) {
+        if ((m = n.match(/([345])\s*anos/))) level = +m[1];
+        else if ((m = n.match(/^i\s*([345])\s*([a-d])?$/))) { level = +m[1]; letter = m[2] || ''; }
+        else if ((m = n.match(/([1-5])\s*(º)?\s*([a-d])?\b/))) {
+          // "1º/2º/3º Infantil" son ordinales (1º = 3 años); "Infantil 4B" ya es la edad
+          var d = +m[1];
+          level = (m[2] && d <= 3) || d <= 2 ? d + 2 : d;
+          letter = m[3] || '';
+        }
+        if (!letter && (m = n.match(/\d\s*º?\s*([a-d])\b/))) letter = m[1];
+        if (!level) return res;
+        res.course = level + ' años Infantil';
+        if (letter && !res.unidad) res.unidad = 'I' + level + letter.toUpperCase();
+        return res;
+      }
+      var rest = n.replace(/primaria|educ\.?|prima\.?|\bep\b|\bde\b/g, ' ');
+      if (!(m = rest.match(/([1-6])\s*º?\s*([a-d])?\b/))) return res;
+      res.course = m[1] + 'º Primaria';
+      if (m[2] && !res.unidad) res.unidad = m[1] + 'º' + m[2].toUpperCase();
+      return res;
+    }
+    function courseOf(s) { return normalizeCourse(s.course, s.unidad).course; }
+    function unidadOf(s) { return normalizeCourse(s.course, s.unidad).unidad; }
 
     const AREAS = [
       'Desarrollo Cognitivo',
@@ -2317,12 +2351,14 @@
       // Course filter chips
       var coursesInUse = [];
       state.students.forEach(function(s) {
-        if (s.course && coursesInUse.indexOf(s.course) === -1) coursesInUse.push(s.course);
+        var c = courseOf(s);
+        if (c && coursesInUse.indexOf(c) === -1) coursesInUse.push(c);
       });
       if (coursesInUse.length > 1) {
         html += '<div class="course-filters" id="courseFilters">';
         html += '<button class="course-chip' + (state.courseFilter === 'Todos' ? ' active' : '') + '" onclick="setCourseFilter(\'Todos\')">Todos</button>';
-        coursesInUse.sort().forEach(function(c) {
+        var rank = function(c) { var i = COURSES.indexOf(c); return i === -1 ? 99 : i; };
+        coursesInUse.sort(function(a, b) { return rank(a) - rank(b) || a.localeCompare(b); }).forEach(function(c) {
           html += '<button class="course-chip' + (state.courseFilter === c ? ' active' : '') + '" onclick="setCourseFilter(' + jsArg(c) + ')">' + escHtml(c) + '</button>';
         });
         html += '</div>';
@@ -2387,7 +2423,8 @@
         html += '<div class="student-item" role="button" tabindex="0" onclick="selectStudent(' + nameArg + ')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();selectStudent(' + nameArg + ')}">';
         html += '<div class="student-main"><span class="student-avatar" aria-hidden="true">' + escHtml(initialsOf(s.name)) + '</span>';
         html += '<div class="student-text"><div class="name">' + escHtml(s.name) + '</div>';
-        html += '<div class="course">' + escHtml(s.course) + (s.unidad ? ' · ' + escHtml(s.unidad) : '');
+        var sUnidad = unidadOf(s);
+        html += '<div class="course">' + escHtml(courseOf(s)) + (sUnidad ? ' · ' + escHtml(sUnidad) : '');
         var vig = vigenciaInfo(s.finVigencia);
         if (vig) html += ' <span class="vig-badge ' + vig.cls + '">' + escHtml(vig.label) + '</span>';
         if (s.docentes && s.docentes.length) {
@@ -2460,11 +2497,11 @@
       var searchEl = document.getElementById('searchInput');
       var q = searchEl ? searchEl.value.toLowerCase() : '';
       return state.students.filter(function(s) {
-        var matchesCourse = (state.courseFilter === 'Todos') || (s.course === state.courseFilter);
+        var matchesCourse = (state.courseFilter === 'Todos') || (courseOf(s) === state.courseFilter);
         var docentes = s.docentes || [];
         var matchesDocente = (state.docenteFilter === 'Todos') || docentes.indexOf(state.docenteFilter) !== -1;
         var docentesText = docentes.join(' ').toLowerCase();
-        var matchesSearch = !q || s.name.toLowerCase().includes(q) || s.course.toLowerCase().includes(q) || (s.unidad || '').toLowerCase().includes(q) || s.program.toLowerCase().includes(q) || docentesText.includes(q);
+        var matchesSearch = !q || s.name.toLowerCase().includes(q) || courseOf(s).toLowerCase().includes(q) || unidadOf(s).toLowerCase().includes(q) || s.program.toLowerCase().includes(q) || docentesText.includes(q);
         return matchesCourse && matchesDocente && matchesSearch;
       });
     }
@@ -2507,6 +2544,9 @@
         state.seguimiento2T = data.seguimiento2T || '';
         state.seguimiento3T = data.seguimiento3T || '';
         state.pe = copyPe(data.pe);
+        var nc = normalizeCourse(state.course, state.pe.unidad);
+        state.course = nc.course;
+        state.pe.unidad = nc.unidad;
         state.areas = (data.areas || []).map(function(a) {
           return {
             name: a.name,
@@ -2789,7 +2829,7 @@
       html += '<input class="field-input" id="fName" value="' + escAttr(state.studentName) + '" placeholder="Nombre y apellidos" oninput="onFieldChange()"></div>';
       html += '<div><label class="field-label" for="fCourse">Curso *</label>';
       html += '<select class="field-select" id="fCourse" onchange="onFieldChange()"><option value="">Selecciona curso</option>';
-      var courseOptions = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES;
+      var courseOptions = COURSES;
       // Si el alumno tiene un curso que ya no está en la lista, lo añadimos para no perder el dato
       if (state.course && courseOptions.indexOf(state.course) === -1) {
         html += '<option value="' + escAttr(state.course) + '" selected>' + escHtml(state.course) + ' (no en lista)</option>';
@@ -4566,11 +4606,7 @@
       html += '<div><label class="field-label" for="cfgCurso">Curso escolar</label>';
       html += '<input class="field-input" id="cfgCurso" value="' + escAttr(c.cursoEscolar || '') + '" placeholder="Ej: 2025/2026 (vacío = automático)"></div>';
 
-      html += '<div class="settings-grid-2">';
-      html += '<div><div class="field-label">Cursos del año (1º A, 1º B, …)</div>';
-      html += '<div class="list-editor" id="coursesEditor"></div>';
-      html += '<button type="button" class="btn-add-list" onclick="addCfgListItem(\'coursesEditor\', \'\')">+ Añadir curso</button></div>';
-
+      html += '<div>';
       html += '<div><div class="field-label">Docentes especialistas</div>';
       html += '<div class="list-editor" id="docentesEditor"></div>';
       html += '<button type="button" class="btn-add-list" onclick="addCfgListItem(\'docentesEditor\', \'\')">+ Añadir docente</button>';
@@ -4601,8 +4637,6 @@
       document.body.appendChild(wrapper);
 
       // Rellenar listas
-      var coursesList = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES.slice();
-      coursesList.forEach(function(v) { addCfgListItem('coursesEditor', v); });
       (state.config.docentes || []).forEach(function(v) { addCfgListItem('docentesEditor', v); });
 
       state.usersLoaded = false;
@@ -4808,7 +4842,6 @@
       };
       var listsPayload = {
         yearId: state.activeYearId,
-        courses: readCfgListEditor('coursesEditor'),
         docentes: readCfgListEditor('docentesEditor')
       };
       // Usuarios autorizados (solo administrador y solo si la lista se cargó)
@@ -4835,7 +4868,6 @@
           state.config.centro = payload.centro;
           state.config.localidad = payload.localidad;
           if (payload.cursoEscolar) state.config.cursoEscolar = payload.cursoEscolar;
-          state.config.courses = listsPayload.courses;
           state.config.docentes = listsPayload.docentes;
           if (state.rawConfig) Object.assign(state.rawConfig, state.config);
           saveBootCache();
@@ -5158,12 +5190,10 @@
       var n = senecaNorm(raw);
       var m = n.match(/^(\d)º.*prim/);
       if (m) return m[1] + 'º Primaria';
-      var inf = { 'tres': 1, 'cuatro': 2, 'cinco': 3, '3': 1, '4': 2, '5': 3 };
+      var inf = { 'tres': 3, 'cuatro': 4, 'cinco': 5, '3': 3, '4': 4, '5': 5 };
       m = n.match(/^(tres|cuatro|cinco|3|4|5)\s*anos/);
-      if (m) return inf[m[1]] + 'º Infantil';
-      m = n.match(/^(\d)º.*inf/);
-      if (m) return m[1] + 'º Infantil';
-      return String(raw || '').trim();
+      if (m) return inf[m[1]] + ' años Infantil';
+      return normalizeCourse(raw, '').course;
     }
 
     function senecaAreaName(raw) {
@@ -5334,7 +5364,7 @@
     function validateSenecaImport(d) {
       d.warnings = [];
       if (!d.studentName) d.warnings.push('No se ha encontrado el nombre del alumno/a.');
-      var courseOptions = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES;
+      var courseOptions = COURSES;
       if (!d.course) d.warnings.push('No se ha encontrado el curso.');
       else if (!matchCourseOption(d.course, courseOptions)) d.warnings.push('El curso «' + (d.rawCourse || d.course) + '» no coincide con ninguno de la lista: selecciónalo.');
       if (d.studentName && state.students.some(function(s) { return s.name.trim().toLowerCase() === d.studentName.toLowerCase(); })) {
@@ -5465,7 +5495,7 @@
 
     // Modelo editable de la revisión: lo que se edite aquí es lo que se vuelca a la ficha
     function buildSenecaEditModel(d) {
-      var courseOptions = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES;
+      var courseOptions = COURSES;
       return {
         studentName: d.studentName,
         course: matchCourseOption(d.course, courseOptions),
@@ -5529,7 +5559,7 @@
       document.getElementById('formToolbar').style.display = 'none';
       var nObj = d.areas.reduce(function(n, a) { return n + a.objectives.length; }, 0);
       var nInd = d.areas.reduce(function(n, a) { return n + a.objectives.reduce(function(m, o) { return m + o.indicators.length; }, 0); }, 0);
-      var courseOptions = (state.config.courses && state.config.courses.length) ? state.config.courses : COURSES;
+      var courseOptions = COURSES;
       var globalWarn = d.warnings.filter(function(w) { return !(e.course && /^El curso/.test(w)); });
 
       var h = '<div class="card imp-review"><div class="card-body">';
