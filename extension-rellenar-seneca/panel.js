@@ -139,6 +139,8 @@ function leerPantalla() {
     return {
       pantalla: 'mapa',
       objetivo: o && o.value !== '-1' ? (o.title || o.text).trim() : '',
+      objetivoValor: o ? o.value : '',
+      opcionesObjetivo: [...s.options].filter((x) => x.value !== '-1').map((x) => ({ valor: x.value, texto: (x.title || x.text).trim() })),
       indicadores: filas('TABLA_INDICADORES'),
       contenidos: filas('TABLA_CONTENIDOS'),
       actividades: filas('TABLA_ACTIVIDADES'),
@@ -194,7 +196,7 @@ async function accionEnPagina(op) {
     }
     if (cuadros.length < op.textos.length) return { error: 'No han aparecido los cuadros de texto al pulsar Mostrar' };
     op.textos.forEach((t, i) => fijar(cuadros[i], t));
-    resaltar(g(op.aplicar));
+    if (op.pulsar) { await espera(200); g(op.aplicar).click(); } else resaltar(g(op.aplicar));
     return { ok: true };
   }
   if (op.tipo === 'competencia') {
@@ -203,7 +205,13 @@ async function accionEnPagina(op) {
     const o = s && [...s.options].find((x) => x.text.trim() === op.texto);
     if (!o) return { error: 'Esa competencia no está en la lista de Séneca' };
     fijar(s, o.value);
-    resaltar(g('BOTON_APLICAR_COM'));
+    if (op.pulsar) { await espera(200); g('BOTON_APLICAR_COM').click(); } else resaltar(g('BOTON_APLICAR_COM'));
+    return { ok: true };
+  }
+  if (op.tipo === 'objetivo') {
+    const s = g('X_OBJPROESP');
+    if (!s) return { error: 'No encuentro el selector de objetivo' };
+    fijar(s, op.valor);
     return { ok: true };
   }
   if (op.tipo === 'campos') {
@@ -234,9 +242,8 @@ async function pestañaActiva() {
   return tab;
 }
 
-async function leer() {
-  if (ocupado) return;
-  const tab = await pestañaActiva();
+async function leerAhora(tabId) {
+  const tab = tabId ? await chrome.tabs.get(tabId).catch(() => null) : await pestañaActiva();
   let info = null;
   let frameId = 0;
   if (tab && /juntadeandalucia\.es/.test(tab.url || '')) {
@@ -246,6 +253,12 @@ async function leer() {
       if (r) { info = r.result; frameId = r.frameId; }
     } catch { /* pestaña sin permiso o recargándose */ }
   }
+  return { tab, info, frameId };
+}
+
+async function leer() {
+  if (ocupado) return;
+  const { tab, info, frameId } = await leerAhora();
   const firma = JSON.stringify([info, !!datos, ambitoElegido, objetivoElegido]);
   if (firma === ultimaFirma) return;
   ultimaFirma = firma;
@@ -270,6 +283,117 @@ async function ejecutar(op, siguiente) {
   } finally {
     ocupado = false;
   }
+}
+
+// ─── Modo automático: el panel dirige cada paso y espera a ver el resultado en la tabla ───
+let cancelar = false;
+const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function accionAuto(op) {
+  const { tab, info, frameId } = await leerAhora(lectura.tabId);
+  if (!tab || !info) throw new Error('No encuentro la pantalla de Séneca');
+  const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id, frameIds: [frameId] }, func: accionEnPagina, args: [op] });
+  const res = r && r.result;
+  if (!res || !res.ok) throw new Error((res && res.error) || 'No se pudo completar');
+}
+
+// Relee la pantalla hasta que se cumpla la condición (tolera recargas de Séneca)
+async function esperar(cond, que, ms = 25000) {
+  const fin = Date.now() + ms;
+  while (Date.now() < fin) {
+    if (cancelar) throw new Error('Detenido');
+    await dormir(700);
+    const { info } = await leerAhora(lectura.tabId);
+    if (info && cond(info)) return info;
+  }
+  throw new Error('Séneca no ha mostrado el resultado esperado: ' + que);
+}
+
+async function automatico(pasos) {
+  ocupado = true;
+  cancelar = false;
+  pintarProgreso('Empezando…');
+  try {
+    await pasos((msg) => pintarProgreso(msg));
+  } catch (e) {
+    ocupado = false;
+    ultimaFirma = '';
+    await leer();
+    estado((e.message === 'Detenido' ? 'Detenido. ' : 'Parado: ') + e.message.replace('Detenido', '') + ' Lo ya aplicado está guardado; puedes volver a pulsar el botón para seguir.', e.message !== 'Detenido');
+    return;
+  }
+  ocupado = false;
+  ultimaFirma = '';
+  await leer();
+}
+
+function pintarProgreso(msg) {
+  const p = $('pantalla');
+  p.replaceChildren(el('p', '', '⏳ ' + msg), boton('Detener', () => { cancelar = true; }, true));
+}
+
+function autoArea(amb) {
+  automatico(async (avance) => {
+    let info = (await leerAhora(lectura.tabId)).info;
+    const faltan = comparar(amb.objetivos.map((o) => o.objetivo), info.objetivos).faltan;
+    if (faltan.length) {
+      avance(`Añadiendo ${faltan.length} objetivo(s)…`);
+      await accionAuto({ tipo: 'lista', num: 'N_OBJ', td: 'TD_OBJ', aplicar: 'BOTON_APLICAR_OBJ', textos: faltan, pulsar: true });
+      info = await esperar((i) => i.pantalla === 'area' && !comparar(faltan, i.objetivos).faltan.length, 'objetivos añadidos');
+    }
+    const org = amb.organizacion || {};
+    const valores = {};
+    [['D_TITULO', amb.programa, info.titulo], ['D_ORGANIZACION', org.organizacion, info.organizacion], ['D_RECURSOS', org.recursos, info.recursos]]
+      .forEach(([id, app, sen]) => { if (String(app || '').trim() && norm(app) !== norm(sen)) valores[id] = String(app).trim(); });
+    if (Object.keys(valores).length) {
+      avance('Escribiendo título, organización y recursos…');
+      await accionAuto({ tipo: 'campos', valores });
+    }
+    ultimoEstado = { msg: 'Objetivos aplicados. Revisa título/organización/recursos (fondo amarillo) y pulsa Aceptar en Séneca si lo hay. Después abre «Mapa de relaciones» de cualquier objetivo y pulsa «Rellenar todos los objetivos».' };
+  });
+}
+
+const SECCIONES = [
+  ['indicadores', 'Indicadores', { num: 'N_IND', td: 'TD_IND', aplicar: 'BOTON_APLICAR_IND', pestanna: 'Indicadores evaluación' }],
+  ['contenidos', 'Contenidos', { num: 'N_CONT', td: 'TD_CONT', aplicar: 'BOTON_APLICAR_CONT', pestanna: 'Contenidos' }],
+  ['actividades', 'Actividades', { num: 'N_ACT', td: 'TD_ACT', aplicar: 'BOTON_APLICAR_ACT', pestanna: 'Actividades y Tareas' }],
+];
+
+function objetivoDeApp(textoSeneca) {
+  return todosLosObjetivos().find((x) => iguales(x.obj.objetivo, sinNumero(textoSeneca)));
+}
+
+function autoMapa() {
+  automatico(async (avance) => {
+    let info = (await leerAhora(lectura.tabId)).info;
+    const lista = info.opcionesObjetivo.map((op) => ({ op, app: objetivoDeApp(op.texto) })).filter((x) => x.app);
+    if (!lista.length) throw new Error('Ningún objetivo de Séneca coincide con los de la app.');
+    for (let k = 0; k < lista.length; k++) {
+      const { op, app } = lista[k];
+      const etiqueta = `Objetivo ${k + 1}/${lista.length}`;
+      if (info.objetivoValor !== op.valor) {
+        avance(`${etiqueta}: abriendo…`);
+        await accionAuto({ tipo: 'objetivo', valor: op.valor });
+        info = await esperar((i) => i.pantalla === 'mapa' && i.objetivoValor === op.valor, 'cambio de objetivo');
+      }
+      for (const [clave, nombre, cfg] of SECCIONES) {
+        const faltan = comparar(app.obj[clave] || [], info[clave]).faltan;
+        if (!faltan.length) continue;
+        avance(`${etiqueta}: ${nombre.toLowerCase()} (${faltan.length})…`);
+        await accionAuto(Object.assign({ tipo: 'lista', textos: faltan, pulsar: true }, cfg));
+        info = await esperar((i) => i.pantalla === 'mapa' && i.objetivoValor === op.valor && !comparar(faltan, i[clave]).faltan.length, nombre.toLowerCase() + ' añadidos');
+      }
+      for (const c of comparar(app.obj.competencias || [], info.competencias).faltan) {
+        const exacto = info.compDisponibles.find((d) => norm(d) === norm(c));
+        if (!exacto) continue;
+        avance(`${etiqueta}: competencia «${exacto}»…`);
+        await accionAuto({ tipo: 'competencia', texto: exacto, pestanna: 'Contribución competencias', pulsar: true });
+        info = await esperar((i) => i.pantalla === 'mapa' && i.objetivoValor === op.valor && i.competencias.some((x) => norm(x) === norm(exacto)), 'competencia añadida');
+      }
+    }
+    const sinApp = info.opcionesObjetivo.length - lista.length;
+    ultimoEstado = { msg: `Listo: ${lista.length} objetivo(s) completados.` + (sinApp ? ` ${sinApp} objetivo(s) de Séneca no están en la app y no se han tocado.` : '') + ' Revisa y lo que sobre bórralo tú.' };
+  });
 }
 
 function boton(texto, onClick, sec) {
@@ -346,6 +470,8 @@ function pintarArea(p, info) {
   p.append(el('div', 'nota', 'Ámbito de la app:'), selector(datos.ambitos.map((a) => [a.ambito, a.ambito]), nombre, (v) => { ambitoElegido = v; ultimaFirma = ''; leer(); }));
   if (!amb) return;
 
+  p.append(boton('▶ Rellenar todo automáticamente', () => autoArea(amb)), el('p', 'nota', 'Añade y aplica los objetivos que faltan y escribe título, organización y recursos. No pulsa Aceptar ni borra nada. O hazlo paso a paso:'));
+
   // Título, organización y recursos
   const org = amb.organizacion || {};
   const campos = [
@@ -396,10 +522,11 @@ function pintarMapa(p, info) {
   const todos = todosLosObjetivos();
   const delSeneca = norm(sinNumero(info.objetivo));
   let actual = todos.find((x) => x.clave === objetivoElegido) || todos.find((x) => norm(x.obj.objetivo) === delSeneca);
-  if (!info.objetivo) { p.className = 'muted'; p.textContent = 'Elige un objetivo en Séneca.'; return; }
+  if (!info.objetivo) { p.append(boton('▶ Rellenar todos los objetivos', () => autoMapa())); return; }
   if (!todos.find((x) => x.clave === objetivoElegido) && !actual) {
     p.append(el('p', 'nota', 'El objetivo de Séneca no coincide con ninguno de la app. Elige cuál es:'));
   }
+  p.append(boton('▶ Rellenar todos los objetivos', () => autoMapa()), el('p', 'nota', 'Recorre cada objetivo del desplegable y aplica los indicadores, contenidos, actividades y competencias que faltan. No borra nada. O este objetivo paso a paso:'));
   p.append(el('div', 'nota', 'Objetivo de la app:'), selector([['', '—']].concat(todos.map((x) => [x.clave, x.etiqueta])), actual ? actual.clave : '', (v) => { objetivoElegido = v; ultimaFirma = ''; leer(); }));
   if (!actual) return;
   const o = actual.obj;

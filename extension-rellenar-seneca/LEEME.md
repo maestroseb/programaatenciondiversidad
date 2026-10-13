@@ -15,4 +15,9 @@ Panel lateral de Chrome que compara el programa específico de la app con el que
    - **Mapa de relaciones** (de cada objetivo): indicadores, contenidos, actividades y competencias → pulsa *Aplicar* en cada pestaña.
 4. Lo marcado como **Sobra en Séneca** bórralo o edítalo tú (pulsa sobre él → Borrar / Detalle).
 
+## Modo automático
+- En **Propuesta de área**: «▶ Rellenar todo automáticamente» añade y aplica los objetivos que faltan y escribe título, organización y recursos.
+- En **Mapa de relaciones**: «▶ Rellenar todos los objetivos» recorre el desplegable y aplica indicadores, contenidos, actividades y competencias que faltan en cada objetivo.
+- Espera a ver cada resultado en la tabla de Séneca antes de seguir; si algo no aparece, se para y lo dice. Botón **Detener** en todo momento. No borra nada ni pulsa Aceptar.
+
 Si el panel no se actualiza tras pulsar algo en Séneca, pulsa **↻ Leer**.
