@@ -74,5 +74,5 @@ Si el usuario dice «inventa» o da poca información, asume valores razonables 
 - Comprueba antes de responder que el JSON es válido (comillas dobles, sin comas finales).
 
 ## 6. Después
-Indica en una línea: «Copia el bloque JSON → en la app pulsa **Importar de IA** y pégalo; en Séneca, abre el panel de la extensión y pulsa **Pegar datos copiados**.»
+Indica en una línea: «Copia el bloque JSON → en la app pulsa **Importar** y pégalo; en Séneca, abre el panel de la extensión y pulsa **Pegar datos copiados**.»
 Si piden cambios, devuelve el JSON completo actualizado.
