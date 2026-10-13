@@ -244,19 +244,14 @@ async function accionEnPagina(op) {
     // Pulsa una fila (abre el menú emergente de Séneca) y luego la opción indicada
     const td = document.querySelector(`td[onclick*="${op.fila}"]`);
     if (!td) return { error: 'No encuentro la fila en la tabla' };
+    // Si quedó abierto un menú de antes, se cierra: un clic en la fila lo cerraría en vez de abrirlo
+    const cerrar = [...document.querySelectorAll('.firstContextmenuItem')].find((x) => visible(x));
+    if (cerrar) { cerrar.click(); await espera(300); }
     td.click();
     for (let i = 0; i < 30; i++) {
       await espera(100);
       const item = [...document.querySelectorAll('[id^="menuItemmenuContainer"]')].find((x) => visible(x) && x.textContent.replace(/\s+/g, ' ').includes(op.opcion));
-      if (item) {
-        item.click();
-        await espera(600);
-        if (item.isConnected && visible(item)) {
-          // Segundo intento con la secuencia completa de ratón
-          ['mousedown', 'mouseup', 'click'].forEach((t) => item.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, view: window })));
-        }
-        return { ok: true };
-      }
+      if (item) { item.click(); return { ok: true }; }
     }
     return { error: 'No aparece la opción «' + op.opcion + '» en el menú' };
   }
@@ -619,8 +614,7 @@ function autoPrograma() {
         const fila = info.areas.find((x) => norm(x.area) === norm(sig.ambito)).fila;
         avance(`${sig.ambito}: abriendo…`);
         ambitoElegido = sig.ambito;
-        await accionAuto({ tipo: 'menu', fila: `showOpciones(${fila})`, opcion: 'Detalle' });
-        await esperar((i) => i.pantalla === 'area', 'abrir la propuesta de área');
+        await abrirDesdeMenu(`showOpciones(${fila})`, 'Detalle', 'area', 'abrir la propuesta de área');
         continue;
       }
       if (info.pantalla !== 'area') throw new Error('Empieza desde «Apartados del documento» o desde una Propuesta de área.');
@@ -643,8 +637,7 @@ function autoPrograma() {
       }
       if (info.objetivos.length) {
         avance(`${amb.ambito}: abriendo el mapa de relaciones…`);
-        await accionAuto({ tipo: 'menu', fila: "showOpciones('TABLA_OBJETIVOS', 1, 1", opcion: 'Mapa de relaciones' });
-        await esperar((i) => i.pantalla === 'mapa', 'abrir el mapa de relaciones');
+        await abrirDesdeMenu("showOpciones('TABLA_OBJETIVOS', 1, 1", 'Mapa de relaciones', 'mapa', 'abrir el mapa de relaciones');
         resumen.push(amb.ambito + ': ' + await hacerMapa((m) => avance(amb.ambito + ' · ' + m), borrarSobrantes));
         avance(`${amb.ambito}: volviendo…`);
         await accionAuto({ tipo: 'boton', funcion: 'volver' });
@@ -681,6 +674,23 @@ function autoPrograma() {
   });
 }
 
+// Abre una pantalla desde un menú de fila; si Séneca no cambia de pantalla, lo reintenta (hasta 3 veces)
+async function abrirDesdeMenu(fila, opcion, pantalla, que) {
+  const origen = (await leerAhora(lectura.tabId)).info;
+  for (let intento = 1; ; intento++) {
+    await accionAuto({ tipo: 'menu', fila, opcion });
+    try {
+      return await esperar((i) => i.pantalla === pantalla, que, 9000);
+    } catch (e) {
+      if (e.message === 'Detenido' || intento >= 3) throw e;
+      // Solo se reintenta si Séneca sigue en la pantalla de partida (no si está cargando la nueva)
+      const { info } = await leerAhora(lectura.tabId);
+      if (info && info.pantalla === pantalla) return info;
+      if (!info || !origen || info.pantalla !== origen.pantalla) return esperar((i) => i.pantalla === pantalla, que);
+    }
+  }
+}
+
 // ─── Copiar de Séneca: recorre todas las áreas y objetivos y arma el JSON pae-seneca (sin datos personales) ───
 let exportado = null;
 let copiaPendiente = false; // solo si el navegador no dejó copiar automáticamente
@@ -692,8 +702,7 @@ function autoExportar() {
     const ambitos = [];
     for (const fila of info.areas) {
       avance(`${fila.area}: abriendo…`);
-      await accionAuto({ tipo: 'menu', fila: `showOpciones(${fila.fila})`, opcion: 'Detalle' });
-      let area = await esperar((i) => i.pantalla === 'area', 'abrir la propuesta de área');
+      const area = await abrirDesdeMenu(`showOpciones(${fila.fila})`, 'Detalle', 'area', 'abrir la propuesta de área');
       const amb = {
         ambito: fila.area, programa: area.titulo.trim(),
         organizacion: { organizacion: area.organizacion.trim(), recursos: area.recursos.trim() },
@@ -701,8 +710,7 @@ function autoExportar() {
       };
       if (area.objetivos.length) {
         avance(`${fila.area}: abriendo el mapa de relaciones…`);
-        await accionAuto({ tipo: 'menu', fila: "showOpciones('TABLA_OBJETIVOS', 1, 1", opcion: 'Mapa de relaciones' });
-        let mapa = await esperar((i) => i.pantalla === 'mapa', 'abrir el mapa de relaciones');
+        let mapa = await abrirDesdeMenu("showOpciones('TABLA_OBJETIVOS', 1, 1", 'Mapa de relaciones', 'mapa', 'abrir el mapa de relaciones');
         const opciones = mapa.opcionesObjetivo;
         for (let k = 0; k < opciones.length; k++) {
           const op = opciones[k];
