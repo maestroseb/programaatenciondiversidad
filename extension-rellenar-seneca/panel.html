@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <section id="datos">
+    <h1>Datos de la app</h1>
+    <div id="resumenDatos" class="muted">Sin datos. En la app, abre la ficha y pulsa «Copiar para Séneca».</div>
+    <div class="fila">
+      <button id="pegar">Pegar datos copiados</button>
+      <button id="verPegado" class="sec" title="Pegar a mano si el botón no funciona">A mano…</button>
+    </div>
+    <textarea id="manual" rows="4" hidden placeholder="Pega aquí (Ctrl+V) lo copiado en la app y pulsa fuera"></textarea>
+  </section>
+
+  <section>
+    <div class="fila sep">
+      <h1 id="tituloPantalla">Pantalla de Séneca</h1>
+      <button id="leer" class="sec">↻ Leer</button>
+    </div>
+    <div id="pantalla" class="muted">Abre en Séneca una pantalla del programa específico.</div>
+  </section>
+
+  <p class="aviso">La extensión solo escribe en los campos. Revisa y pulsa tú <b>Aplicar</b> y <b>Aceptar</b> en Séneca.</p>
+  <script src="panel.js"></script>
+</body>
+</html>
