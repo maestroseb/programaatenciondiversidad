@@ -27,7 +27,7 @@ Espera a ver cada resultado en Séneca antes de seguir; si algo no aparece, se p
 
 ## Copiar de Séneca
 En **Apartados del documento**, «⬇ Copiar el programa de Séneca» recorre todas las áreas y objetivos y guarda el programa (sin datos personales) en el mismo formato. Pulsa «Copiar al portapapeles» y:
-- pégalo en la app con **Importar de IA**, o
+- pégalo en la app con **Importar**, o
 - pégalo en la IA con la skill para editarlo, copia el resultado, pulsa «Pegar datos copiados» y «Rellenar todo el programa» con la casilla de borrar marcada: Séneca quedará igual que el programa editado.
 
 Si el panel no se actualiza tras pulsar algo en Séneca, pulsa **↻ Leer**.

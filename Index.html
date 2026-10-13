@@ -2352,7 +2352,7 @@
       html += '<h2>' + svgIcon('clipboard') + ' Alumnos <span class="count">(' + state.students.length + ')</span></h2>';
       html += '<div class="student-list-actions">';
       html += '<button class="btn-new" onclick="pickSenecaPdf()" title="Crear la ficha a partir del PDF del Programa Específico generado por Séneca">' + svgIcon('upload') + ' Importar PDF Séneca</button>';
-      html += '<button class="btn-new" onclick="importFromAi()" title="Crear la ficha pegando el programa generado por una IA (formato pae-seneca)">' + svgIcon('upload') + ' Importar de IA</button>';
+      html += '<button class="btn-new" onclick="importFromAi()" title="Crear una ficha pegando un programa copiado de Séneca (con la extensión) o generado por la IA">' + svgIcon('upload') + ' Importar</button>';
       html += '<button class="btn-new" onclick="newStudent()">' + svgIcon('plus') + ' Nuevo alumno</button>';
       html += '</div>';
       html += '</div>';
@@ -5828,8 +5828,8 @@
     }
 
     async function importFromAi() {
-      var text = await promptDialog('Pega el programa que te ha dado la IA (el bloque JSON con "formato": "pae-seneca").', {
-        title: 'Importar programa generado por IA', confirmText: 'Revisar', multiline: true, placeholder: '{ "formato": "pae-seneca", … }',
+      var text = await promptDialog('Pega el programa copiado de Séneca (con la extensión) o generado por la IA.', {
+        title: 'Importar programa', confirmText: 'Revisar', multiline: true, placeholder: '{ "formato": "pae-seneca", … }',
         validate: function(v) { try { parsePaeSeneca(v); return ''; } catch (e) { return e.message; } }
       });
       if (!text) return;

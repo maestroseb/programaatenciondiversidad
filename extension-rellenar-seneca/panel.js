@@ -623,7 +623,7 @@ function autoExportar() {
     const nObj = ambitos.reduce((n, a) => n + a.objetivos.length, 0);
     const resumen = `${ambitos.length} área(s), ${nObj} objetivo(s)`;
     ultimoEstado = await copiarTexto(JSON.stringify(exportado, null, 2))
-      ? { msg: `✓ Copiado en el portapapeles: ${resumen}. Pégalo en la app («Importar de IA») o en la IA para editarlo.` }
+      ? { msg: `✓ Copiado en el portapapeles: ${resumen}. Pégalo en la app («Importar») o en la IA para editarlo.` }
       : { msg: `Leído de Séneca (${resumen}), pero el navegador no ha dejado copiarlo solo: pulsa «Copiar al portapapeles».`, error: true };
   });
 }
@@ -655,7 +655,7 @@ function pintarExportado(p) {
   p.append(boton('Copiar al portapapeles', async () => {
     try {
       await navigator.clipboard.writeText(JSON.stringify(exportado, null, 2));
-      estado('Copiado. Pégalo en la app («Importar de IA») o en la IA para editarlo.');
+      estado('Copiado. Pégalo en la app («Importar») o en la IA para editarlo.');
     } catch (e) { estado('No se pudo copiar: ' + e.message, true); }
   }, true));
 }
