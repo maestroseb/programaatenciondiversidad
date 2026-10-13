@@ -23,7 +23,9 @@ Desde **Apartados del documento** (o desde una Propuesta de área) pulsa **▶ R
 4. Vuelve, escribe título, organización y recursos y pulsa **Aceptar** (desmarca la casilla si prefieres revisar y aceptar tú cada área).
 5. Pasa a la siguiente área.
 
-Espera a ver cada resultado en Séneca antes de seguir; si algo no aparece, se para y dice dónde. Botón **Detener** en todo momento; al volver a pulsar sigue por donde iba. Por defecto no borra nada. Si marcas **«Borrar en Séneca lo que no está en la app»**, también borra indicadores, contenidos, actividades y competencias que sobran (un texto cambiado se borra y se vuelve a añadir) y los objetivos que no están en la app (primero los vacía y luego los borra).
+Espera a ver cada resultado en Séneca antes de seguir; si algo no aparece, se para y dice dónde. Botón **Detener** en todo momento; al volver a pulsar sigue por donde iba. Si un texto ha cambiado (objetivo, indicador, contenido o actividad), lo **corrige en su sitio con «Detalle»**, emparejándolo con el texto más parecido de la app; así se mantiene la numeración y no se pierde nada. Se puede desactivar con la casilla «Corregir con Detalle…».
+
+Por defecto no borra nada. Si marcas **«Borrar en Séneca lo que no está en la app»**, también borra indicadores, contenidos, actividades y competencias que sobran (un texto cambiado se borra y se vuelve a añadir) y los objetivos que no están en la app (primero los vacía y luego los borra).
 
 ## Copiar de Séneca
 En **Apartados del documento**, «⬇ Copiar el programa de Séneca» recorre todas las áreas y objetivos y guarda el programa (sin datos personales) en el mismo formato. Pulsa «Copiar al portapapeles» y:

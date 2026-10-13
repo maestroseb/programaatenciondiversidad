@@ -181,6 +181,10 @@ function leerPantalla() {
       disponibles: [...g('cAreasDisp').options].map((x) => x.text.trim()),
     };
   }
+  // Pantalla de Detalle de un elemento (objetivo, indicador…): un cuadro de texto D_* y botón Aceptar
+  const texto = [...document.querySelectorAll('textarea[name^="D_"]')].find((x) => x.offsetWidth || x.getClientRects().length);
+  const aceptar = [...document.querySelectorAll('a[href]')].some((x) => x.getAttribute('href').includes('cuerpo.aceptar()'));
+  if (texto && aceptar) return { pantalla: 'detalle', campo: texto.name, valor: texto.value };
   return null;
 }
 
@@ -255,6 +259,35 @@ async function accionEnPagina(op) {
       }
     }
     return { error: 'No aparece la opción «' + op.opcion + '» en el menú' };
+  }
+  if (op.tipo === 'menuFila') {
+    // Como 'menu', pero localizando la fila de una tabla por su texto
+    const n = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').replace(/[\s.;:,]+$/, '').trim();
+    await pestanna(op.pestanna);
+    const td = [...document.querySelectorAll(`td[onclick*="showOpciones('${op.tabla}'"]`)].find((x) => {
+      const m = x.getAttribute('onclick').match(/'\s*,\s*(\d+)\s*,\s*(\d+)/);
+      const t = x.querySelector('[title]');
+      return m && m[2] === '1' && n((t && t.getAttribute('title')) || x.innerText) === n(op.texto);
+    });
+    if (!td) return { error: 'No encuentro «' + op.texto.slice(0, 40) + '» en la tabla' };
+    td.click();
+    for (let i = 0; i < 30; i++) {
+      await espera(100);
+      const item = [...document.querySelectorAll('[id^="menuItemmenuContainer"]')].find((x) => visible(x) && x.textContent.replace(/\s+/g, ' ').includes(op.opcion));
+      if (item) { item.click(); return { ok: true }; }
+    }
+    return { error: 'No aparece la opción «' + op.opcion + '» en el menú' };
+  }
+  if (op.tipo === 'editarDetalle') {
+    const t = [...document.querySelectorAll('textarea[name^="D_"]')].find((x) => visible(x));
+    if (!t) return { error: 'No encuentro el cuadro de texto del Detalle' };
+    fijar(t, op.valor);
+    await espera(200);
+    if (typeof window.aceptar === 'function') { setTimeout(() => window.aceptar(), 0); return { ok: true }; }
+    const a = [...document.querySelectorAll('a[href]')].find((x) => x.getAttribute('href').includes('cuerpo.aceptar()'));
+    if (!a) return { error: 'No encuentro el botón Aceptar del Detalle' };
+    a.click();
+    return { ok: true };
   }
   if (op.tipo === 'boton') {
     // Botones de la barra de Séneca: aceptar() / volver()
@@ -447,8 +480,65 @@ async function borrarElementos(clave, textos, valorObj, avance) {
   }
 }
 
-// Recorre todos los objetivos del desplegable del mapa de relaciones: aplica lo que falta y,
-// si se pide, borra lo que sobra (y vacía los objetivos que no están en la app para poder borrarlos)
+// ─── Corregir textos con Detalle (mantiene la numeración y no borra nada) ───
+let corregirTextos = true;
+
+// Empareja cada texto de Séneca que no coincide con el más parecido de la app (palabras en común)
+function emparejar(app, sen) {
+  const d = comparar(app, sen);
+  const pal = (s) => new Set(norm(s).split(/[^a-z0-9]+/).filter((w) => w.length > 2));
+  const parecido = (a, b) => {
+    const A = pal(a);
+    const B = pal(b);
+    if (!A.size || !B.size) return 0;
+    let c = 0;
+    A.forEach((w) => { if (B.has(w)) c++; });
+    return c / (A.size + B.size - c);
+  };
+  const cand = [];
+  d.sobran.forEach((s) => d.faltan.forEach((a) => cand.push([parecido(s, a), s, a])));
+  cand.sort((x, y) => y[0] - x[0]);
+  const usadosS = new Set();
+  const usadosA = new Set();
+  const pares = [];
+  cand.forEach(([p, s, a]) => {
+    if (p >= 0.3 && !usadosS.has(s) && !usadosA.has(a)) { usadosS.add(s); usadosA.add(a); pares.push([s, a]); }
+  });
+  return { pares, faltan: d.faltan.filter((a) => !usadosA.has(a)), sobran: d.sobran.filter((s) => !usadosS.has(s)) };
+}
+
+// Tras Aceptar en un Detalle, Séneca vuelve sola o hay que pulsar Volver
+async function volverA(cond, que) {
+  try {
+    return await esperar(cond, que, 8000);
+  } catch (e) {
+    if (e.message === 'Detenido') throw e;
+    const { info } = await leerAhora(lectura.tabId);
+    if (!info || info.pantalla !== 'detalle') throw e;
+    await accionAuto({ tipo: 'boton', funcion: 'volver' });
+    return esperar(cond, que);
+  }
+}
+
+async function corregirEnDetalle(tabla, pestanna, viejo, nuevo, pantallaVuelta, avance) {
+  if (cancelar) throw new Error('Detenido');
+  avance(`corrigiendo «${viejo.slice(0, 40)}»…`);
+  await accionAuto({ tipo: 'menuFila', tabla, texto: viejo, opcion: 'Detalle', pestanna });
+  await esperar((i) => i.pantalla === 'detalle', 'abrir el Detalle de «' + viejo.slice(0, 40) + '»');
+  await accionAuto({ tipo: 'editarDetalle', valor: nuevo });
+  return volverA((i) => i.pantalla === pantallaVuelta, 'volver tras corregir «' + viejo.slice(0, 40) + '»');
+}
+
+// Tras volver de un Detalle, el mapa puede mostrar otro objetivo: se vuelve a elegir
+async function asegurarObjetivo(op) {
+  const { info } = await leerAhora(lectura.tabId);
+  if (info && info.pantalla === 'mapa' && info.objetivoValor === op.valor) return info;
+  await accionAuto({ tipo: 'objetivo', valor: op.valor });
+  return esperar((i) => i.pantalla === 'mapa' && i.objetivoValor === op.valor, 'cambio de objetivo');
+}
+
+// Recorre todos los objetivos del desplegable del mapa de relaciones: corrige los textos cambiados,
+// aplica lo que falta y, si se pide, borra lo que sobra (vaciando antes los objetivos que no están en la app)
 async function hacerMapa(avance, borrar) {
   let info = (await leerAhora(lectura.tabId)).info;
   const todos = info.opcionesObjetivo.map((op) => ({ op, app: objetivoDeApp(op.texto) }));
@@ -461,6 +551,15 @@ async function hacerMapa(avance, borrar) {
       avance(`${etiqueta}: abriendo…`);
       await accionAuto({ tipo: 'objetivo', valor: op.valor });
       info = await esperar((i) => i.pantalla === 'mapa' && i.objetivoValor === op.valor, 'cambio de objetivo');
+    }
+    if (app && corregirTextos) {
+      for (const [clave] of SECCIONES) {
+        for (const [viejo, nuevo] of emparejar(app.obj[clave] || [], info[clave]).pares) {
+          await corregirEnDetalle(TABLAS[clave], PESTANNAS[clave], viejo, nuevo, 'mapa', (m) => avance(`${etiqueta}: ${m}`));
+          await asegurarObjetivo(op);
+          info = await esperar((i) => i.pantalla === 'mapa' && i.objetivoValor === op.valor && i[clave].some((x) => norm(x) === norm(nuevo)), 'texto corregido');
+        }
+      }
     }
     if (borrar) {
       for (const clave of Object.keys(TABLAS)) {
@@ -530,6 +629,12 @@ function autoPrograma() {
       if (!amb || hechos.has(amb.ambito)) break;
       hechos.add(amb.ambito);
 
+      if (corregirTextos) {
+        for (const [viejo, nuevo] of emparejar(amb.objetivos.map((o) => o.objetivo), info.objetivos).pares) {
+          await corregirEnDetalle('TABLA_OBJETIVOS', null, viejo, nuevo, 'area', (m) => avance(`${amb.ambito}: ${m}`));
+          info = await esperar((i) => i.pantalla === 'area' && i.objetivos.some((x) => norm(x) === norm(nuevo)), 'objetivo corregido');
+        }
+      }
       const faltan = comparar(amb.objetivos.map((o) => o.objetivo), info.objetivos).faltan;
       if (faltan.length) {
         avance(`${amb.ambito}: añadiendo ${faltan.length} objetivo(s)…`);
@@ -679,7 +784,8 @@ function casilla(texto, valor, onChange) {
 function controlesPrograma(p) {
   p.append(boton('▶ Rellenar todo el programa', () => autoPrograma()));
   p.append(casilla('Pulsar Aceptar al terminar cada área y seguir con la siguiente', pulsarAceptar, (v) => { pulsarAceptar = v; }));
-  p.append(casilla('Borrar en Séneca lo que no está en la app (objetivos, indicadores, contenidos, actividades y competencias). Un texto cambiado se borra y se vuelve a añadir.', borrarSobrantes, (v) => { borrarSobrantes = v; }));
+  p.append(casilla('Corregir con «Detalle» los textos que han cambiado (mantiene la numeración)', corregirTextos, (v) => { corregirTextos = v; }));
+  p.append(casilla('Borrar en Séneca lo que no está en la app (objetivos, indicadores, contenidos, actividades y competencias)', borrarSobrantes, (v) => { borrarSobrantes = v; }));
 }
 
 function boton(texto, onClick, sec) {
@@ -833,6 +939,7 @@ function pintarMapa(p, info) {
     p.append(el('p', 'nota', 'El objetivo de Séneca no coincide con ninguno de la app. Elige cuál es:'));
   }
   p.append(boton('▶ Rellenar todos los objetivos', () => autoMapa()),
+    casilla('Corregir con «Detalle» los textos que han cambiado', corregirTextos, (v) => { corregirTextos = v; }),
     casilla('Borrar también lo que no está en la app', borrarSobrantes, (v) => { borrarSobrantes = v; }),
     el('p', 'nota', 'Recorre cada objetivo del desplegable y aplica los indicadores, contenidos, actividades y competencias que faltan. O este objetivo paso a paso:'));
   p.append(el('div', 'nota', 'Objetivo de la app:'), selector([['', '—']].concat(todos.map((x) => [x.clave, x.etiqueta])), actual ? actual.clave : '', (v) => { objetivoElegido = v; ultimaFirma = ''; leer(); }));
