@@ -578,6 +578,7 @@ function autoPrograma() {
 
 // ─── Copiar de Séneca: recorre todas las áreas y objetivos y arma el JSON pae-seneca (sin datos personales) ───
 let exportado = null;
+let copiaPendiente = false; // solo si el navegador no dejó copiar automáticamente
 
 function autoExportar() {
   automatico(async (avance) => {
@@ -622,7 +623,8 @@ function autoExportar() {
     chrome.storage.local.set({ exportado });
     const nObj = ambitos.reduce((n, a) => n + a.objetivos.length, 0);
     const resumen = `${ambitos.length} área(s), ${nObj} objetivo(s)`;
-    ultimoEstado = await copiarTexto(JSON.stringify(exportado, null, 2))
+    copiaPendiente = !(await copiarTexto(JSON.stringify(exportado, null, 2)));
+    ultimoEstado = !copiaPendiente
       ? { msg: `✓ Copiado en el portapapeles: ${resumen}. Pégalo en la app («Importar») o en la IA para editarlo.` }
       : { msg: `Leído de Séneca (${resumen}), pero el navegador no ha dejado copiarlo solo: pulsa «Copiar al portapapeles».`, error: true };
   });
@@ -649,13 +651,14 @@ async function copiarTexto(texto) {
 }
 
 function pintarExportado(p) {
-  if (!exportado) return;
-  const nObj = exportado.ambitos.reduce((n, a) => n + a.objetivos.length, 0);
-  p.append(el('p', 'nota', `Programa leído de Séneca: ${exportado.ambitos.length} área(s), ${nObj} objetivo(s).`));
+  if (!exportado || !copiaPendiente) return;
   p.append(boton('Copiar al portapapeles', async () => {
     try {
       await navigator.clipboard.writeText(JSON.stringify(exportado, null, 2));
-      estado('Copiado. Pégalo en la app («Importar») o en la IA para editarlo.');
+      copiaPendiente = false;
+      ultimoEstado = { msg: '✓ Copiado. Pégalo en la app («Importar») o en la IA para editarlo.' };
+      ultimaFirma = '';
+      leer();
     } catch (e) { estado('No se pudo copiar: ' + e.message, true); }
   }, true));
 }
