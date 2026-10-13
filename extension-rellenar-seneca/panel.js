@@ -89,7 +89,12 @@ function cargarDatos(texto) {
 
 function pintarResumen() {
   const r = $('resumenDatos');
-  if (!datos) return;
+  $('limpiarDatos').hidden = !datos;
+  if (!datos) {
+    r.className = 'muted';
+    r.textContent = 'Sin datos. En la app, abre la ficha y pulsa «Copiar para Séneca».';
+    return;
+  }
   const nObj = datos.ambitos.reduce((n, a) => n + a.objetivos.length, 0);
   r.className = '';
   r.textContent = `${datos.alumno || 'Alumno/a'}${datos.curso ? ' · ' + datos.curso : ''} — ${datos.ambitos.length} ámbitos, ${nObj} objetivos`;
@@ -104,7 +109,17 @@ $('pegar').addEventListener('click', async () => {
     $('manual').focus();
   }
 });
-$('verPegado').addEventListener('click', () => { $('manual').hidden = !$('manual').hidden; $('manual').focus(); });
+$('limpiarDatos').addEventListener('click', () => {
+  datos = null;
+  chrome.storage.local.remove('datos');
+  ambitoElegido = '';
+  objetivoElegido = '';
+  ultimoEstado = null;
+  pintarResumen();
+  ultimaFirma = '';
+  leer();
+});
+$('verPegado').addEventListener('click',() => { $('manual').hidden = !$('manual').hidden; $('manual').focus(); });
 $('manual').addEventListener('change', () => {
   const err = cargarDatos($('manual').value);
   if (err) { $('resumenDatos').textContent = err; $('resumenDatos').className = 'muted'; } else { $('manual').value = ''; $('manual').hidden = true; }
@@ -606,8 +621,31 @@ function autoExportar() {
     exportado = { formato: 'pae-seneca', version: 1, alumno: '', curso: '', unidad: '', fechaElaboracion: '', fechaFinVigencia: '', ambitos };
     chrome.storage.local.set({ exportado });
     const nObj = ambitos.reduce((n, a) => n + a.objetivos.length, 0);
-    ultimoEstado = { msg: `Copiado de Séneca: ${ambitos.length} área(s), ${nObj} objetivo(s). Pulsa «Copiar al portapapeles».` };
+    const resumen = `${ambitos.length} área(s), ${nObj} objetivo(s)`;
+    ultimoEstado = await copiarTexto(JSON.stringify(exportado, null, 2))
+      ? { msg: `✓ Copiado en el portapapeles: ${resumen}. Pégalo en la app («Importar de IA») o en la IA para editarlo.` }
+      : { msg: `Leído de Séneca (${resumen}), pero el navegador no ha dejado copiarlo solo: pulsa «Copiar al portapapeles».`, error: true };
   });
+}
+
+// Copia al portapapeles: desde el panel y, si no tiene el foco, desde la pestaña de Séneca
+async function copiarTexto(texto) {
+  try { await navigator.clipboard.writeText(texto); return true; } catch { /* sin foco */ }
+  try {
+    const [r] = await chrome.scripting.executeScript({
+      target: { tabId: lectura.tabId }, world: 'MAIN', args: [texto],
+      func: (t) => navigator.clipboard.writeText(t).then(() => true, () => false),
+    });
+    if (r && r.result) return true;
+  } catch { /* sin permiso */ }
+  const ta = document.createElement('textarea');
+  ta.value = texto;
+  document.body.append(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { /* nada */ }
+  ta.remove();
+  return ok;
 }
 
 function pintarExportado(p) {
