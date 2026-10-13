@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+  body { font: 13px system-ui, sans-serif; width: 320px; margin: 10px; }
+  label { display: block; margin-top: 8px; font-weight: 600; }
+  textarea, input[type=text] { width: 100%; box-sizing: border-box; font: inherit; }
+  .chk { font-weight: normal; }
+  button { margin-top: 10px; width: 100%; padding: 8px; font-weight: 600; cursor: pointer; }
+  #estado { margin-top: 8px; white-space: pre-wrap; }
+  small { color: #666; }
+</style>
+</head>
+<body>
+  <label for="nota">¿Qué pantalla es y qué botón lleva a la siguiente?</label>
+  <textarea id="nota" rows="3" placeholder="Ej.: Alta de objetivo. «Añadir indicador» abre una ventana emergente."></textarea>
+
+  <label for="nombres">Nombres a ocultar (uno por línea)</label>
+  <textarea id="nombres" rows="3" placeholder="Nombre y apellidos del alumno, de la familia…"></textarea>
+  <small>Se guardan en este navegador para las siguientes capturas.</small>
+
+  <label class="chk"><input type="checkbox" id="imagen"> Descargar también una imagen de la pantalla<br>
+    <small>La imagen no se anonimiza: revísala antes de enviarla.</small></label>
+
+  <button id="capturar">Capturar esta pantalla</button>
+  <div id="estado"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

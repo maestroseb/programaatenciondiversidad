@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "Captura de pantallas de Séneca",
+  "version": "1.0",
+  "description": "Guarda la estructura (campos y botones) de la pantalla de Séneca abierta, sin datos personales.",
+  "permissions": ["activeTab", "scripting", "downloads", "storage"],
+  "host_permissions": ["*://*.juntadeandalucia.es/*"],
+  "action": { "default_popup": "popup.html", "default_title": "Capturar pantalla de Séneca" }
+}
