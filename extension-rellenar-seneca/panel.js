@@ -112,6 +112,8 @@ $('manual').addEventListener('change', () => {
 
 // ─── Lectura de Séneca (se ejecuta dentro de cada marco; autocontenida) ───
 function leerPantalla() {
+  // Un marco oculto (Séneca puede dejar la pantalla anterior cargada debajo) no cuenta
+  if (!window.innerWidth || !window.innerHeight) return null;
   const g = (k) => document.getElementById(k) || document.querySelector(`[name="${k}"]`);
   const filas = (tabla) => {
     const out = [];
@@ -170,6 +172,8 @@ function leerPantalla() {
 // ─── Escritura en Séneca (se ejecuta en el marco detectado; autocontenida) ───
 async function accionEnPagina(op) {
   const g = (k) => document.getElementById(k) || document.querySelector(`[name="${k}"]`);
+  // offsetParent es null en menús con position: fixed, así que se mira el tamaño y el estilo
+  const visible = (x) => !!(x.offsetWidth || x.offsetHeight || x.getClientRects().length) && getComputedStyle(x).visibility !== 'hidden';
   const espera = (ms) => new Promise((r) => setTimeout(r, ms));
   const fijar = (e, v) => {
     e.value = v;
@@ -224,8 +228,16 @@ async function accionEnPagina(op) {
     td.click();
     for (let i = 0; i < 30; i++) {
       await espera(100);
-      const item = [...document.querySelectorAll('[id^="menuItem"]')].find((x) => x.offsetParent && x.textContent.replace(/\s+/g, ' ').includes(op.opcion));
-      if (item) { item.click(); return { ok: true }; }
+      const item = [...document.querySelectorAll('[id^="menuItemmenuContainer"]')].find((x) => visible(x) && x.textContent.replace(/\s+/g, ' ').includes(op.opcion));
+      if (item) {
+        item.click();
+        await espera(600);
+        if (item.isConnected && visible(item)) {
+          // Segundo intento con la secuencia completa de ratón
+          ['mousedown', 'mouseup', 'click'].forEach((t) => item.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, view: window })));
+        }
+        return { ok: true };
+      }
     }
     return { error: 'No aparece la opción «' + op.opcion + '» en el menú' };
   }
@@ -256,14 +268,14 @@ async function accionEnPagina(op) {
     let item = null;
     for (let i = 0; i < 30 && !item; i++) {
       await espera(100);
-      item = [...document.querySelectorAll('[id^="menuItem"]')].find((x) => x.offsetParent && /Borrar/.test(x.textContent));
+      item = [...document.querySelectorAll('[id^="menuItemmenuContainer"]')].find((x) => visible(x) && /Borrar/.test(x.textContent));
     }
     if (!item) return { error: 'No aparece «Borrar» en el menú' };
     item.click();
     // Si Séneca usa una ventana propia de confirmación, pulsa su botón de aceptar
     for (let i = 0; i < 15; i++) {
       await espera(100);
-      const b = [...document.querySelectorAll('button, input[type=button], a')].find((x) => x.offsetParent && /^(aceptar|si|sí|confirmar|borrar)$/i.test((x.textContent || x.value || '').trim()) && x.closest('.modal, [role=dialog], .ui-dialog, .bootbox, .swal2-container'));
+      const b = [...document.querySelectorAll('button, input[type=button], a')].find((x) => visible(x) && /^(aceptar|si|sí|confirmar|borrar)$/i.test((x.textContent || x.value || '').trim()) && x.closest('.modal, [role=dialog], .ui-dialog, .bootbox, .swal2-container'));
       if (b) { b.click(); break; }
     }
     return { ok: true };
@@ -309,7 +321,9 @@ async function leerAhora(tabId) {
   if (tab && /juntadeandalucia\.es/.test(tab.url || '')) {
     try {
       const res = await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, func: leerPantalla });
-      const r = res.find((x) => x.result);
+      // Si varios marcos responden, gana la pantalla más concreta
+      const prioridad = { mapa: 4, area: 3, datos: 2, apartados: 1 };
+      const r = res.filter((x) => x.result).sort((a, b) => (prioridad[b.result.pantalla] || 0) - (prioridad[a.result.pantalla] || 0))[0];
       if (r) { info = r.result; frameId = r.frameId; }
     } catch { /* pestaña sin permiso o recargándose */ }
   }
@@ -361,13 +375,15 @@ async function accionAuto(op) {
 // Relee la pantalla hasta que se cumpla la condición (tolera recargas de Séneca)
 async function esperar(cond, que, ms = 25000) {
   const fin = Date.now() + ms;
+  let vista = 'ninguna reconocida';
   while (Date.now() < fin) {
     if (cancelar) throw new Error('Detenido');
     await dormir(700);
     const { info } = await leerAhora(lectura.tabId);
+    if (info) vista = info.pantalla;
     if (info && cond(info)) return info;
   }
-  throw new Error('Séneca no ha mostrado el resultado esperado: ' + que);
+  throw new Error(`Séneca no ha mostrado el resultado esperado: ${que} (la extensión ve la pantalla «${vista}»).`);
 }
 
 async function automatico(pasos) {
