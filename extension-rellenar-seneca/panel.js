@@ -75,12 +75,16 @@ function estado(msg, error) {
 // ─── Datos de la app ───
 function cargarDatos(texto) {
   let d;
-  try { d = JSON.parse(texto); } catch { return 'Lo pegado no es el formato de la app. Pulsa «Copiar para Séneca» en la ficha.'; }
-  if (!d || d.formato !== 'pae-seneca' || !Array.isArray(d.ambitos)) return 'Lo pegado no viene del botón «Copiar para Séneca» de la app.';
-  datos = d;
+  const t = String(texto || '');
+  const ini = t.indexOf('{');
+  const fin = t.lastIndexOf('}'); // tolera ```json … ``` y texto alrededor (lo que copia la IA)
+  try { d = JSON.parse(t.slice(ini, fin + 1)); } catch { return 'Lo pegado no es un programa: copia el bloque de la app («Copiar para Séneca») o de la IA.'; }
+  if (!d || d.formato !== 'pae-seneca' || !Array.isArray(d.ambitos)) return 'Lo pegado no es un programa: copia el bloque de la app («Copiar para Séneca») o de la IA.';
+  datos = d; // sustituye por completo los datos anteriores
   chrome.storage.local.set({ datos: d });
   ambitoElegido = '';
   objetivoElegido = '';
+  ultimoEstado = null;
   pintarResumen();
   ultimaFirma = '';
   leer();
@@ -102,13 +106,22 @@ function pintarResumen() {
 
 $('pegar').addEventListener('click', async () => {
   try {
-    const err = cargarDatos(await navigator.clipboard.readText());
-    if (err) { $('resumenDatos').textContent = err; $('resumenDatos').className = 'muted'; }
+    avisoPegado(cargarDatos(await navigator.clipboard.readText()));
   } catch {
+    $('manual').value = '';
     $('manual').hidden = false;
     $('manual').focus();
   }
 });
+
+// Si lo pegado no vale, se avisa sin perder de vista los datos que siguen cargados
+function avisoPegado(err) {
+  pintarResumen();
+  if (!err) return;
+  const r = $('resumenDatos');
+  r.className = 'muted';
+  r.textContent = '⚠ ' + err + (datos ? ' Se mantienen los datos anteriores: ' + r.textContent : '');
+}
 $('limpiarDatos').addEventListener('click', () => {
   datos = null;
   chrome.storage.local.remove('datos');
@@ -119,11 +132,21 @@ $('limpiarDatos').addEventListener('click', () => {
   ultimaFirma = '';
   leer();
 });
-$('verPegado').addEventListener('click',() => { $('manual').hidden = !$('manual').hidden; $('manual').focus(); });
-$('manual').addEventListener('change', () => {
-  const err = cargarDatos($('manual').value);
-  if (err) { $('resumenDatos').textContent = err; $('resumenDatos').className = 'muted'; } else { $('manual').value = ''; $('manual').hidden = true; }
+$('verPegado').addEventListener('click', () => { $('manual').value = ''; $('manual').hidden = !$('manual').hidden; $('manual').focus(); });
+function cargarManual(texto) {
+  const err = cargarDatos(texto);
+  avisoPegado(err);
+  if (!err) { $('manual').value = ''; $('manual').hidden = true; }
+}
+// Al pegar en el cuadro, lo pegado sustituye todo su contenido y se carga al momento
+$('manual').addEventListener('paste', (e) => {
+  const texto = e.clipboardData && e.clipboardData.getData('text');
+  if (!texto) return;
+  e.preventDefault();
+  $('manual').value = texto;
+  cargarManual(texto);
 });
+$('manual').addEventListener('change', () => cargarManual($('manual').value));
 
 // ─── Lectura de Séneca (se ejecuta dentro de cada marco; autocontenida) ───
 function leerPantalla() {
