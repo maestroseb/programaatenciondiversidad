@@ -2350,6 +2350,7 @@
       html += '<h2>' + svgIcon('clipboard') + ' Alumnos <span class="count">(' + state.students.length + ')</span></h2>';
       html += '<div class="student-list-actions">';
       html += '<button class="btn-new" onclick="pickSenecaPdf()" title="Crear la ficha a partir del PDF del Programa Específico generado por Séneca">' + svgIcon('upload') + ' Importar PDF Séneca</button>';
+      html += '<button class="btn-new" onclick="importFromAi()" title="Crear la ficha pegando el programa generado por una IA (formato pae-seneca)">' + svgIcon('upload') + ' Importar de IA</button>';
       html += '<button class="btn-new" onclick="newStudent()">' + svgIcon('plus') + ' Nuevo alumno</button>';
       html += '</div>';
       html += '</div>';
@@ -5160,7 +5161,9 @@
           '<div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="promptDialogTitle" aria-describedby="promptDialogMsg">' +
             '<div class="modal-title" id="promptDialogTitle">' + escHtml(title) + '</div>' +
             '<div class="modal-message" id="promptDialogMsg">' + escHtml(message) + '</div>' +
-            '<input type="text" class="modal-input" aria-labelledby="promptDialogMsg" placeholder="' + escAttr(placeholder) + '" value="' + escAttr(defaultValue) + '">' +
+            (opts.multiline
+              ? '<textarea class="modal-input" rows="8" aria-labelledby="promptDialogMsg" placeholder="' + escAttr(placeholder) + '">' + escHtml(defaultValue) + '</textarea>'
+              : '<input type="text" class="modal-input" aria-labelledby="promptDialogMsg" placeholder="' + escAttr(placeholder) + '" value="' + escAttr(defaultValue) + '">') +
             '<div class="modal-error" role="alert" style="display:none"></div>' +
             '<div class="modal-actions">' +
               '<button class="modal-btn modal-btn-cancel" data-cancel>' + escHtml(cancelText) + '</button>' +
@@ -5183,7 +5186,7 @@
         }
         function onKey(e) {
           if (e.key === 'Escape') { e.preventDefault(); close(null); }
-          else if (e.key === 'Enter' && document.activeElement === input) { e.preventDefault(); tryConfirm(); }
+          else if (e.key === 'Enter' && document.activeElement === input && !opts.multiline) { e.preventDefault(); tryConfirm(); }
         }
         overlay.addEventListener('click', function(e) { if (e.target === overlay) close(null); });
         overlay.querySelector('[data-cancel]').addEventListener('click', function() { close(null); });
@@ -5695,7 +5698,7 @@
       h += '<p class="imp-sub">' + escHtml(d.fileName || '') + ' · ' + d.areas.length + ' ámbitos · ' + nObj + ' objetivos · ' + nInd + ' indicadores</p>';
       var nWarn = d.warningCount - (d.warnings.length - globalWarn.length);
       h += nWarn
-        ? '<div class="imp-banner warn">Hay <strong>' + nWarn + '</strong> aviso(s). Revisa los apartados marcados con ⚠️ comparándolos con el PDF.</div>'
+        ? '<div class="imp-banner warn">Hay <strong>' + nWarn + '</strong> aviso(s). Revisa los apartados marcados con ⚠️' + (d.fileName === 'Generado con IA' ? '' : ' comparándolos con el PDF') + '.</div>'
         : '<div class="imp-banner ok">✓ No se han detectado problemas. Revisa igualmente los datos antes de continuar.</div>';
       h += senecaWarnList(globalWarn);
       h += '<p class="imp-hint">Puedes corregir cualquier texto aquí mismo: se volcará tal cual a la ficha. Deja un campo vacío para descartarlo.</p>';
@@ -5780,6 +5783,59 @@
       senecaImport = null;
       state.view = 'list';
       renderListView();
+    }
+
+    /* ─── Importar programa generado por IA (mismo formato que «Copiar para Séneca») ─── */
+    function parsePaeSeneca(text) {
+      var t = String(text || '');
+      var ini = t.indexOf('{'), fin = t.lastIndexOf('}'); // tolera ```json … ``` y texto alrededor
+      if (ini < 0 || fin < ini) throw new Error('No hay ningún bloque JSON en lo pegado.');
+      var j = JSON.parse(t.slice(ini, fin + 1));
+      if (!j || j.formato !== 'pae-seneca' || !Array.isArray(j.ambitos)) throw new Error('No es el formato pae-seneca.');
+      var list = function(v) { return (Array.isArray(v) ? v : []).map(function(x) { return String(x || '').trim(); }).filter(Boolean); };
+      var canonArea = function(n) {
+        var k = senecaNorm(n);
+        return AREAS.filter(function(a) { return senecaNorm(a) === k; })[0] || String(n || '').trim();
+      };
+      var canonComp = function(c) {
+        var k = senecaNorm(c);
+        return COMPETENCIAS.filter(function(x) { return senecaNorm(x) === k; })[0] || c;
+      };
+      var out = {
+        studentName: String(j.alumno || '').trim(), course: String(j.curso || '').trim(), rawCourse: String(j.curso || '').trim(),
+        unidad: String(j.unidad || '').trim(), fechaElaboracion: String(j.fechaElaboracion || '').trim(), fechaFinVigencia: String(j.fechaFinVigencia || '').trim(),
+        profesionales: [], unrecognized: [], emptyAreas: [], areas: []
+      };
+      j.ambitos.forEach(function(a) {
+        var org = a.organizacion || {};
+        var area = {
+          name: canonArea(a.ambito), programa: String(a.programa || '').trim(),
+          org: { organizacion: String(org.organizacion || '').trim(), recursos: String(org.recursos || '').trim() },
+          objectives: (a.objetivos || []).filter(function(o) { return o && String(o.objetivo || '').trim(); }).map(function(o, i) {
+            var num = function(x, k) { return { num: (i + 1) + '.' + (k + 1), text: x }; };
+            return {
+              num: String(i + 1), title: String(o.objetivo).trim(),
+              indicators: list(o.indicadores).map(num), contents: list(o.contenidos).map(num),
+              activities: list(o.actividades), competencias: list(o.competencias).map(canonComp)
+            };
+          })
+        };
+        if (area.objectives.length) out.areas.push(area); else out.emptyAreas.push(area.name);
+      });
+      return out;
+    }
+
+    async function importFromAi() {
+      var text = await promptDialog('Pega el programa que te ha dado la IA (el bloque JSON con "formato": "pae-seneca").', {
+        title: 'Importar programa generado por IA', confirmText: 'Revisar', multiline: true, placeholder: '{ "formato": "pae-seneca", … }',
+        validate: function(v) { try { parsePaeSeneca(v); return ''; } catch (e) { return e.message; } }
+      });
+      if (!text) return;
+      var parsed = parsePaeSeneca(text);
+      if (!parsed.areas.length) { showToast('El programa no tiene objetivos.', 'error'); return; }
+      parsed.fileName = 'Generado con IA';
+      senecaImport = validateSenecaImport(parsed);
+      renderSenecaReview();
     }
 
     async function confirmSenecaImport() {
