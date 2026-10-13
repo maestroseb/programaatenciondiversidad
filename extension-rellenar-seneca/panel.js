@@ -620,6 +620,8 @@ function camposArea(amb, info) {
   const valores = {};
   [['D_TITULO', amb.programa, info.titulo], ['D_ORGANIZACION', org.organizacion, info.organizacion], ['D_RECURSOS', org.recursos, info.recursos]]
     .forEach(([id, app, sen]) => { if (String(app || '').trim() && norm(app) !== norm(sen)) valores[id] = String(app).trim(); });
+  // El título es obligatorio en Séneca (sin él no deja Aplicar objetivos): si la app no lo tiene, el nombre del ámbito
+  if (!String(info.titulo || '').trim() && !valores.D_TITULO) valores.D_TITULO = amb.ambito;
   return valores;
 }
 
@@ -653,6 +655,13 @@ function autoPrograma() {
         }
       }
       const faltan = comparar(amb.objetivos.map((o) => o.objetivo), info.objetivos).faltan;
+      const previos = camposArea(amb, info);
+      if (faltan.length && Object.keys(previos).length) {
+        // Antes de aplicar objetivos: Séneca exige el título
+        avance(`${amb.ambito}: título, organización y recursos…`);
+        await accionAuto({ tipo: 'campos', valores: previos });
+        await dormir(300);
+      }
       if (faltan.length) {
         avance(`${amb.ambito}: añadiendo ${faltan.length} objetivo(s)…`);
         await accionAuto({ tipo: 'lista', num: 'N_OBJ', td: 'TD_OBJ', aplicar: 'BOTON_APLICAR_OBJ', textos: faltan, pulsar: true });
@@ -945,9 +954,12 @@ function pintarArea(p, info) {
   const diff = comparar(amb.objetivos.map((o) => o.objetivo), info.objetivos);
   p.append(lista(diff));
   if (diff.faltan.length) {
-    p.append(boton(`Añadir ${diff.faltan.length} objetivo(s) que faltan`, () => ejecutar(
-      { tipo: 'lista', num: 'N_OBJ', td: 'TD_OBJ', aplicar: 'BOTON_APLICAR_OBJ', textos: diff.faltan },
-      'Escritos. Revisa y pulsa Aplicar en Séneca.')));
+    p.append(boton(`Añadir ${diff.faltan.length} objetivo(s) que faltan`, async () => {
+      // Séneca exige el título antes de Aplicar
+      if (!info.titulo.trim()) await ejecutar({ tipo: 'campos', valores: { D_TITULO: String(amb.programa || '').trim() || amb.ambito } }, '');
+      ejecutar({ tipo: 'lista', num: 'N_OBJ', td: 'TD_OBJ', aplicar: 'BOTON_APLICAR_OBJ', textos: diff.faltan },
+        'Escritos. Revisa y pulsa Aplicar en Séneca.');
+    }));
   }
   const n = notaSobran(diff, 'un objetivo');
   if (n) p.append(n);
