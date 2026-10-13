@@ -232,8 +232,40 @@ async function accionEnPagina(op) {
   if (op.tipo === 'boton') {
     // Botones de la barra de Séneca: aceptar() / volver()
     const a = [...document.querySelectorAll('a[href]')].find((x) => x.getAttribute('href').includes('cuerpo.' + op.funcion + '()'));
+    if (typeof window[op.funcion] === 'function') { setTimeout(() => window[op.funcion](), 0); return { ok: true }; }
     if (!a) return { error: 'No encuentro el botón ' + op.funcion };
     a.click();
+    return { ok: true };
+  }
+  if (op.tipo === 'borrarFila') {
+    // Fila de una tabla de Séneca → menú → Borrar, aceptando la confirmación
+    const n = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').replace(/[\s.;:,]+$/, '').trim();
+    await pestanna(op.pestanna);
+    const td = [...document.querySelectorAll(`td[onclick*="showOpciones('${op.tabla}'"]`)].find((x) => {
+      const m = x.getAttribute('onclick').match(/'\s*,\s*(\d+)\s*,\s*(\d+)/);
+      const t = x.querySelector('[title]');
+      return m && m[2] === '1' && n((t && t.getAttribute('title')) || x.innerText) === n(op.texto);
+    });
+    if (!td) return { error: 'No encuentro «' + op.texto.slice(0, 40) + '» para borrarlo' };
+    const conf = window.confirm;
+    const alerta = window.alert;
+    window.confirm = () => true;
+    window.alert = () => {};
+    setTimeout(() => { window.confirm = conf; window.alert = alerta; }, 4000);
+    td.click();
+    let item = null;
+    for (let i = 0; i < 30 && !item; i++) {
+      await espera(100);
+      item = [...document.querySelectorAll('[id^="menuItem"]')].find((x) => x.offsetParent && /Borrar/.test(x.textContent));
+    }
+    if (!item) return { error: 'No aparece «Borrar» en el menú' };
+    item.click();
+    // Si Séneca usa una ventana propia de confirmación, pulsa su botón de aceptar
+    for (let i = 0; i < 15; i++) {
+      await espera(100);
+      const b = [...document.querySelectorAll('button, input[type=button], a')].find((x) => x.offsetParent && /^(aceptar|si|sí|confirmar|borrar)$/i.test((x.textContent || x.value || '').trim()) && x.closest('.modal, [role=dialog], .ui-dialog, .bootbox, .swal2-container'));
+      if (b) { b.click(); break; }
+    }
     return { ok: true };
   }
   if (op.tipo === 'objetivo') {
@@ -300,6 +332,7 @@ async function ejecutar(op, siguiente) {
   try {
     const [r] = await chrome.scripting.executeScript({
       target: { tabId: lectura.tabId, frameIds: [lectura.frameId] },
+      world: 'MAIN', // en el mundo de la página: Chrome no deja pulsar enlaces javascript: desde el aislado
       func: accionEnPagina,
       args: [op],
     });
@@ -320,7 +353,7 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 async function accionAuto(op) {
   const { tab, info, frameId } = await leerAhora(lectura.tabId);
   if (!tab || !info) throw new Error('No encuentro la pantalla de Séneca');
-  const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id, frameIds: [frameId] }, func: accionEnPagina, args: [op] });
+  const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id, frameIds: [frameId] }, world: 'MAIN', func: accionEnPagina, args: [op] });
   const res = r && r.result;
   if (!res || !res.ok) throw new Error((res && res.error) || 'No se pudo completar');
 }
@@ -370,10 +403,25 @@ function objetivoDeApp(textoSeneca) {
   return todosLosObjetivos().find((x) => iguales(x.obj.objetivo, sinNumero(textoSeneca)));
 }
 
-// Recorre todos los objetivos del desplegable del mapa de relaciones y aplica lo que falta
-async function hacerMapa(avance) {
+const TABLAS = { indicadores: 'TABLA_INDICADORES', contenidos: 'TABLA_CONTENIDOS', actividades: 'TABLA_ACTIVIDADES', competencias: 'TABLA_COMPETENCIAS' };
+const PESTANNAS = { indicadores: 'Indicadores evaluación', contenidos: 'Contenidos', actividades: 'Actividades y Tareas', competencias: 'Contribución competencias' };
+
+// Borra de Séneca los elementos de la lista indicada, esperando a que desaparezca cada uno
+async function borrarElementos(clave, textos, valorObj, avance) {
+  for (const t of textos) {
+    if (cancelar) throw new Error('Detenido');
+    avance(`borrando «${t.slice(0, 40)}»…`);
+    await accionAuto({ tipo: 'borrarFila', tabla: TABLAS[clave], texto: t, pestanna: PESTANNAS[clave] });
+    await esperar((i) => i.pantalla === 'mapa' && i.objetivoValor === valorObj && !i[clave].some((x) => norm(x) === norm(t)), 'borrar «' + t.slice(0, 40) + '»');
+  }
+}
+
+// Recorre todos los objetivos del desplegable del mapa de relaciones: aplica lo que falta y,
+// si se pide, borra lo que sobra (y vacía los objetivos que no están en la app para poder borrarlos)
+async function hacerMapa(avance, borrar) {
   let info = (await leerAhora(lectura.tabId)).info;
-  const lista = info.opcionesObjetivo.map((op) => ({ op, app: objetivoDeApp(op.texto) })).filter((x) => x.app);
+  const todos = info.opcionesObjetivo.map((op) => ({ op, app: objetivoDeApp(op.texto) }));
+  const lista = borrar ? todos : todos.filter((x) => x.app);
   if (!lista.length) throw new Error('Ningún objetivo de Séneca coincide con los de la app.');
   for (let k = 0; k < lista.length; k++) {
     const { op, app } = lista[k];
@@ -382,6 +430,14 @@ async function hacerMapa(avance) {
       avance(`${etiqueta}: abriendo…`);
       await accionAuto({ tipo: 'objetivo', valor: op.valor });
       info = await esperar((i) => i.pantalla === 'mapa' && i.objetivoValor === op.valor, 'cambio de objetivo');
+    }
+    if (borrar) {
+      for (const clave of Object.keys(TABLAS)) {
+        const sobran = app ? comparar(app.obj[clave] || [], info[clave]).sobran : info[clave].slice();
+        if (sobran.length) await borrarElementos(clave, sobran, op.valor, (m) => avance(`${etiqueta}: ${m}`));
+      }
+      info = (await leerAhora(lectura.tabId)).info;
+      if (!app) continue;
     }
     for (const [clave, nombre, cfg] of SECCIONES) {
       const faltan = comparar(app.obj[clave] || [], info[clave]).faltan;
@@ -398,13 +454,13 @@ async function hacerMapa(avance) {
       info = await esperar((i) => i.pantalla === 'mapa' && i.objetivoValor === op.valor && i.competencias.some((x) => norm(x) === norm(exacto)), 'competencia añadida');
     }
   }
-  const sinApp = info.opcionesObjetivo.length - lista.length;
-  return `${lista.length} objetivo(s) completados.` + (sinApp ? ` ${sinApp} de Séneca no están en la app y no se han tocado.` : '');
+  const sinApp = todos.filter((x) => !x.app).length;
+  return `${todos.length - sinApp} objetivo(s) completados.` + (sinApp ? (borrar ? ` ${sinApp} objetivo(s) que no están en la app se han vaciado.` : ` ${sinApp} de Séneca no están en la app y no se han tocado.`) : '');
 }
 
 function autoMapa() {
   automatico(async (avance) => {
-    ultimoEstado = { msg: 'Listo: ' + await hacerMapa(avance) + ' Revisa y lo que sobre bórralo tú.' };
+    ultimoEstado = { msg: 'Listo: ' + await hacerMapa(avance, borrarSobrantes) + (borrarSobrantes ? '' : ' Lo que sobre, bórralo tú.') };
   });
 }
 
@@ -453,10 +509,18 @@ function autoPrograma() {
         avance(`${amb.ambito}: abriendo el mapa de relaciones…`);
         await accionAuto({ tipo: 'menu', fila: "showOpciones('TABLA_OBJETIVOS', 1, 1", opcion: 'Mapa de relaciones' });
         await esperar((i) => i.pantalla === 'mapa', 'abrir el mapa de relaciones');
-        resumen.push(amb.ambito + ': ' + await hacerMapa((m) => avance(amb.ambito + ' · ' + m)));
+        resumen.push(amb.ambito + ': ' + await hacerMapa((m) => avance(amb.ambito + ' · ' + m), borrarSobrantes));
         avance(`${amb.ambito}: volviendo…`);
         await accionAuto({ tipo: 'boton', funcion: 'volver' });
         info = await esperar((i) => i.pantalla === 'area', 'volver a la propuesta de área');
+      }
+      if (borrarSobrantes) {
+        // Los objetivos que no están en la app ya se han vaciado en el mapa: ahora se pueden borrar
+        for (const t of comparar(amb.objetivos.map((o) => o.objetivo), info.objetivos).sobran) {
+          avance(`${amb.ambito}: borrando el objetivo «${t.slice(0, 40)}»…`);
+          await accionAuto({ tipo: 'borrarFila', tabla: 'TABLA_OBJETIVOS', texto: t });
+          info = await esperar((i) => i.pantalla === 'area' && !i.objetivos.some((x) => norm(x) === norm(t)), 'borrar el objetivo «' + t.slice(0, 40) + '»');
+        }
       }
 
       const valores = camposArea(amb, info);
@@ -477,19 +541,88 @@ function autoPrograma() {
       }
     }
     const sinArea = datos.ambitos.filter((a) => !hechos.has(a.ambito)).map((a) => a.ambito);
-    ultimoEstado = { msg: 'Programa completado. ' + resumen.join(' ') + (sinArea.length ? ` No están en Séneca: ${sinArea.join(', ')} (asígnalas en Datos del PE y vuelve a pulsar).` : '') + ' Lo que sobre, bórralo tú.' };
+    ultimoEstado = { msg: 'Programa completado. ' + resumen.join(' ') + (sinArea.length ? ` No están en Séneca: ${sinArea.join(', ')} (asígnalas en Datos del PE y vuelve a pulsar).` : '') + (borrarSobrantes ? '' : ' Lo que sobre, bórralo tú.') };
   });
+}
+
+// ─── Copiar de Séneca: recorre todas las áreas y objetivos y arma el JSON pae-seneca (sin datos personales) ───
+let exportado = null;
+
+function autoExportar() {
+  automatico(async (avance) => {
+    let info = (await leerAhora(lectura.tabId)).info;
+    if (!info || info.pantalla !== 'apartados') throw new Error('Empieza desde «Apartados del documento».');
+    const ambitos = [];
+    for (const fila of info.areas) {
+      avance(`${fila.area}: abriendo…`);
+      await accionAuto({ tipo: 'menu', fila: `showOpciones(${fila.fila})`, opcion: 'Detalle' });
+      let area = await esperar((i) => i.pantalla === 'area', 'abrir la propuesta de área');
+      const amb = {
+        ambito: fila.area, programa: area.titulo.trim(),
+        organizacion: { organizacion: area.organizacion.trim(), recursos: area.recursos.trim() },
+        objetivos: area.objetivos.map((t) => ({ objetivo: t, indicadores: [], contenidos: [], actividades: [], competencias: [] })),
+      };
+      if (area.objetivos.length) {
+        avance(`${fila.area}: abriendo el mapa de relaciones…`);
+        await accionAuto({ tipo: 'menu', fila: "showOpciones('TABLA_OBJETIVOS', 1, 1", opcion: 'Mapa de relaciones' });
+        let mapa = await esperar((i) => i.pantalla === 'mapa', 'abrir el mapa de relaciones');
+        const opciones = mapa.opcionesObjetivo;
+        for (let k = 0; k < opciones.length; k++) {
+          const op = opciones[k];
+          avance(`${fila.area}: objetivo ${k + 1}/${opciones.length}…`);
+          if (mapa.objetivoValor !== op.valor) {
+            await accionAuto({ tipo: 'objetivo', valor: op.valor });
+            mapa = await esperar((i) => i.pantalla === 'mapa' && i.objetivoValor === op.valor, 'cambio de objetivo');
+          }
+          const destino = amb.objetivos.find((o) => iguales(sinNumero(op.texto), o.objetivo)) || amb.objetivos[k];
+          if (!destino) continue;
+          destino.objetivo = sinNumero(op.texto); // el desplegable trae el texto completo
+          ['indicadores', 'contenidos', 'actividades', 'competencias'].forEach((c) => { destino[c] = mapa[c].slice(); });
+        }
+        avance(`${fila.area}: volviendo…`);
+        await accionAuto({ tipo: 'boton', funcion: 'volver' });
+        await esperar((i) => i.pantalla === 'area', 'volver a la propuesta de área');
+      }
+      ambitos.push(amb);
+      await accionAuto({ tipo: 'boton', funcion: 'volver' });
+      await esperar((i) => i.pantalla === 'apartados', 'volver a Apartados');
+    }
+    exportado = { formato: 'pae-seneca', version: 1, alumno: '', curso: '', unidad: '', fechaElaboracion: '', fechaFinVigencia: '', ambitos };
+    chrome.storage.local.set({ exportado });
+    const nObj = ambitos.reduce((n, a) => n + a.objetivos.length, 0);
+    ultimoEstado = { msg: `Copiado de Séneca: ${ambitos.length} área(s), ${nObj} objetivo(s). Pulsa «Copiar al portapapeles».` };
+  });
+}
+
+function pintarExportado(p) {
+  if (!exportado) return;
+  const nObj = exportado.ambitos.reduce((n, a) => n + a.objetivos.length, 0);
+  p.append(el('p', 'nota', `Programa leído de Séneca: ${exportado.ambitos.length} área(s), ${nObj} objetivo(s).`));
+  p.append(boton('Copiar al portapapeles', async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(exportado, null, 2));
+      estado('Copiado. Pégalo en la app («Importar de IA») o en la IA para editarlo.');
+    } catch (e) { estado('No se pudo copiar: ' + e.message, true); }
+  }, true));
+}
+
+let borrarSobrantes = false;
+
+function casilla(texto, valor, onChange) {
+  const lbl = el('label', 'nota');
+  const chk = el('input');
+  chk.type = 'checkbox';
+  chk.checked = valor;
+  chk.addEventListener('change', () => onChange(chk.checked));
+  lbl.append(chk, document.createTextNode(' ' + texto));
+  lbl.style.display = 'block';
+  return lbl;
 }
 
 function controlesPrograma(p) {
   p.append(boton('▶ Rellenar todo el programa', () => autoPrograma()));
-  const lbl = el('label', 'nota');
-  const chk = el('input');
-  chk.type = 'checkbox';
-  chk.checked = pulsarAceptar;
-  chk.addEventListener('change', () => { pulsarAceptar = chk.checked; });
-  lbl.append(chk, document.createTextNode(' Pulsar Aceptar al terminar cada área y seguir con la siguiente'));
-  p.append(lbl);
+  p.append(casilla('Pulsar Aceptar al terminar cada área y seguir con la siguiente', pulsarAceptar, (v) => { pulsarAceptar = v; }));
+  p.append(casilla('Borrar en Séneca lo que no está en la app (objetivos, indicadores, contenidos, actividades y competencias). Un texto cambiado se borra y se vuelve a añadir.', borrarSobrantes, (v) => { borrarSobrantes = v; }));
 }
 
 function boton(texto, onClick, sec) {
@@ -509,13 +642,18 @@ function pintar() {
     p.textContent = 'Abre en Séneca una de estas pantallas del programa específico: Datos del PE, Propuesta de área (Detalle) o Mapa de relaciones.';
     return;
   }
-  if (!datos) {
-    p.className = 'muted';
-    p.textContent = 'Pega primero los datos de la app.';
-    return;
-  }
   const info = lectura.info;
   if (ultimoEstado && ultimoEstado.pantalla && ultimoEstado.pantalla !== info.pantalla) ultimoEstado = null;
+  if (!datos) {
+    if (info.pantalla === 'apartados') {
+      $('tituloPantalla').textContent = 'Apartados del documento';
+      p.append(boton('⬇ Copiar el programa de Séneca', () => autoExportar(), true));
+      pintarExportado(p);
+    }
+    p.append(el('p', 'muted', 'Para rellenar Séneca, pega primero los datos de la app.'));
+    if (ultimoEstado) { ultimoEstado.pantalla = info.pantalla; estado(ultimoEstado.msg, ultimoEstado.error); }
+    return;
+  }
   if (info.pantalla === 'datos') pintarDatosPE(p, info);
   else if (info.pantalla === 'area') pintarArea(p, info);
   else if (info.pantalla === 'mapa') pintarMapa(p, info);
@@ -528,8 +666,12 @@ function pintarApartados(p, info) {
   const diff = comparar(datos.ambitos.map((a) => a.ambito), info.areas.map((x) => x.area));
   p.append(lista(diff));
   controlesPrograma(p);
-  p.append(el('p', 'nota', 'Entra en cada área, añade los objetivos, completa el mapa de relaciones de cada uno y vuelve, sin que toques nada. No borra nada. Se para con «Detener».'));
+  p.append(el('p', 'nota', 'Entra en cada área, añade los objetivos, completa el mapa de relaciones de cada uno y vuelve, sin que toques nada. Se para con «Detener».'));
   if (diff.faltan.length) p.append(el('p', 'nota', 'Las áreas que faltan hay que asignarlas antes en Detalle del PE.'));
+  p.append(el('h2', '', 'Copiar de Séneca'));
+  p.append(boton('⬇ Copiar el programa de Séneca', () => autoExportar(), true),
+    el('p', 'nota', 'Lee todas las áreas y objetivos (sin datos personales) para llevarlos a la app o editarlos con la IA y volver a pegarlos.'));
+  pintarExportado(p);
 }
 
 function pintarDatosPE(p, info) {
@@ -633,7 +775,9 @@ function pintarMapa(p, info) {
   if (!todos.find((x) => x.clave === objetivoElegido) && !actual) {
     p.append(el('p', 'nota', 'El objetivo de Séneca no coincide con ninguno de la app. Elige cuál es:'));
   }
-  p.append(boton('▶ Rellenar todos los objetivos', () => autoMapa()), el('p', 'nota', 'Recorre cada objetivo del desplegable y aplica los indicadores, contenidos, actividades y competencias que faltan. No borra nada. O este objetivo paso a paso:'));
+  p.append(boton('▶ Rellenar todos los objetivos', () => autoMapa()),
+    casilla('Borrar también lo que no está en la app', borrarSobrantes, (v) => { borrarSobrantes = v; }),
+    el('p', 'nota', 'Recorre cada objetivo del desplegable y aplica los indicadores, contenidos, actividades y competencias que faltan. O este objetivo paso a paso:'));
   p.append(el('div', 'nota', 'Objetivo de la app:'), selector([['', '—']].concat(todos.map((x) => [x.clave, x.etiqueta])), actual ? actual.clave : '', (v) => { objetivoElegido = v; ultimaFirma = ''; leer(); }));
   if (!actual) return;
   const o = actual.obj;
@@ -677,7 +821,8 @@ chrome.tabs.onActivated.addListener(() => leer());
 chrome.tabs.onUpdated.addListener((id, cambio) => { if (cambio.status === 'complete') leer(); });
 setInterval(() => { if (document.visibilityState === 'visible') leer(); }, 3000);
 
-chrome.storage.local.get('datos', (d) => {
+chrome.storage.local.get(['datos', 'exportado'], (d) => {
   if (d.datos) { datos = d.datos; pintarResumen(); }
+  if (d.exportado) exportado = d.exportado;
   leer();
 });
