@@ -1564,6 +1564,7 @@
           <button class="btn btn-redo" id="btnRedo" onclick="redo()" title="Rehacer (Ctrl+Shift+Z)" disabled><span class="icon" id="iconRedo"></span> Rehacer</button>
           <button class="btn btn-secondary btn-clear" onclick="clearForm()" title="Vaciar los objetivos del formulario">Limpiar</button>
           <button class="btn btn-print" onclick="copyForSeneca()" title="Copia el programa en un formato que podrá pegar en Séneca la extensión de Chrome"><span class="icon" id="iconCopySeneca"></span> Copiar para Séneca</button>
+          <button class="btn btn-print" onclick="importIntoCurrent()" title="Sustituye los ámbitos y objetivos de esta ficha por un programa copiado de Séneca o generado por la IA"><span class="icon" id="iconImportHere"></span> Importar en esta ficha</button>
           <button class="btn btn-print" onclick="openPrintOptions()"><span class="icon" id="iconPrint"></span> Imprimir</button>
           <button class="btn btn-primary" id="btnSave" onclick="saveData()"><span class="icon" id="iconSave"></span> Guardar</button>
         </div>
@@ -1998,6 +1999,7 @@
         iconRedo: 'redo',
         iconPrint: 'printer',
         iconCopySeneca: 'copy',
+        iconImportHere: 'upload',
         iconSave: 'save'
       };
       Object.keys(iconMap).forEach(function(id) {
@@ -5836,6 +5838,60 @@
       parsed.fileName = 'Generado con IA';
       senecaImport = validateSenecaImport(parsed);
       renderSenecaReview();
+    }
+
+    // Sustituye los ámbitos y objetivos de la ficha abierta por los pegados (de la IA o de Séneca),
+    // conservando las valoraciones de los objetivos e indicadores cuyo texto no cambia
+    async function importIntoCurrent() {
+      var text = await promptDialog('Pega el programa copiado de Séneca (con la extensión) o generado por la IA.', {
+        title: 'Importar en esta ficha', confirmText: 'Continuar', multiline: true, placeholder: '{ "formato": "pae-seneca", … }',
+        validate: function(v) {
+          try { return parsePaeSeneca(v).areas.length ? '' : 'El programa no tiene objetivos.'; } catch (e) { return e.message; }
+        }
+      });
+      if (!text) return;
+      var parsed = parsePaeSeneca(text);
+      var nObj = parsed.areas.reduce(function(n, a) { return n + a.objectives.length; }, 0);
+      if (!(await confirmDialog('Los ámbitos y objetivos de la ficha se sustituirán por los pegados (' + parsed.areas.length + ' ámbitos, ' + nObj + ' objetivos). ' +
+          'Se conservan las valoraciones de los objetivos e indicadores que no cambien de texto. Los datos del alumno no se tocan y podrás deshacer.',
+          { title: 'Importar en esta ficha', confirmText: 'Sustituir', cancelText: 'Cancelar', danger: true }))) return;
+
+      syncDomFieldsToState();
+      pushUndo();
+      var prevObj = {};
+      state.areas.forEach(function(a) {
+        (a.objectives || []).forEach(function(o) { prevObj[senecaNorm(o.title)] = o; });
+      });
+      var nonEmpty = function(arr) { return arr.map(function(t) { return String(t || '').trim(); }).filter(Boolean); };
+      state.areas = parsed.areas.map(function(a) {
+        return {
+          name: a.name,
+          programa: a.programa,
+          org: copyOrg(a.org),
+          objectives: a.objectives.map(function(o) {
+            var prev = prevObj[senecaNorm(o.title)];
+            var prevInd = {};
+            ((prev && prev.indicators) || []).forEach(function(x) { prevInd[senecaNorm(x.text)] = x; });
+            var inds = nonEmpty(o.indicators.map(function(x) { return x.text; }));
+            return {
+              id: uid(),
+              title: o.title,
+              eval1T: prev ? prev.eval1T || '' : '', eval2T: prev ? prev.eval2T || '' : '', eval3T: prev ? prev.eval3T || '' : '',
+              indicators: (inds.length ? inds : ['']).map(function(t) {
+                var p = prevInd[senecaNorm(t)] || {};
+                return { id: uid(), text: t, eval1T: p.eval1T || '', eval2T: p.eval2T || '', eval3T: p.eval3T || '', observaciones: p.observaciones || '' };
+              }),
+              contents: normalizeContentsField(nonEmpty(o.contents.map(function(x) { return x.text; })).map(function(t) { return { text: plainToRich(t) }; })),
+              activities: normalizeRichField(nonEmpty(o.activities).map(function(t) { return { text: plainToRich(t) }; })),
+              competencias: o.competencias.slice()
+            };
+          })
+        };
+      });
+      sortAreasCanonical();
+      markDirty();
+      renderFormView();
+      showToast('Programa importado en la ficha. Revisa y pulsa Guardar.', 'success', { action: 'Deshacer', onAction: undo, duration: 8000 });
     }
 
     async function confirmSenecaImport() {
