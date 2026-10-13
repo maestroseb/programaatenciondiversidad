@@ -58,6 +58,9 @@ function capturarMarco(nombres) {
     if (!s) return s;
     let r = s;
     for (const p of patrones) r = r.replace(p, '[NOMBRE]');
+    // Automático: «Apellidos, Nombre - NIE: 123» (alumnado) y «Apellidos, Nombre (Profesor…)» (usuario).
+    r = r.replace(/[A-ZÁÉÍÓÚÑ][^<>",;:\n]{1,60}, [A-ZÁÉÍÓÚÑ][^<>",;:\n(]{1,40}?(?=\s*(?:-\s*NIE|\())/g, '[NOMBRE]');
+    r = r.replace(/NIE:\s*\w+/g, 'NIE: [oculto]');
     return r;
   };
   const texto = (el) => ocultar((el?.innerText || el?.textContent || '').replace(/\s+/g, ' ').trim()).slice(0, 200);
