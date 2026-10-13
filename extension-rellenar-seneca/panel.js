@@ -148,6 +148,15 @@ function leerPantalla() {
       compDisponibles: g('X_COMBAS') ? [...g('X_COMBAS').options].map((x) => x.text.trim()).filter(Boolean) : [],
     };
   }
+  const apartados = [...document.querySelectorAll('td[onclick*="showOpciones("]')]
+    .map((td) => ({ texto: td.innerText.replace(/\s+/g, ' ').trim(), m: td.getAttribute('onclick').match(/showOpciones\((\d+)\)/) }))
+    .filter((x) => x.m && /^Propuesta de .reas/i.test(x.texto));
+  if (apartados.length) {
+    return {
+      pantalla: 'apartados',
+      areas: apartados.map((x) => ({ fila: x.m[1], area: ((x.texto.match(/\(([^()]*)\)\s*$/) || [])[1] || '').trim() })),
+    };
+  }
   if (g('cAreasDisp') && g('cAreasAsig')) {
     return {
       pantalla: 'datos',
@@ -206,6 +215,25 @@ async function accionEnPagina(op) {
     if (!o) return { error: 'Esa competencia no está en la lista de Séneca' };
     fijar(s, o.value);
     if (op.pulsar) { await espera(200); g('BOTON_APLICAR_COM').click(); } else resaltar(g('BOTON_APLICAR_COM'));
+    return { ok: true };
+  }
+  if (op.tipo === 'menu') {
+    // Pulsa una fila (abre el menú emergente de Séneca) y luego la opción indicada
+    const td = document.querySelector(`td[onclick*="${op.fila}"]`);
+    if (!td) return { error: 'No encuentro la fila en la tabla' };
+    td.click();
+    for (let i = 0; i < 30; i++) {
+      await espera(100);
+      const item = [...document.querySelectorAll('[id^="menuItem"]')].find((x) => x.offsetParent && x.textContent.replace(/\s+/g, ' ').includes(op.opcion));
+      if (item) { item.click(); return { ok: true }; }
+    }
+    return { error: 'No aparece la opción «' + op.opcion + '» en el menú' };
+  }
+  if (op.tipo === 'boton') {
+    // Botones de la barra de Séneca: aceptar() / volver()
+    const a = [...document.querySelectorAll('a[href]')].find((x) => x.getAttribute('href').includes('cuerpo.' + op.funcion + '()'));
+    if (!a) return { error: 'No encuentro el botón ' + op.funcion };
+    a.click();
     return { ok: true };
   }
   if (op.tipo === 'objetivo') {
@@ -332,27 +360,6 @@ function pintarProgreso(msg) {
   p.replaceChildren(el('p', '', '⏳ ' + msg), boton('Detener', () => { cancelar = true; }, true));
 }
 
-function autoArea(amb) {
-  automatico(async (avance) => {
-    let info = (await leerAhora(lectura.tabId)).info;
-    const faltan = comparar(amb.objetivos.map((o) => o.objetivo), info.objetivos).faltan;
-    if (faltan.length) {
-      avance(`Añadiendo ${faltan.length} objetivo(s)…`);
-      await accionAuto({ tipo: 'lista', num: 'N_OBJ', td: 'TD_OBJ', aplicar: 'BOTON_APLICAR_OBJ', textos: faltan, pulsar: true });
-      info = await esperar((i) => i.pantalla === 'area' && !comparar(faltan, i.objetivos).faltan.length, 'objetivos añadidos');
-    }
-    const org = amb.organizacion || {};
-    const valores = {};
-    [['D_TITULO', amb.programa, info.titulo], ['D_ORGANIZACION', org.organizacion, info.organizacion], ['D_RECURSOS', org.recursos, info.recursos]]
-      .forEach(([id, app, sen]) => { if (String(app || '').trim() && norm(app) !== norm(sen)) valores[id] = String(app).trim(); });
-    if (Object.keys(valores).length) {
-      avance('Escribiendo título, organización y recursos…');
-      await accionAuto({ tipo: 'campos', valores });
-    }
-    ultimoEstado = { msg: 'Objetivos aplicados. Revisa título/organización/recursos (fondo amarillo) y pulsa Aceptar en Séneca si lo hay. Después abre «Mapa de relaciones» de cualquier objetivo y pulsa «Rellenar todos los objetivos».' };
-  });
-}
-
 const SECCIONES = [
   ['indicadores', 'Indicadores', { num: 'N_IND', td: 'TD_IND', aplicar: 'BOTON_APLICAR_IND', pestanna: 'Indicadores evaluación' }],
   ['contenidos', 'Contenidos', { num: 'N_CONT', td: 'TD_CONT', aplicar: 'BOTON_APLICAR_CONT', pestanna: 'Contenidos' }],
@@ -363,37 +370,126 @@ function objetivoDeApp(textoSeneca) {
   return todosLosObjetivos().find((x) => iguales(x.obj.objetivo, sinNumero(textoSeneca)));
 }
 
+// Recorre todos los objetivos del desplegable del mapa de relaciones y aplica lo que falta
+async function hacerMapa(avance) {
+  let info = (await leerAhora(lectura.tabId)).info;
+  const lista = info.opcionesObjetivo.map((op) => ({ op, app: objetivoDeApp(op.texto) })).filter((x) => x.app);
+  if (!lista.length) throw new Error('Ningún objetivo de Séneca coincide con los de la app.');
+  for (let k = 0; k < lista.length; k++) {
+    const { op, app } = lista[k];
+    const etiqueta = `Objetivo ${k + 1}/${lista.length}`;
+    if (info.objetivoValor !== op.valor) {
+      avance(`${etiqueta}: abriendo…`);
+      await accionAuto({ tipo: 'objetivo', valor: op.valor });
+      info = await esperar((i) => i.pantalla === 'mapa' && i.objetivoValor === op.valor, 'cambio de objetivo');
+    }
+    for (const [clave, nombre, cfg] of SECCIONES) {
+      const faltan = comparar(app.obj[clave] || [], info[clave]).faltan;
+      if (!faltan.length) continue;
+      avance(`${etiqueta}: ${nombre.toLowerCase()} (${faltan.length})…`);
+      await accionAuto(Object.assign({ tipo: 'lista', textos: faltan, pulsar: true }, cfg));
+      info = await esperar((i) => i.pantalla === 'mapa' && i.objetivoValor === op.valor && !comparar(faltan, i[clave]).faltan.length, nombre.toLowerCase() + ' añadidos');
+    }
+    for (const c of comparar(app.obj.competencias || [], info.competencias).faltan) {
+      const exacto = info.compDisponibles.find((d) => norm(d) === norm(c));
+      if (!exacto) continue;
+      avance(`${etiqueta}: competencia «${exacto}»…`);
+      await accionAuto({ tipo: 'competencia', texto: exacto, pestanna: 'Contribución competencias', pulsar: true });
+      info = await esperar((i) => i.pantalla === 'mapa' && i.objetivoValor === op.valor && i.competencias.some((x) => norm(x) === norm(exacto)), 'competencia añadida');
+    }
+  }
+  const sinApp = info.opcionesObjetivo.length - lista.length;
+  return `${lista.length} objetivo(s) completados.` + (sinApp ? ` ${sinApp} de Séneca no están en la app y no se han tocado.` : '');
+}
+
 function autoMapa() {
   automatico(async (avance) => {
-    let info = (await leerAhora(lectura.tabId)).info;
-    const lista = info.opcionesObjetivo.map((op) => ({ op, app: objetivoDeApp(op.texto) })).filter((x) => x.app);
-    if (!lista.length) throw new Error('Ningún objetivo de Séneca coincide con los de la app.');
-    for (let k = 0; k < lista.length; k++) {
-      const { op, app } = lista[k];
-      const etiqueta = `Objetivo ${k + 1}/${lista.length}`;
-      if (info.objetivoValor !== op.valor) {
-        avance(`${etiqueta}: abriendo…`);
-        await accionAuto({ tipo: 'objetivo', valor: op.valor });
-        info = await esperar((i) => i.pantalla === 'mapa' && i.objetivoValor === op.valor, 'cambio de objetivo');
+    ultimoEstado = { msg: 'Listo: ' + await hacerMapa(avance) + ' Revisa y lo que sobre bórralo tú.' };
+  });
+}
+
+// Recorrido completo: Apartados → cada área → objetivos → mapa de relaciones → volver → aceptar → siguiente
+let pulsarAceptar = true;
+
+function camposArea(amb, info) {
+  const org = amb.organizacion || {};
+  const valores = {};
+  [['D_TITULO', amb.programa, info.titulo], ['D_ORGANIZACION', org.organizacion, info.organizacion], ['D_RECURSOS', org.recursos, info.recursos]]
+    .forEach(([id, app, sen]) => { if (String(app || '').trim() && norm(app) !== norm(sen)) valores[id] = String(app).trim(); });
+  return valores;
+}
+
+function autoPrograma() {
+  automatico(async (avance) => {
+    const hechos = new Set();
+    const resumen = [];
+    for (let vuelta = 0; vuelta < 40; vuelta++) {
+      let info = (await leerAhora(lectura.tabId)).info;
+      if (!info) throw new Error('No reconozco la pantalla de Séneca.');
+
+      if (info.pantalla === 'apartados') {
+        const sig = datos.ambitos.find((a) => !hechos.has(a.ambito) && info.areas.some((x) => norm(x.area) === norm(a.ambito)));
+        if (!sig) break;
+        const fila = info.areas.find((x) => norm(x.area) === norm(sig.ambito)).fila;
+        avance(`${sig.ambito}: abriendo…`);
+        ambitoElegido = sig.ambito;
+        await accionAuto({ tipo: 'menu', fila: `showOpciones(${fila})`, opcion: 'Detalle' });
+        await esperar((i) => i.pantalla === 'area', 'abrir la propuesta de área');
+        continue;
       }
-      for (const [clave, nombre, cfg] of SECCIONES) {
-        const faltan = comparar(app.obj[clave] || [], info[clave]).faltan;
-        if (!faltan.length) continue;
-        avance(`${etiqueta}: ${nombre.toLowerCase()} (${faltan.length})…`);
-        await accionAuto(Object.assign({ tipo: 'lista', textos: faltan, pulsar: true }, cfg));
-        info = await esperar((i) => i.pantalla === 'mapa' && i.objetivoValor === op.valor && !comparar(faltan, i[clave]).faltan.length, nombre.toLowerCase() + ' añadidos');
+      if (info.pantalla !== 'area') throw new Error('Empieza desde «Apartados del documento» o desde una Propuesta de área.');
+
+      const amb = datos.ambitos.find((a) => a.ambito === elegirAmbito(info));
+      if (!amb || hechos.has(amb.ambito)) break;
+      hechos.add(amb.ambito);
+
+      const faltan = comparar(amb.objetivos.map((o) => o.objetivo), info.objetivos).faltan;
+      if (faltan.length) {
+        avance(`${amb.ambito}: añadiendo ${faltan.length} objetivo(s)…`);
+        await accionAuto({ tipo: 'lista', num: 'N_OBJ', td: 'TD_OBJ', aplicar: 'BOTON_APLICAR_OBJ', textos: faltan, pulsar: true });
+        info = await esperar((i) => i.pantalla === 'area' && !comparar(faltan, i.objetivos).faltan.length, 'objetivos añadidos');
       }
-      for (const c of comparar(app.obj.competencias || [], info.competencias).faltan) {
-        const exacto = info.compDisponibles.find((d) => norm(d) === norm(c));
-        if (!exacto) continue;
-        avance(`${etiqueta}: competencia «${exacto}»…`);
-        await accionAuto({ tipo: 'competencia', texto: exacto, pestanna: 'Contribución competencias', pulsar: true });
-        info = await esperar((i) => i.pantalla === 'mapa' && i.objetivoValor === op.valor && i.competencias.some((x) => norm(x) === norm(exacto)), 'competencia añadida');
+      if (info.objetivos.length) {
+        avance(`${amb.ambito}: abriendo el mapa de relaciones…`);
+        await accionAuto({ tipo: 'menu', fila: "showOpciones('TABLA_OBJETIVOS', 1, 1", opcion: 'Mapa de relaciones' });
+        await esperar((i) => i.pantalla === 'mapa', 'abrir el mapa de relaciones');
+        resumen.push(amb.ambito + ': ' + await hacerMapa((m) => avance(amb.ambito + ' · ' + m)));
+        avance(`${amb.ambito}: volviendo…`);
+        await accionAuto({ tipo: 'boton', funcion: 'volver' });
+        info = await esperar((i) => i.pantalla === 'area', 'volver a la propuesta de área');
+      }
+
+      const valores = camposArea(amb, info);
+      if (Object.keys(valores).length) {
+        avance(`${amb.ambito}: título, organización y recursos…`);
+        await accionAuto({ tipo: 'campos', valores });
+      }
+      if (!pulsarAceptar) {
+        ultimoEstado = { msg: resumen.join(' ') + ` Revisa «${amb.ambito}» y pulsa Aceptar en Séneca. Para la siguiente área, vuelve a pulsar el botón.` };
+        return;
+      }
+      avance(`${amb.ambito}: aceptando…`);
+      await accionAuto({ tipo: 'boton', funcion: 'aceptar' });
+      info = await esperar((i) => i.pantalla === 'apartados' || (i.pantalla === 'area' && !Object.keys(camposArea(amb, i)).length), 'guardar la propuesta de área');
+      if (info.pantalla === 'area') {
+        await accionAuto({ tipo: 'boton', funcion: 'volver' });
+        await esperar((i) => i.pantalla === 'apartados', 'volver a Apartados');
       }
     }
-    const sinApp = info.opcionesObjetivo.length - lista.length;
-    ultimoEstado = { msg: `Listo: ${lista.length} objetivo(s) completados.` + (sinApp ? ` ${sinApp} objetivo(s) de Séneca no están en la app y no se han tocado.` : '') + ' Revisa y lo que sobre bórralo tú.' };
+    const sinArea = datos.ambitos.filter((a) => !hechos.has(a.ambito)).map((a) => a.ambito);
+    ultimoEstado = { msg: 'Programa completado. ' + resumen.join(' ') + (sinArea.length ? ` No están en Séneca: ${sinArea.join(', ')} (asígnalas en Datos del PE y vuelve a pulsar).` : '') + ' Lo que sobre, bórralo tú.' };
   });
+}
+
+function controlesPrograma(p) {
+  p.append(boton('▶ Rellenar todo el programa', () => autoPrograma()));
+  const lbl = el('label', 'nota');
+  const chk = el('input');
+  chk.type = 'checkbox';
+  chk.checked = pulsarAceptar;
+  chk.addEventListener('change', () => { pulsarAceptar = chk.checked; });
+  lbl.append(chk, document.createTextNode(' Pulsar Aceptar al terminar cada área y seguir con la siguiente'));
+  p.append(lbl);
 }
 
 function boton(texto, onClick, sec) {
@@ -423,7 +519,17 @@ function pintar() {
   if (info.pantalla === 'datos') pintarDatosPE(p, info);
   else if (info.pantalla === 'area') pintarArea(p, info);
   else if (info.pantalla === 'mapa') pintarMapa(p, info);
+  else if (info.pantalla === 'apartados') pintarApartados(p, info);
   if (ultimoEstado) { ultimoEstado.pantalla = info.pantalla; estado(ultimoEstado.msg, ultimoEstado.error); }
+}
+
+function pintarApartados(p, info) {
+  $('tituloPantalla').textContent = 'Apartados del documento';
+  const diff = comparar(datos.ambitos.map((a) => a.ambito), info.areas.map((x) => x.area));
+  p.append(lista(diff));
+  controlesPrograma(p);
+  p.append(el('p', 'nota', 'Entra en cada área, añade los objetivos, completa el mapa de relaciones de cada uno y vuelve, sin que toques nada. No borra nada. Se para con «Detener».'));
+  if (diff.faltan.length) p.append(el('p', 'nota', 'Las áreas que faltan hay que asignarlas antes en Detalle del PE.'));
 }
 
 function pintarDatosPE(p, info) {
@@ -470,7 +576,8 @@ function pintarArea(p, info) {
   p.append(el('div', 'nota', 'Ámbito de la app:'), selector(datos.ambitos.map((a) => [a.ambito, a.ambito]), nombre, (v) => { ambitoElegido = v; ultimaFirma = ''; leer(); }));
   if (!amb) return;
 
-  p.append(boton('▶ Rellenar todo automáticamente', () => autoArea(amb)), el('p', 'nota', 'Añade y aplica los objetivos que faltan y escribe título, organización y recursos. No pulsa Aceptar ni borra nada. O hazlo paso a paso:'));
+  controlesPrograma(p);
+  p.append(el('p', 'nota', 'Hace esta área entera (objetivos, mapa de relaciones de cada uno, título, organización y recursos) y sigue con las demás. No borra nada. O paso a paso:'));
 
   // Título, organización y recursos
   const org = amb.organizacion || {};
