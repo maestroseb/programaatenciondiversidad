@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Rellenar programa específico en Séneca",
-  "version": "1.6",
+  "version": "1.11",
   "description": "Compara el programa específico de la app con el de Séneca y rellena lo que falta. Nunca guarda: revisas y pulsas Aplicar/Aceptar tú.",
   "permissions": ["scripting", "storage", "sidePanel", "clipboardRead", "tabs"],
   "host_permissions": ["*://*.juntadeandalucia.es/*"],
